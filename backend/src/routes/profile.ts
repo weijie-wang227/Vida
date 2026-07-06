@@ -74,29 +74,6 @@ async function isFriendDiscoverable(userId: unknown) {
   return settings?.preferences?.friendDiscovery !== false;
 }
 
-async function findPrivateActivityHistoryUserIds(userIds: unknown[]) {
-  const normalizedUserIds = userIds.filter(Boolean);
-
-  if (normalizedUserIds.length === 0) {
-    return new Set<string>();
-  }
-
-  const settings = await SettingsModel.find({
-    user: { $in: normalizedUserIds },
-    "preferences.privateActivityHistory": true,
-  }).select("user");
-
-  return new Set(
-    settings.map((setting: Record<string, any>) => String(setting.user)),
-  );
-}
-
-function getFriendUserId(friendship: Record<string, any>) {
-  const friend = friendship.friendId;
-
-  return String(friend?._id ?? friend ?? "");
-}
-
 async function findFriendByRouteId(friendId: string) {
   if (Types.ObjectId.isValid(friendId)) {
     return UserModel.findById(friendId);
@@ -215,7 +192,7 @@ router.put("/profile", async (req, res, next) => {
           bio,
         },
       },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedUser) {
@@ -248,19 +225,8 @@ router.get("/friends", async (req, res) => {
   const savedFriends = await FriendshipModel.find({ userId: authUser._id })
     .populate("friendId")
     .sort({ createdAt: 1 });
-  const privateHistoryUserIds = await findPrivateActivityHistoryUserIds(
-    savedFriends.map((friendship: Record<string, any>) => friendship.friendId?._id),
-  );
 
-  res.json(
-    savedFriends.map((friendship: Record<string, any>) =>
-      serializeFriend(friendship, {
-        includeActivityHistory: !privateHistoryUserIds.has(
-          getFriendUserId(friendship),
-        ),
-      }),
-    ),
-  );
+  res.json(savedFriends.map(serializeFriend));
 });
 
 router.get("/friends/search", async (req, res) => {
@@ -350,7 +316,6 @@ router.post("/friends/add/:friendId", async (req, res) => {
       $setOnInsert: {
         userId: authUser._id,
         friendId: friendUser._id,
-        joined: [],
       },
     },
     { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
@@ -362,7 +327,6 @@ router.post("/friends/add/:friendId", async (req, res) => {
       $setOnInsert: {
         userId: friendUser._id,
         friendId: authUser._id,
-        joined: [],
       },
     },
     { upsert: true, setDefaultsOnInsert: true },
@@ -378,15 +342,7 @@ router.post("/friends/add/:friendId", async (req, res) => {
     });
   }
 
-  const privateHistoryUserIds = await findPrivateActivityHistoryUserIds([
-    friendUser._id,
-  ]);
-
-  res.json(
-    serializeFriend(friendship, {
-      includeActivityHistory: !privateHistoryUserIds.has(String(friendUser._id)),
-    }),
-  );
+  res.json(serializeFriend(friendship));
 });
 
 router.delete("/friends/:friendId", async (req, res) => {

@@ -27,8 +27,10 @@ import {
   LikeModel,
   MapPinModel,
   NotificationModel,
+  RatingModel,
   SettingsModel,
   UserModel,
+  VendorModel,
 } from "./models/VidaData.js";
 import type { ActivitySeed, PremiumActivitySeed } from "./data.js";
 
@@ -138,7 +140,9 @@ async function seed() {
       CommentModel.deleteMany(),
       LikeModel.deleteMany(),
       NotificationModel.deleteMany(),
+      RatingModel.deleteMany(),
       SettingsModel.deleteMany(),
+      VendorModel.deleteMany(),
     ]);
 
     const linda = await UserModel.create({
@@ -237,12 +241,10 @@ async function seed() {
         {
           userId: linda._id,
           friendId,
-          joined: friend.joined,
         },
         {
           userId: friendId,
           friendId: linda._id,
-          joined: friend.joined,
         },
       ]);
     }
@@ -252,8 +254,6 @@ async function seed() {
         userByMockId.get(friendMockId),
         `test friend user ${friendMockId}`,
       );
-      const friendSeed = friends.find((friend) => friend.id === friendMockId);
-
       if (String(friendId) === String(testUser._id)) {
         continue;
       }
@@ -262,12 +262,10 @@ async function seed() {
         {
           userId: testUser._id,
           friendId,
-          joined: friendSeed?.joined ?? [],
         },
         {
           userId: friendId,
           friendId: testUser._id,
-          joined: friendSeed?.joined ?? [],
         },
       ]);
     }

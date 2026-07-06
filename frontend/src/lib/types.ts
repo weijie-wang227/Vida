@@ -1,12 +1,35 @@
 export type vidaCategory = "physical" | "social" | "cognitive" | "creative";
 export type ActivityId = number;
 
+export type VendorSummary = {
+  id: string;
+  name: string;
+  profileUrl: string;
+  description: string;
+};
+
+export type VendorStats = {
+  activities: number;
+  peopleAttended: number;
+  averageRating: number;
+};
+
+export type VendorActivity = {
+  id: string;
+  mockId: number;
+  title: string;
+  startsAt: string;
+  location: string;
+  spots: number;
+  attendance: number;
+  rating: number;
+};
+
 export type Friend = {
   id: number;
   name: string;
   handle: string;
   avatar: string;
-  joined: string[];
 };
 
 export type FriendSearchResult = {
@@ -27,13 +50,14 @@ type ActivityBase = {
   credits: number;
   rating: number;
   categories: vidaCategory[];
+  tags: string[];
+  vendor?: VendorSummary;
   joiningFriends: Friend[];
   joinDisabledReason?: string;
 };
 
 export type PremiumActivity = ActivityBase & {
   cover: string;
-  tags: string[];
 };
 
 export type StandardActivity = ActivityBase;
@@ -57,6 +81,13 @@ export type CreateActivityResponse = {
   activity: StandardActivity;
   mapPin: MapPin;
   group: GroupChat;
+};
+
+export type PreviousActivity = {
+  id: ActivityId;
+  title: string;
+  startsAt: string;
+  location: string;
 };
 
 export type FeedPost = {

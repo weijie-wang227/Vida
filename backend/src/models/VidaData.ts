@@ -36,6 +36,24 @@ export type NotificationDocument = {
   read: boolean;
 };
 
+export type VendorDocument = {
+  _id: Types.ObjectId;
+  owner: Types.ObjectId;
+  name: string;
+  profileUrl?: string;
+  description?: string;
+  numAttended: number;
+  allActivities: Types.ObjectId[];
+};
+
+export type RatingDocument = {
+  _id: Types.ObjectId;
+  rating: number;
+  activity: Types.ObjectId;
+  sender?: Types.ObjectId;
+  review?: string;
+};
+
 const userSchema = new Schema<UserDocument>(
   {
     mockId: { type: Number, required: true, unique: true },
@@ -107,7 +125,6 @@ const friendshipSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
     friendId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    joined: [{ type: String, required: true }],
   },
   { timestamps: true },
 );
@@ -170,11 +187,37 @@ const chatMessageSchema = new Schema(
 chatMessageSchema.index({ chat: 1, createdAt: 1 });
 chatMessageSchema.index({ activity: 1 });
 
+const vendorSchema = new Schema<VendorDocument>(
+  {
+    owner: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    name: { type: String, required: true, trim: true },
+    profileUrl: { type: String, trim: true },
+    description: { type: String, trim: true },
+    numAttended: { type: Number, required: true, default: 0, min: 0 },
+    allActivities: [{ type: Schema.Types.ObjectId, ref: "Activity" }],
+  },
+  { timestamps: true },
+);
+vendorSchema.index({ owner: 1 });
+
+const ratingSchema = new Schema<RatingDocument>(
+  {
+    rating: { type: Number, required: true },
+    activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
+    sender: { type: Schema.Types.ObjectId, ref: "User" },
+    review: { type: String, trim: true },
+  },
+  { timestamps: true },
+);
+ratingSchema.index({ activity: 1 });
+ratingSchema.index({ sender: 1 });
+
 const activitySchema = new Schema(
   {
     mockId: { type: Number, required: true, unique: true },
     title: { type: String, required: true },
     host: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    vendor: { type: Schema.Types.ObjectId, ref: "Vendor" },
     startsAt: { type: Date, required: true },
     location: { type: String, required: true },
     durationMinutes: { type: Number, required: true },
@@ -194,7 +237,8 @@ const activityJoinSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
     activityId: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
-    sentNotification: {type: Boolean, required: true, default: false}
+    sentNotification: { type: Boolean, required: true, default: false },
+    attended: { type: Boolean, required: true, default: false },
   },
   { timestamps: true },
 );
@@ -277,6 +321,8 @@ export const ChatMessageModel = mongoose.model<any>(
   chatMessageSchema,
   "chatMessages",
 );
+export const VendorModel = mongoose.model<any>("Vendor", vendorSchema, "vendors");
+export const RatingModel = mongoose.model<any>("Rating", ratingSchema, "ratings");
 export const ActivityModel = mongoose.model<any>(
   "Activity",
   activitySchema,

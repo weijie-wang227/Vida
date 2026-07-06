@@ -6,6 +6,7 @@ import type {
   JoinActivityResponse,
   MapPin,
   PremiumActivity,
+  PreviousActivity,
   StandardActivity,
 } from "../lib/types";
 
@@ -19,6 +20,12 @@ export async function fetchStandardActivities() {
 
 export async function fetchMapPins() {
   return apiRequest<MapPin[]>("/activities/map-pins");
+}
+
+export async function fetchPreviousActivities(userId: number | string) {
+  return apiRequest<PreviousActivity[]>(
+    `/activities/previous/${encodeURIComponent(String(userId))}`,
+  );
 }
 
 export async function createActivity(input: CreateActivityInput) {

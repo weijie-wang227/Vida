@@ -8,6 +8,7 @@ import notificationRoutes from "./notifications.js";
 import profileRoutes from "./profile.js";
 import settingsRoutes from "./settings.js";
 import uploadRoutes from "./uploads.js";
+import vendorRoutes from "./vendors.js";
 
 export const router = Router();
 
@@ -51,4 +52,5 @@ router.use("/groups", groupRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/uploads", uploadRoutes);
+router.use("/vendors", vendorRoutes);
 router.use("/", profileRoutes);

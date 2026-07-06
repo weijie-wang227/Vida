@@ -175,6 +175,18 @@ export function StandardRow({ activity }: { activity: Activity }) {
               durationMinutes={activity.durationMinutes}
             />
           </div>
+          {activity.tags.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {activity.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-secondary px-2 py-0.5 text-[9px] text-muted-foreground"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {/*
         <div className="flex items-center gap-0.5 flex-shrink-0">

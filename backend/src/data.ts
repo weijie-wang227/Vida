@@ -5,7 +5,6 @@ export type FriendSeed = {
   name: string;
   handle: string;
   avatar: string;
-  joined: string[];
 };
 
 type ActivityBase = {
@@ -37,7 +36,6 @@ export const friends: FriendSeed[] = [
     handle: "@lindatan",
     avatar:
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=64&h=64&fit=crop&auto=format",
-    joined: ["Tai Chi", "Book Club"],
   },
   {
     id: 2,
@@ -45,7 +43,6 @@ export const friends: FriendSeed[] = [
     handle: "@raymondkoh",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=64&h=64&fit=crop&auto=format",
-    joined: ["Morning Walk", "Photography"],
   },
   {
     id: 3,
@@ -53,7 +50,6 @@ export const friends: FriendSeed[] = [
     handle: "@susanlim",
     avatar:
       "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=64&h=64&fit=crop&auto=format",
-    joined: ["Tai Chi", "Cooking Class"],
   },
   {
     id: 4,
@@ -61,7 +57,6 @@ export const friends: FriendSeed[] = [
     handle: "@davidng",
     avatar:
       "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&auto=format",
-    joined: ["Morning Walk", "Chess Club"],
   },
   {
     id: 5,
@@ -69,7 +64,6 @@ export const friends: FriendSeed[] = [
     handle: "@meiling",
     avatar:
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop&auto=format",
-    joined: ["Cooking Class", "Photography"],
   },
   {
     id: 6,
@@ -77,7 +71,6 @@ export const friends: FriendSeed[] = [
     handle: "@jamesho",
     avatar:
       "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&auto=format",
-    joined: ["Chess Club"],
   },
   {
     id: 7,
@@ -85,7 +78,6 @@ export const friends: FriendSeed[] = [
     handle: "@gracewong",
     avatar:
       "https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=64&h=64&fit=crop&auto=format",
-    joined: ["Book Club", "Tai Chi"],
   },
   {
     id: 8,
@@ -93,7 +85,6 @@ export const friends: FriendSeed[] = [
     handle: "@peterchia",
     avatar:
       "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=64&h=64&fit=crop&auto=format",
-    joined: ["Morning Walk"],
   },
 ];
 

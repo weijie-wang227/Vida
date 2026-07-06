@@ -8,6 +8,9 @@ import {
   ChatMessageModel,
   ChatModel,
   MapPinModel,
+  SettingsModel,
+  UserModel,
+  VendorModel,
 } from "../models/VidaData.js";
 import { getChatPreview, getLatestChatPreviews } from "../chatPreviews.js";
 import { serializeActivity, serializeChat, serializeMapPin } from "../serializers.js";
@@ -47,6 +50,49 @@ async function getJoiningUsersByActivityId(activities: Record<string, any>[]) {
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+async function findUserByRouteId(userId: string) {
+  if (userId.match(/^[a-f\d]{24}$/i)) {
+    return UserModel.findById(userId);
+  }
+
+  const mockId = Number(userId);
+
+  if (Number.isInteger(mockId)) {
+    return UserModel.findOne({ mockId });
+  }
+
+  return null;
+}
+
+async function canViewActivityHistory(viewerId: unknown, profileUserId: unknown) {
+  if (String(viewerId) === String(profileUserId)) {
+    return true;
+  }
+
+  const settings = await SettingsModel.findOne({ user: profileUserId }).select(
+    "preferences.privateActivityHistory",
+  );
+
+  return settings?.preferences?.privateActivityHistory !== true;
+}
+
+function serializePreviousActivity(activityValue: unknown) {
+  const activity =
+    typeof activityValue === "object" && activityValue !== null
+      ? asObject(activityValue as Record<string, any>)
+      : {};
+
+  return {
+    id: activity.mockId,
+    title: activity.title,
+    startsAt:
+      activity.startsAt instanceof Date
+        ? activity.startsAt.toISOString()
+        : new Date(String(activity.startsAt ?? "")).toISOString(),
+    location: activity.location,
+  };
 }
 
 function getFiniteNumber(value: unknown) {
@@ -133,6 +179,7 @@ router.get("/", async (req, res) => {
   const user = await findAuthenticatedUser(req.headers.authorization);
   const activities = await ActivityModel.find({ isPremium: false })
     .populate("host")
+    .populate("vendor")
     .sort({ mockId: 1 });
   const joiningUsersByActivityId = await getJoiningUsersByActivityId(activities);
   const blacklistedGroupIds = user
@@ -153,6 +200,7 @@ router.get("/premium", async (req, res) => {
   const user = await findAuthenticatedUser(req.headers.authorization);
   const activities = await ActivityModel.find({ isPremium: true })
     .populate("host")
+    .populate("vendor")
     .sort({ mockId: 1 });
   const joiningUsersByActivityId = await getJoiningUsersByActivityId(activities);
   const blacklistedGroupIds = user
@@ -176,6 +224,46 @@ router.get("/map-pins", async (_req, res) => {
   res.json(pins.map(serializeMapPin));
 });
 
+router.get("/previous/:userId", async (req, res) => {
+  const authUser = await findAuthenticatedUser(req.headers.authorization);
+
+  if (!authUser) {
+    res.status(401).json({ message: "Not signed in." });
+    return;
+  }
+
+  const profileUser = await findUserByRouteId(String(req.params.userId ?? ""));
+
+  if (!profileUser) {
+    res.status(404).json({ message: "User not found." });
+    return;
+  }
+
+  if (!(await canViewActivityHistory(authUser._id, profileUser._id))) {
+    res.json([]);
+    return;
+  }
+
+  const joins = await ActivityJoinModel.find({ userId: profileUser._id })
+    .populate({
+      path: "activityId",
+      match: { startsAt: { $lt: new Date() } },
+    })
+    .sort({ createdAt: -1 });
+  const previousActivities = joins
+    .map((join: Record<string, any>) => join.activityId)
+    .filter(Boolean)
+    .sort((firstActivity: Record<string, any>, secondActivity: Record<string, any>) => {
+      const firstStartsAt = new Date(String(firstActivity.startsAt ?? "")).getTime();
+      const secondStartsAt = new Date(String(secondActivity.startsAt ?? "")).getTime();
+
+      return secondStartsAt - firstStartsAt;
+    })
+    .map(serializePreviousActivity);
+
+  res.json(previousActivities);
+});
+
 router.post("/", async (req, res, next) => {
   try {
     const user = await findAuthenticatedUser(req.headers.authorization);
@@ -193,6 +281,7 @@ router.post("/", async (req, res, next) => {
     const durationMinutes = getFiniteNumber(req.body?.durationMinutes);
     const spots = getFiniteNumber(req.body?.spots);
     const credits = getFiniteNumber(req.body?.credits ?? 0);
+    const createAsVendor = Boolean(req.body?.vendorId || req.body?.createAsVendor);
     const linkedGroupId =
       req.body?.groupId === undefined ||
       req.body?.groupId === null ||
@@ -252,6 +341,19 @@ router.post("/", async (req, res, next) => {
       return;
     }
 
+    const vendorQuery =
+      req.body?.vendorId === undefined ||
+      req.body?.vendorId === null ||
+      req.body?.vendorId === ""
+        ? { owner: user._id }
+        : { _id: req.body.vendorId, owner: user._id };
+    const vendor = createAsVendor ? await VendorModel.findOne(vendorQuery) : null;
+
+    if (createAsVendor && !vendor) {
+      res.status(404).json({ message: "Vendor profile not found." });
+      return;
+    }
+
     const [activityMockId, chatMockId, mapPinMockId] = await Promise.all([
       nextMockId(ActivityModel),
       nextMockId(ChatModel),
@@ -306,6 +408,7 @@ router.post("/", async (req, res, next) => {
       mockId: activityMockId,
       title,
       host: user._id,
+      vendor: vendor?._id,
       startsAt,
       location,
       durationMinutes: Math.round(durationMinutes),
@@ -317,6 +420,13 @@ router.post("/", async (req, res, next) => {
       isPremium: false,
       tags: [],
     });
+
+    if (vendor) {
+      await VendorModel.findByIdAndUpdate(vendor._id, {
+        $addToSet: { allActivities: activity._id },
+      });
+    }
+
     const pin = await MapPinModel.create({
       mockId: mapPinMockId,
       activity: activity._id,
@@ -348,7 +458,7 @@ router.post("/", async (req, res, next) => {
 
     const savedActivity = await ActivityModel.findById(activity._id).populate(
       "host",
-    );
+    ).populate("vendor");
     const savedPin = await MapPinModel.findById(pin._id).populate("activity");
     const savedChat = await ChatModel.findById(chat._id).populate("members");
     const adminUserIds = await findAdminUserIds(chat._id);
@@ -375,7 +485,7 @@ router.post("/:id/join", async (req, res, next) => {
     const activityId = Number(req.params.id);
     const activity = await ActivityModel.findOne({ mockId: activityId }).populate(
       "host",
-    );
+    ).populate("vendor");
 
     if (!activity) {
       res.status(404).json({ message: "Activity not found" });
@@ -438,7 +548,7 @@ router.get("/:id", async (req, res) => {
   const activityId = Number(req.params.id);
   const activity = await ActivityModel.findOne({ mockId: activityId }).populate(
     "host",
-  );
+  ).populate("vendor");
 
   if (!activity) {
     res.status(404).json({ message: "Activity not found" });

@@ -133,7 +133,7 @@ export function ProfilePage() {
   const activeFriendSearchQuery = debouncedFriendSearchQuery.toLowerCase();
   const filteredFriends = activeFriendSearchQuery
     ? friends.filter((friend) =>
-        [friend.name, friend.handle, friend.joined.join(" ")]
+        [friend.name, friend.handle]
           .join(" ")
           .toLowerCase()
           .includes(activeFriendSearchQuery),
@@ -453,7 +453,7 @@ export function ProfilePage() {
         <div className="flex flex-col items-center px-4 pb-5">
           <div className="relative mb-3">
             <FriendAvatar
-              user={profile}
+              user={{ ...profile, id: authUser?.id }}
               className="h-20 w-20 border-2 border-accent"
             />
           </div>
@@ -599,7 +599,10 @@ export function ProfilePage() {
                 ) : null}
               </div>
               <div className="flex items-center justify-center gap-2">
-                <FriendAvatar user={profile} className="h-6 w-6" />
+                <FriendAvatar
+                  user={{ ...profile, id: authUser?.id }}
+                  className="h-6 w-6"
+                />
                 <span className="text-xs font-semibold text-foreground">
                   {profile.name}
                 </span>
@@ -662,7 +665,7 @@ export function ProfilePage() {
                       {friend.name}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {friend.joined[0] ?? "Just connected"}
+                      {friend.handle}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">

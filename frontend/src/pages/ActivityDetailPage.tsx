@@ -6,12 +6,14 @@ import {
   MapPin,
   Share2,
   Star,
+  UserCircle,
   Users,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ActivityCategoryIndicators } from "../components/ActivityCategoryIndicators";
 import { FriendAvatars } from "../components/FriendAvatars";
+import { VendorProfileDialog } from "../components/VendorProfileDialog";
 import {
   categoriesForActivity,
   categoryIcon,
@@ -25,7 +27,7 @@ import type { Activity, PremiumActivity } from "../lib/types";
 import { useAppState } from "../state";
 
 function isPremiumActivity(activity: Activity): activity is PremiumActivity {
-  return "cover" in activity && "tags" in activity;
+  return "cover" in activity;
 }
 
 function getActivityById(
@@ -53,6 +55,7 @@ export function ActivityDetailPage() {
   const { activityId } = useParams();
   const [joinError, setJoinError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const activities: Activity[] = [...premiumActivities, ...standardActivities];
   const activity = getActivityById(activities, Number(activityId));
 
@@ -165,7 +168,18 @@ export function ActivityDetailPage() {
                 {activity.title}
               </h1>
               <p className="mt-1 text-xs text-muted-foreground">
-                Hosted by {activity.host}
+                Hosted by{" "}
+                {activity.vendor ? (
+                  <button
+                    type="button"
+                    onClick={() => setVendorDialogOpen(true)}
+                    className="font-semibold text-accent"
+                  >
+                    {activity.vendor.name}
+                  </button>
+                ) : (
+                  activity.host
+                )}
               </p>
               <div className="mt-2">
                 <ActivityCategoryIndicators
@@ -174,6 +188,18 @@ export function ActivityDetailPage() {
                   variant="pills"
                 />
               </div>
+              {activity.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {activity.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               onClick={() => toggleActivityLike(activity.id)}
@@ -217,6 +243,19 @@ export function ActivityDetailPage() {
                 {activity.spots} open / {formatCredits(activity.credits)}
               </p>
             </div>
+            {activity.vendor && (
+              <button
+                type="button"
+                onClick={() => setVendorDialogOpen(true)}
+                className="col-span-2 rounded-xl border border-border bg-card p-3 text-left transition-colors active:bg-secondary/70"
+              >
+                <UserCircle size={14} className="mb-2 text-accent" />
+                <p className="text-[10px] text-muted-foreground">Vendor</p>
+                <p className="text-xs font-semibold text-foreground">
+                  {activity.vendor.name}
+                </p>
+              </button>
+            )}
           </div>
 
           <div className="mt-4 rounded-2xl bg-card p-4 border border-border">
@@ -267,6 +306,12 @@ export function ActivityDetailPage() {
               : "Join activity"}
         </button>
       </div>
+
+      <VendorProfileDialog
+        open={vendorDialogOpen}
+        onOpenChange={setVendorDialogOpen}
+        vendor={activity.vendor ?? null}
+      />
     </div>
   );
 }

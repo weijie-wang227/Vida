@@ -61,24 +61,15 @@ function getActivityStartsAt(activity: AnyDoc) {
   return fallback.toISOString();
 }
 
-type SerializeFriendOptions = {
-  includeActivityHistory?: boolean;
-};
-
-export function serializeFriend(
-  friendship: AnyDoc,
-  options: SerializeFriendOptions = {},
-) {
+export function serializeFriend(friendship: AnyDoc) {
   const item = asObject(friendship);
   const friend = asObject(item.friendId);
-  const includeActivityHistory = options.includeActivityHistory ?? true;
 
   return {
     id: friend.mockId,
     name: friend.name,
     handle: friend.handle,
     avatar: friend.avatarUrl,
-    joined: includeActivityHistory ? (item.joined ?? []) : [],
   };
 }
 
@@ -114,6 +105,25 @@ export function serializeNotification(notification: AnyDoc) {
     content: item.content,
     link: item.link || undefined,
     read: Boolean(item.read),
+  };
+}
+
+export function serializeVendor(vendor: AnyDoc) {
+  const item = asObject(vendor);
+  const owner = asObject(item.owner ?? {});
+
+  return {
+    id: String(item._id),
+    owner: String(owner._id ?? item.owner),
+    name: item.name,
+    profileUrl: item.profileUrl ?? "",
+    description: item.description ?? "",
+    numAttended: item.numAttended ?? 0,
+    allEvents: Array.isArray(item.allEvents ?? item.allActivities)
+      ? (item.allEvents ?? item.allActivities).map((event: unknown) =>
+          String(asObject(event as AnyDoc)._id ?? event),
+        )
+      : [],
   };
 }
 
@@ -214,6 +224,7 @@ export function serializeChatMessage(
 export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = []) {
   const item = asObject(activity);
   const host = asObject(item.host);
+  const vendor = item.vendor ? asObject(item.vendor) : null;
   const joiningFriends = joiningUsers.map((user: AnyDoc) => {
     const friend = asObject(user);
 
@@ -222,7 +233,6 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
       name: friend.name,
       handle: friend.handle,
       avatar: friend.avatarUrl,
-      joined: [],
     };
   });
   const baseActivity = {
@@ -236,6 +246,15 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
     credits: getActivityCredits(item),
     rating: item.rating,
     categories: (item.categories ?? []) as vidaCategory[],
+    tags: item.tags ?? [],
+    vendor: vendor
+      ? {
+          id: String(vendor._id ?? item.vendor),
+          name: vendor.name,
+          profileUrl: vendor.profileUrl ?? "",
+          description: vendor.description ?? "",
+        }
+      : undefined,
     joiningFriends,
     joinDisabledReason: item.joinDisabledReason,
   };
@@ -247,7 +266,6 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
   return {
     ...baseActivity,
     cover: item.cover,
-    tags: item.tags ?? [],
   };
 }
 
@@ -259,7 +277,6 @@ export function serializeActivityJoinUser(user: AnyDoc) {
     name: friend.name,
     handle: friend.handle,
     avatar: friend.avatarUrl,
-    joined: [],
   };
 }
 

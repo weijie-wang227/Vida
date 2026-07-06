@@ -3,6 +3,10 @@ import type { TouchEvent } from "react";
 import {
   CalendarCheck,
   ChevronDown,
+  Clock3,
+  Coins,
+  Filter,
+  MapPin,
   Maximize2,
   Minimize2,
   Navigation,
@@ -10,14 +14,25 @@ import {
   Search,
   Star,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../app/components/ui/sheet";
 import { BaseSearchBar } from "../components/BaseSearchBar";
 import { PremiumCard, StandardRow } from "../components/ActivityCards";
 import { FloatingActionButton } from "../components/FloatingActionButton";
 import {
+  categoryIcon,
   formatActivityDate,
   formatActivityTime,
+  vidaCategories,
+  vidaCategoryColor,
+  vidaCategoryLabel,
 } from "../lib/activityPresentation";
-import type { Activity } from "../lib/types";
+import type { Activity, vidaCategory } from "../lib/types";
 import { useAppState } from "../state";
 
 const ActivityMap = lazy(() =>
@@ -30,6 +45,34 @@ const CreateActivityModal = lazy(() =>
     default: module.CreateActivityModal,
   })),
 );
+const userLocation = { latitude: 1.321, longitude: 103.845 };
+type ActivityRank = "earliest" | "proximity" | "price";
+
+const rankOptions: {
+  id: ActivityRank;
+  label: string;
+  description: string;
+  Icon: typeof Clock3;
+}[] = [
+  {
+    id: "earliest",
+    label: "Earliest time",
+    description: "Soonest activities first",
+    Icon: Clock3,
+  },
+  {
+    id: "proximity",
+    label: "Proximity",
+    description: "Closest activities first",
+    Icon: MapPin,
+  },
+  {
+    id: "price",
+    label: "Price",
+    description: "Lowest credits first",
+    Icon: Coins,
+  },
+];
 
 function searchableActivityText(activity: Activity) {
   return [
@@ -42,18 +85,76 @@ function searchableActivityText(activity: Activity) {
     String(activity.credits),
     // activity.rating,
     activity.categories.join(" "),
+    activity.tags.join(" "),
     activity.joiningFriends
       .map((friend) => `${friend.name} ${friend.handle}`)
       .join(" "),
-    "tags" in activity ? activity.tags.join(" ") : "",
   ]
     .join(" ")
     .toLowerCase();
 }
 
+function getActivityStartTime(activity: Activity) {
+  const time = new Date(activity.startsAt).getTime();
+
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+}
+
+function getDistanceScore(
+  activity: Activity,
+  activityCoordinates: Map<number, { latitude: number; longitude: number }>,
+) {
+  const coordinates = activityCoordinates.get(activity.id);
+
+  if (!coordinates) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const latitudeDistance = coordinates.latitude - userLocation.latitude;
+  const longitudeDistance = coordinates.longitude - userLocation.longitude;
+
+  return latitudeDistance * latitudeDistance + longitudeDistance * longitudeDistance;
+}
+
+function sortActivities(
+  activities: Activity[],
+  rankBy: ActivityRank,
+  activityCoordinates: Map<number, { latitude: number; longitude: number }>,
+) {
+  return [...activities].sort((firstActivity, secondActivity) => {
+    if (rankBy === "proximity") {
+      const distanceDifference =
+        getDistanceScore(firstActivity, activityCoordinates) -
+        getDistanceScore(secondActivity, activityCoordinates);
+
+      if (distanceDifference !== 0) {
+        return distanceDifference;
+      }
+    }
+
+    if (rankBy === "price") {
+      const priceDifference = firstActivity.credits - secondActivity.credits;
+
+      if (priceDifference !== 0) {
+        return priceDifference;
+      }
+    }
+
+    const timeDifference =
+      getActivityStartTime(firstActivity) - getActivityStartTime(secondActivity);
+
+    if (timeDifference !== 0) {
+      return timeDifference;
+    }
+
+    return firstActivity.title.localeCompare(secondActivity.title);
+  });
+}
+
 export function ActivitiesPage() {
   const {
     joinedActivityIds,
+    mapPins,
     premiumActivities,
     profile,
     setShowMap,
@@ -66,21 +167,44 @@ export function ActivitiesPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<vidaCategory[]>(
+    [],
+  );
+  const [rankBy, setRankBy] = useState<ActivityRank>("earliest");
   const [showAllUpcomingActivities, setShowAllUpcomingActivities] =
     useState(false);
   const activeSearchQuery = debouncedSearchQuery.toLowerCase();
+  const activityCoordinates = new Map(
+    mapPins.map((pin) => [
+      pin.activityId,
+      { latitude: pin.latitude, longitude: pin.longitude },
+    ]),
+  );
   const activityMatchesSearch = (activity: Activity) =>
     searchableActivityText(activity).includes(activeSearchQuery);
-  const filteredPremiumActivities = activeSearchQuery
-    ? premiumActivities.filter(activityMatchesSearch)
-    : premiumActivities;
-  const filteredStandardActivities = activeSearchQuery
-    ? standardActivities.filter(activityMatchesSearch)
-    : standardActivities;
+  const activityMatchesCategories = (activity: Activity) =>
+    selectedCategories.length === 0 ||
+    activity.categories.some((category) => selectedCategories.includes(category));
+  const activityMatchesFilters = (activity: Activity) =>
+    (!activeSearchQuery || activityMatchesSearch(activity)) &&
+    activityMatchesCategories(activity);
+  const filteredPremiumActivities = sortActivities(
+    premiumActivities.filter(activityMatchesFilters),
+    rankBy,
+    activityCoordinates,
+  );
+  const filteredStandardActivities = sortActivities(
+    standardActivities.filter(activityMatchesFilters),
+    rankBy,
+    activityCoordinates,
+  );
   const filteredActivities = [
     ...filteredPremiumActivities,
     ...filteredStandardActivities,
   ];
+  const activeFilterCount = selectedCategories.length + (rankBy === "earliest" ? 0 : 1);
+  const hasActiveFilters = selectedCategories.length > 0 || rankBy !== "earliest";
   const joinedActivityOrder = new Map(
     joinedActivityIds.map((activityId, index) => [activityId, index]),
   );
@@ -123,6 +247,21 @@ export function ActivitiesPage() {
 
   const handleClearSearch = () => {
     setSearchOpen(false);
+  };
+
+  const handleToggleCategory = (category: vidaCategory) => {
+    setSelectedCategories((current) => {
+      if (current.includes(category)) {
+        return current.filter((item) => item !== category);
+      }
+
+      return [...current, category];
+    });
+  };
+
+  const handleResetFilters = () => {
+    setSelectedCategories([]);
+    setRankBy("earliest");
   };
 
   const handleTouchStart = (event: TouchEvent) => {
@@ -170,6 +309,22 @@ export function ActivitiesPage() {
               strokeWidth={2.4}
               className="text-muted-foreground"
             />
+          </button>
+          <button
+            onClick={() => setFiltersOpen(true)}
+            className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+              hasActiveFilters
+                ? "bg-accent text-accent-foreground"
+                : "bg-secondary text-muted-foreground"
+            }`}
+            aria-label="Filter activities"
+          >
+            <Filter size={16} />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[9px] font-bold text-background">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -284,10 +439,10 @@ export function ActivitiesPage() {
               ))}
             </div>
           )}
-          {activeSearchQuery && !hasSearchResults && (
+          {(activeSearchQuery || hasActiveFilters) && !hasSearchResults && (
             <div className="flex min-h-40 items-center justify-center px-8 text-center">
               <p className="text-sm text-muted-foreground">
-                No activities match your search.
+                No activities match your filters.
               </p>
             </div>
           )}
@@ -312,6 +467,122 @@ export function ActivitiesPage() {
           />
         </Suspense>
       )}
+
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent
+          side="bottom"
+          className="gap-0 rounded-t-3xl border-border p-0 sm:mx-auto sm:max-w-md"
+        >
+          <SheetHeader className="border-b border-border px-4 pb-3 pr-12 pt-5 text-left">
+            <SheetTitle className="text-base">Filter activities</SheetTitle>
+            <SheetDescription>
+              Choose categories and rank the activity list.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="px-4 py-4">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Categories
+                </span>
+                {selectedCategories.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategories([])}
+                    className="text-[11px] font-semibold text-accent"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {vidaCategories.map((category) => {
+                  const selected = selectedCategories.includes(category);
+                  const color = vidaCategoryColor[category];
+
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => handleToggleCategory(category)}
+                      className="flex h-10 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-bold transition"
+                      style={{
+                        borderColor: selected ? color : "var(--border)",
+                        backgroundColor: selected ? `${color}22` : "transparent",
+                        color: selected ? color : "var(--muted-foreground)",
+                      }}
+                      aria-pressed={selected}
+                    >
+                      {categoryIcon(category, 13)}
+                      {vidaCategoryLabel[category]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Rank by
+              </span>
+              <div className="grid gap-2">
+                {rankOptions.map(({ id, label, description, Icon }) => {
+                  const selected = rankBy === id;
+
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setRankBy(id)}
+                      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors ${
+                        selected
+                          ? "border-accent bg-accent/10 text-foreground"
+                          : "border-border bg-secondary/60 text-muted-foreground"
+                      }`}
+                      aria-pressed={selected}
+                    >
+                      <span
+                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+                          selected ? "bg-accent text-accent-foreground" : "bg-card"
+                        }`}
+                      >
+                        <Icon size={15} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[12px] font-bold">
+                          {label}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+                          {description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                disabled={!hasActiveFilters}
+                className="h-11 rounded-2xl bg-secondary text-sm font-bold text-foreground disabled:opacity-50"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="h-11 rounded-2xl bg-accent text-sm font-bold text-accent-foreground"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
