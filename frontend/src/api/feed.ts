@@ -1,20 +1,63 @@
-import type { Post} from '../lib/types'
-import { api, fallback } from './index'
+import { apiRequest } from "./client";
+import type {
+  CreateFeedCommentInput,
+  CreateFeedCommentResponse,
+  CreateFeedPostInput,
+  FeedCommentsResponse,
+  FeedLikeResponse,
+  FeedPost,
+  UpdateFeedPostInput,
+} from "../lib/types";
 
-export async function fetchPosts() {
-  try {
-    const response = await api.get<Post[]>('/feed')
-    return response.data
-  } catch {
-    return fallback([])
-  }
+export async function fetchFeedPosts() {
+  return apiRequest<FeedPost[]>("/feed");
 }
 
-export async function createPost(data: {title: string, imageUrl: string, description: string, classId: string}) {
-  try {
-    const response = await api.post<Post>('/feed/post', data)
-    return response.data
-  } catch {
-    return fallback([])
-  }
+export async function createFeedPost(input: CreateFeedPostInput) {
+  return apiRequest<FeedPost>("/feed", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateFeedPost(
+  postId: number,
+  input: UpdateFeedPostInput,
+) {
+  return apiRequest<FeedPost>(`/feed/${postId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteFeedPost(postId: number) {
+  return apiRequest<void>(`/feed/${postId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchFeedComments(postId: number) {
+  return apiRequest<FeedCommentsResponse>(`/feed/${postId}/comments`);
+}
+
+export async function createFeedComment(
+  postId: number,
+  input: CreateFeedCommentInput,
+) {
+  return apiRequest<CreateFeedCommentResponse>(`/feed/${postId}/comments`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function likeFeedPost(postId: number) {
+  return apiRequest<FeedLikeResponse>(`/feed/${postId}/likes`, {
+    method: "POST",
+  });
+}
+
+export async function unlikeFeedPost(postId: number) {
+  return apiRequest<FeedLikeResponse>(`/feed/${postId}/likes`, {
+    method: "DELETE",
+  });
 }

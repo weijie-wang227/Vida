@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light;
+  font-family: "Plus Jakarta Sans", "DM Sans", system-ui, sans-serif;
+  --page: #f4fcff;
+  --surface: #ffffff;
+  --surface-soft: #eef8fa;
+  --surface-warm: #fff9ec;
+  --ink: #1b2220;
+  --muted: #60737a;
+  --line: rgba(35, 62, 68, 0.13);
+  --brand-green: #4bd178;
+  --brand-yellow: #e8a82f;
+  --brand-pink: #dc4aa7;
+  --brand-blue: #6577ff;
+  --brand-teal: #22a8bd;
+  --shadow: 0 16px 36px rgba(22, 48, 54, 0.1);
+  --shadow-soft: 0 8px 22px rgba(22, 48, 54, 0.08);
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  cursor: pointer;
+}

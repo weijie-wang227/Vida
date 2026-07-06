@@ -1,133 +1,133 @@
-// src/components/ActivityMapModal.tsx
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { useNavigate } from "react-router-dom";
-import type { Activity } from "../lib/types";
-import { fetchActivities } from "../api/map";
-import "leaflet/dist/leaflet.css";
-import "./map.css";
+import { ChevronDown } from "lucide-react";
+import type { LatLngExpression } from "leaflet";
+import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import {
+  categoryIcon,
+  primaryActivityCategory,
+  vidaCategories,
+  vidaCategoryColor,
+  vidaCategoryLabel,
+} from "../lib/activityPresentation";
+import type { MapPin } from "../lib/types";
+import { useAppState } from "../state";
 
-type ActivityMapModalProps = {
-  open: boolean;
-  onClose: () => void;
-};
+const singaporeCenter: LatLngExpression = [1.335, 103.86];
+const userLocation: LatLngExpression = [1.321, 103.845];
 
-export function ActivityMapModal({ open, onClose }: ActivityMapModalProps) {
-  const [events, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+function getPinPosition(pin: MapPin): LatLngExpression {
+  return [pin.latitude, pin.longitude];
+}
 
-  useEffect(() => {
-    if (!open) return;
-
-    async function loadActivities() {
-      try {
-        setLoading(true);
-        const data = await fetchActivities();
-        setActivities(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadActivities();
-  }, [open]);
-
-  if (!open) return null;
-
-  function handleGoToActivity(event: Activity) {
-    if (event.type === "class") {
-      navigate(`/classes/${event.sourceId}`);
-    } else {
-      navigate(`/groups/${event.sourceId}`);
-    }
-
-    onClose();
-  }
+export function ActivityMap({ onClose }: { onClose: () => void }) {
+  const { mapPins, openActivity } = useAppState();
 
   return (
-    <div className="map-modal-backdrop">
-      <div className="map-modal">
-        <div className="map-modal-header">
-          <h2>Explore Activities</h2>
-          <button type="button" onClick={onClose}>
-            ✕
-          </button>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            Nearby Activities
+          </h2>
+          <p className="text-[11px] text-muted-foreground">
+            Singapore / {mapPins.length} activities near you
+          </p>
         </div>
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1 text-accent text-xs font-medium"
+        >
+          <ChevronDown size={14} />
+          List
+        </button>
+      </div>
 
-        {loading ? (
-          <div className="map-loading">Loading map events...</div>
-        ) : (
-          <MapContainer
-            center={[1.3521, 103.8198]}
-            zoom={11}
-            scrollWheelZoom
-            className="event-map"
+      <div className="flex-1 relative overflow-hidden bg-secondary mx-3 rounded-2xl">
+        <MapContainer
+          center={singaporeCenter}
+          zoom={12}
+          minZoom={11}
+          maxZoom={16}
+          scrollWheelZoom
+          className="h-full w-full"
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          <CircleMarker
+            center={userLocation}
+            pathOptions={{
+              color: "#ffffff",
+              fillColor: "#3b82f6",
+              fillOpacity: 1,
+              weight: 2,
+            }}
+            radius={8}
           >
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <Popup>You are here</Popup>
+          </CircleMarker>
 
-            {events.map((event) => (
-              <Marker
-                key={`${event.type}-${event.sourceId}`}
-                position={[event.lat, event.lng]}
+          {mapPins.map((pin) => {
+            const primaryCategory = primaryActivityCategory(pin.categories);
+            const color = vidaCategoryColor[primaryCategory];
+
+            return (
+              <CircleMarker
+                key={pin.id}
+                center={getPinPosition(pin)}
+                eventHandlers={{
+                  click: () => openActivity(pin.activityId),
+                }}
+                pathOptions={{
+                  color,
+                  fillColor: pin.premium ? color : "#302c40",
+                  fillOpacity: 0.95,
+                  weight: 2,
+                }}
+                radius={pin.premium ? 10 : 8}
               >
                 <Popup>
-                  <div className="map-popup">
-                    {event.imageUrl && (
-                      <img
-                        src={event.imageUrl}
-                        alt={event.title}
-                        className="map-popup-image"
-                      />
-                    )}
-
-                    <p className="map-popup-type">
-                      {event.type === "class" ? "Class" : "Group"}
+                  <div className="min-w-36">
+                    <p className="mb-1 text-xs font-semibold text-zinc-900">
+                      {pin.label}
                     </p>
-
-                    <h3>{event.title}</h3>
-
-                    {event.description && <p>{event.description}</p>}
-
-                    {event.date && (
-                      <p>
-                        {event.date}
-                        {event.time ? `, ${event.time}` : ""}
-                      </p>
-                    )}
-
                     <button
-                      type="button"
-                      onClick={() => handleGoToActivity(event)}
-                      className="map-popup-button"
+                      onClick={() => openActivity(pin.activityId)}
+                      className="rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-semibold text-white"
                     >
-                      View {event.type === "class" ? "Class" : "Group"}
+                      View activity
                     </button>
                   </div>
                 </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        )}
+              </CircleMarker>
+            );
+          })}
+        </MapContainer>
+      </div>
+
+      <div className="px-4 py-3 flex gap-3 overflow-x-auto scrollbar-minimal">
+        {vidaCategories.map((category) => (
+          <div
+            key={category}
+            className="flex items-center gap-1.5 flex-shrink-0"
+          >
+            <div
+              className="w-4 h-4 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: `${vidaCategoryColor[category]}22`,
+                color: vidaCategoryColor[category],
+              }}
+            >
+              {categoryIcon(category, 9)}
+            </div>
+            <span className="text-[10px] text-muted-foreground capitalize">
+              {vidaCategoryLabel[category]}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
-  );
-}
-
-// src/components/FloatingMapButton.tsx
-type FloatingMapButtonProps = {
-  onClick: () => void;
-};
-
-export function FloatingMapButton({ onClick }: FloatingMapButtonProps) {
-  return (
-    <button type="button" className="floating-map-button" onClick={onClick}>
-      🗺️
-    </button>
   );
 }

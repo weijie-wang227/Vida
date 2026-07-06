@@ -1,6 +1,6 @@
-import { api, fallback } from ".";
+import { apiRequest } from "./client";
 
-type FolderTypes = "profiles" | "classes" | "posts" | "groups" | "activities"
+type FolderTypes = "profiles" | "classes" | "posts" | "groups" | "activities";
 
 export async function getPresignedUploadUrl(data: {
   fileName: string;
@@ -11,24 +11,18 @@ export async function getPresignedUploadUrl(data: {
   key: string;
   publicUrl: string;
 }> {
-  try {
-    const response = await api.post("/uploads/presigned-url", data);
-    return response.data;
-  } catch (error) {
-    return fallback(null)
-  }  
+  return apiRequest("/uploads/presigned-url", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
-export async function uploadImageToR2(
-  file: File,
-  folder: FolderTypes,
-): Promise<string> {
+export async function uploadImageToR2(file: File, folder: FolderTypes) {
   const { uploadUrl, publicUrl } = await getPresignedUploadUrl({
     fileName: file.name,
     contentType: file.type,
     folder,
   });
-
   const uploadResponse = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
@@ -38,7 +32,7 @@ export async function uploadImageToR2(
   });
 
   if (!uploadResponse.ok) {
-    throw new Error("Failed to upload image");
+    throw new Error("Failed to upload image.");
   }
 
   if (folder === "profiles") {

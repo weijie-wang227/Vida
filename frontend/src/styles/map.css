@@ -1,0 +1,26 @@
+@layer utilities {
+  .leaflet-container {
+    background: var(--secondary);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    background: var(--foreground);
+    color: var(--background);
+  }
+
+  .leaflet-popup-content {
+    margin: 10px 12px;
+  }
+
+  .leaflet-control-attribution {
+    background: color-mix(in srgb, var(--background) 78%, transparent);
+    color: var(--muted-foreground);
+    font-size: 9px;
+  }
+
+  .leaflet-control-attribution a {
+    color: var(--accent);
+  }
+}

@@ -1,12 +1,7 @@
-export { LandingPage } from "./LandingPage";
-export { AuthPage } from "./AuthPage";
-export { DashboardPage } from "./DashboardPage";
-export { PlansPage } from "./PlansPage";
-export { ClassesPage } from "./ClassesPage";
-export { ClassDetailPage } from "./ClassDetailPage";
-export { GroupsPage } from "./GroupsPage";
-export { GroupDetailPage } from "./GroupDetailPage"
-export { BookingConfirmationPage } from "./BookingConfirmationPage";
-export { FriendsPage } from "./FriendsPage";
-export { FeedPage } from "./FeedPage";
-export { ProfilePage } from "./ProfilePage";
+export * from "./ActivitiesPage";
+export * from "./ActivityDetailPage";
+export * from "./ChatPage";
+export * from "./FeedPage";
+export * from "./GroupDetailPage";
+export * from "./ProfilePage";
+export * from "./SettingsPage";

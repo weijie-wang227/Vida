@@ -1,0 +1,534 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #171625;
+  --foreground: #f4f0ea;
+  --card: #242234;
+  --card-foreground: #f4f0ea;
+  --popover: #242234;
+  --popover-foreground: #f4f0ea;
+  --primary: #f4f0ea;
+  --primary-foreground: #171625;
+  --secondary: #302c40;
+  --secondary-foreground: #f4f0ea;
+  --muted: #302c40;
+  --muted-foreground: #b9b3aa;
+  --accent: #f4b950;
+  --accent-foreground: #171625;
+  --brand-ink: #171625;
+  --brand-green: #4bd178;
+  --brand-yellow: #f4b950;
+  --brand-pink: #dc4aa7;
+  --brand-blue: #6577ff;
+  --brand-shadow: rgba(8, 8, 18, 0.36);
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(244, 240, 234, 0.12);
+  --input: transparent;
+  --input-background: #302c40;
+  --switch-background: #40394f;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #f4b950;
+  --chart-1: #4bd178;
+  --chart-2: #f4b950;
+  --chart-3: #dc4aa7;
+  --chart-4: #6577ff;
+  --chart-5: #f4f0ea;
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --app-page-background: linear-gradient(
+    180deg,
+    #171625 0%,
+    #211a2d 48%,
+    #171b28 100%
+  );
+  --phone-shell-background:
+    linear-gradient(180deg, rgba(244, 185, 80, 0.07), transparent 22%),
+    linear-gradient(180deg, var(--background), #1b1a2a 54%, #171625);
+}
+
+.vida-theme-light {
+  --background: #f3fbfc;
+  --foreground: #1b2220;
+  --card: #ffffff;
+  --card-foreground: #1b2220;
+  --popover: #ffffff;
+  --popover-foreground: #1b2220;
+  --primary: #1b2220;
+  --primary-foreground: #ffffff;
+  --secondary: #e6f1f3;
+  --secondary-foreground: #1b2220;
+  --muted: #e6f1f3;
+  --muted-foreground: #60737a;
+  --accent: #e8a82f;
+  --accent-foreground: #171625;
+  --brand-ink: #1b2220;
+  --brand-shadow: rgba(22, 48, 54, 0.16);
+  --destructive: #c82b46;
+  --destructive-foreground: #ffffff;
+  --border: rgba(35, 62, 68, 0.13);
+  --input: transparent;
+  --input-background: #e6f1f3;
+  --switch-background: #d4e5e8;
+  --ring: #e8a82f;
+  --chart-1: #e8a82f;
+  --chart-2: #22a8bd;
+  --chart-3: #c44991;
+  --chart-4: #5368d8;
+  --chart-5: #1b2220;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1b2220;
+  --sidebar-primary: #e8a82f;
+  --sidebar-primary-foreground: #171625;
+  --sidebar-accent: #e6f1f3;
+  --sidebar-accent-foreground: #1b2220;
+  --sidebar-border: rgba(35, 62, 68, 0.13);
+  --sidebar-ring: #e8a82f;
+  --app-page-background: linear-gradient(
+    180deg,
+    #f4fcff 0%,
+    #eaf7fb 52%,
+    #f3fbfc 100%
+  );
+  --phone-shell-background:
+    linear-gradient(180deg, rgba(34, 168, 189, 0.12), transparent 22%),
+    linear-gradient(180deg, var(--background), #eaf6f8 54%, #f4fcff);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background: var(--app-page-background);
+    margin: 0;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
+
+@layer utilities {
+  .scrollbar-minimal {
+    scrollbar-color: color-mix(
+        in srgb,
+        var(--muted-foreground) 45%,
+        transparent
+      )
+      transparent;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-minimal::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-minimal::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-minimal::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--muted-foreground) 34%, transparent);
+    border-radius: 999px;
+  }
+
+  .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  .vida-phone-shell {
+    --vida-bottom-nav-height: calc(5rem + env(safe-area-inset-bottom, 0px));
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    background: var(--phone-shell-background);
+  }
+
+  .vida-app-content {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .vida-app-content--with-nav {
+    bottom: var(--vida-bottom-nav-height);
+  }
+
+  .vida-app-content--fullscreen {
+    bottom: 0;
+  }
+
+  .vida-top-logo {
+    position: absolute;
+    top: 0.7rem;
+    left: 50%;
+    z-index: 35;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transform: translateX(-50%);
+    background: transparent;
+    overflow: visible;
+  }
+
+  .vida-top-logo__mark {
+    width: 3.65rem;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    filter: drop-shadow(0 10px 16px var(--brand-shadow));
+  }
+
+  .vida-logo-expand-button,
+  .vida-logo-close-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(244, 240, 234, 0.16);
+    background: color-mix(in srgb, var(--card) 78%, transparent);
+    color: var(--foreground);
+    box-shadow: 0 12px 28px rgba(8, 8, 18, 0.25);
+    transition:
+      transform 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .vida-logo-expand-button {
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 999px;
+  }
+
+  .vida-logo-close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 999px;
+  }
+
+  .vida-logo-expand-button:active,
+  .vida-logo-close-button:active,
+  .vida-top-logo__mark:active {
+    transform: scale(0.94);
+  }
+
+  .vida-logo-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 8, 18, 0.34);
+    backdrop-filter: blur(3px);
+  }
+
+  .vida-logo-overlay::before {
+    content: "";
+    position: absolute;
+    width: min(72vw, 19rem);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle, rgba(244, 185, 80, 0.24), transparent 58%),
+      radial-gradient(
+        circle at 38% 44%,
+        rgba(75, 209, 120, 0.18),
+        transparent 48%
+      ),
+      radial-gradient(
+        circle at 62% 58%,
+        rgba(101, 119, 255, 0.22),
+        transparent 52%
+      );
+    filter: blur(18px);
+    opacity: 0.95;
+    pointer-events: none;
+  }
+
+  .vida-logo-overlay .vida-progress-logo {
+    filter: drop-shadow(0 24px 38px rgba(8, 8, 18, 0.48))
+      drop-shadow(0 0 28px rgba(244, 185, 80, 0.16));
+  }
+
+  .vida-bottom-logo-button {
+    margin-top: -1.75rem;
+    padding-top: 0;
+    color: var(--muted-foreground);
+    overflow: visible;
+  }
+
+  .vida-bottom-logo-button .vida-progress-logo {
+    width: 5.35rem;
+    filter: drop-shadow(0 12px 18px rgba(8, 8, 18, 0.38))
+      drop-shadow(0 0 14px rgba(244, 185, 80, 0.16));
+  }
+
+  .vida-bottom-navigation {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    height: var(--vida-bottom-nav-height);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-top: 1px solid var(--border);
+  }
+
+  .vida-auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .vida-auth-word {
+    font-family: 'Holiday Free', 'Plus Jakarta Sans', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .vida-progress-logo {
+    --logo-icon-size: 1.1rem;
+    position: relative;
+    width: 5.35rem;
+    aspect-ratio: 1;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .vida-progress-logo--expanded {
+    --logo-icon-size: 3rem;
+    width: min(76vw, 21rem);
+  }
+
+  .vida-progress-logo__svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .vida-progress-logo__portion {
+    outline: none;
+  }
+
+  .vida-progress-logo--interactive .vida-progress-logo__portion {
+    cursor: pointer;
+  }
+
+  .vida-progress-logo__portion:focus-visible .vida-progress-logo__outline {
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 3;
+  }
+
+  .vida-progress-logo__empty {
+    fill: #696773;
+  }
+
+  .vida-progress-logo__fill {
+    transition:
+      height 180ms ease,
+      y 180ms ease;
+  }
+
+  .vida-progress-logo__outline {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.18);
+    stroke-width: 1;
+  }
+
+  .vida-progress-logo__icons {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .vida-progress-logo__icon {
+    position: absolute;
+    width: var(--logo-icon-size);
+    height: var(--logo-icon-size);
+    color: rgba(255, 255, 255, 0.92);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.22));
+    transform: translate(-50%, -50%);
+  }
+
+  .vida-progress-logo__icon--physical {
+    left: 25%;
+    top: 29%;
+  }
+
+  .vida-progress-logo__icon--social {
+    left: 75%;
+    top: 29%;
+  }
+
+  .vida-progress-logo__icon--cognitive {
+    left: 38%;
+    top: 65%;
+  }
+
+  .vida-progress-logo__icon--creative {
+    left: 62%;
+    top: 65%;
+  }
+
+  .vida-logo-image {
+    height: 100%;
+    width: 100%;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+  }
+
+  .vida-auth-logo {
+    width: 5.35rem;
+    flex: 0 0 auto;
+    background: transparent;
+    box-shadow: none;
+  }
+}

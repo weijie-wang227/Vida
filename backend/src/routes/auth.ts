@@ -1,134 +1,141 @@
-import { Request, Response } from 'express'
-import bcryptjs from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import { User } from '../models'
+import { Router } from "express";
+import {
+  createAuthToken,
+  createAvatarUrl,
+  createPasswordRecord,
+  findAuthenticatedUser,
+  isValidEmail,
+  normalizeEmail,
+  normalizeHandle,
+  verifyPassword,
+} from "../auth.js";
+import { UserModel } from "../models/VidaData.js";
+import { serializeAuthUser } from "../serializers.js";
 
-interface RegisterBody {
-  email: string
-  password: string
-  name: string
+const router = Router();
+
+function getString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-interface LoginBody {
-  email: string
-  password: string
+async function nextMockId() {
+  const lastUser = await UserModel.findOne().sort({ mockId: -1 }).select("mockId");
+
+  return (lastUser?.mockId ?? 0) + 1;
 }
 
-import { Router } from 'express'
-import { authenticateToken, AuthRequest } from '../middleware/auth'
-import { getJwtSecret } from '../services/helper'
-const authRouter = Router()
+async function uniqueHandle(handle: string) {
+  let candidate = handle;
+  let suffix = 2;
 
-// Register
-authRouter.post('/register', async (req: Request<{}, {}, RegisterBody>, res: Response) => {
+  while (await UserModel.exists({ handle: candidate })) {
+    const suffixText = String(suffix);
+    candidate = `${handle.slice(0, 24 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+router.post("/signup", async (req, res, next) => {
   try {
-    const { email, password, name } = req.body
+    const name = getString(req.body?.name);
+    const email = normalizeEmail(req.body?.email);
+    const password = getString(req.body?.password);
+    const requestedHandle = normalizeHandle(
+      req.body?.handle,
+      name || email.split("@")[0],
+    );
 
-    // Validation
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' })
+    if (!name) {
+      res.status(400).json({ message: "Name is required." });
+      return;
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' })
+    if (!isValidEmail(email)) {
+      res.status(400).json({ message: "A valid email is required." });
+      return;
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email })
+    if (password.length < 8) {
+      res.status(400).json({ message: "Password must be at least 8 characters." });
+      return;
+    }
+
+    const existingUser = await UserModel.findOne({ email }).select(
+      "+passwordHash +passwordSalt",
+    );
+
     if (existingUser) {
-      return res.status(409).json({ error: 'User already exists' })
+      res.status(409).json({ message: "An account already exists for this email." });
+      return;
     }
 
-    // Hash password
-    const hashedPassword = await bcryptjs.hash(password, 10)
-
-    // Create user
-    const user = new User({
-      email,
-      password: hashedPassword,
+    const user = await UserModel.create({
+      mockId: await nextMockId(),
       name,
-    })
-
-    await user.save()
-
-    // Generate token
-    const token = jwt.sign({ userId: user._id, email: user.email }, getJwtSecret(), {
-      expiresIn: '7d',
-    })
+      handle: await uniqueHandle(requestedHandle),
+      email,
+      avatarUrl: createAvatarUrl(name, email),
+      bio: "Ready to meet new people and try something new.",
+      stats: [
+        { value: "0", label: "Activities" },
+        { value: "0", label: "Friends" },
+        { value: "0", label: "Posts" },
+      ],
+      ...createPasswordRecord(password),
+    });
 
     res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-      },
-    })
+      token: createAuthToken(user),
+      user: serializeAuthUser(user),
+    });
   } catch (error) {
-    console.error('Registration error:', error)
-    res.status(500).json({ error: 'Registration failed' })
+    next(error);
   }
-})
+});
 
-// Login
-authRouter.post('/login', async (req: Request<{}, {}, LoginBody>, res: Response) => {
+router.post("/signin", async (req, res, next) => {
   try {
-    const { email, password } = req.body
+    const email = normalizeEmail(req.body?.email);
+    const password = getString(req.body?.password);
 
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' })
+    if (!isValidEmail(email) || !password) {
+      res.status(400).json({ message: "Email and password are required." });
+      return;
     }
 
-    // Find user
-    const user = await User.findOne({ email }).populate('membershipPlanId')
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' })
-    }
+    const user = await UserModel.findOne({ email }).select(
+      "+passwordHash +passwordSalt",
+    );
 
-    // Verify password
-    const isPasswordValid = await bcryptjs.compare(password, user.password)
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid email or password' })
+    if (!user || !verifyPassword(password, user)) {
+      res.status(401).json({ message: "Invalid email or password." });
+      return;
     }
-
-    // Generate token
-    const token = jwt.sign({ userId: user._id, email: user.email }, getJwtSecret(), {
-      expiresIn: '7d',
-    })
 
     res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-        currentPlan: user.membershipPlanId,
-        creditsRemaining: user.credits
-      }
-    })
+      token: createAuthToken(user),
+      user: serializeAuthUser(user),
+    });
   } catch (error) {
-    console.error('Login error:', error)
-    res.status(500).json({ error: 'Login failed' })
+    next(error);
   }
-})
+});
 
-// Get current user (protected route example)
-authRouter.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/me", async (req, res, next) => {
   try {
-    const user = await User.findById(req.userId).select('-password').populate("membershipPlanId");
+    const user = await findAuthenticatedUser(req.headers.authorization);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' })
+      res.status(401).json({ message: "Not signed in." });
+      return;
     }
 
-    res.json(user)
+    res.json({ user: serializeAuthUser(user) });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch current user' })
+    next(error);
   }
-})
+});
 
-export default authRouter
+export default router;
