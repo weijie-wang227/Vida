@@ -247,6 +247,10 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
     rating: item.rating,
     categories: (item.categories ?? []) as vidaCategory[],
     tags: item.tags ?? [],
+    isPremium: Boolean(item.isPremium),
+    skillsFuturePayable: Boolean(item.skillsFuturePayable),
+    isOpen: item.isOpen !== false,
+    isActive: item.isActive !== false,
     vendor: vendor
       ? {
           id: String(vendor._id ?? item.vendor),

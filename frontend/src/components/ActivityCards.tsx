@@ -10,10 +10,10 @@ import {
   primaryActivityCategory,
   vidaCategoryColor,
 } from "../lib/activityPresentation";
-import type { Activity, PremiumActivity } from "../lib/types";
+import type { Activity } from "../lib/types";
 import { useAppState } from "../state";
 
-export function PremiumCard({ activity }: { activity: PremiumActivity }) {
+export function PremiumCard({ activity }: { activity: Activity }) {
   const { likedActivityIds, openActivity, toggleActivityLike } = useAppState();
   const liked = Boolean(likedActivityIds[activity.id]);
   const categories = categoriesForActivity(activity.categories);
@@ -61,7 +61,7 @@ export function PremiumCard({ activity }: { activity: PremiumActivity }) {
       </button>
       <div className="relative h-32 bg-secondary overflow-hidden">
         <img
-          src={activity.cover}
+          src={activity.cover ?? ""}
           alt={activity.title}
           className="w-full h-full object-cover"
         />

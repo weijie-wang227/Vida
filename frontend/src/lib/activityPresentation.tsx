@@ -26,6 +26,8 @@ export const vidaCategoryLabel: Record<vidaCategory, string> = {
   cognitive: "Cognitive",
   creative: "Creative",
 };
+
+const defaultActivityCategories: vidaCategory[] = ["social"];
 const activityTimeZone = "Asia/Singapore";
 
 export function categoryIcon(category: vidaCategory, size = 14) {
@@ -45,13 +47,15 @@ export function categoryIcon(category: vidaCategory, size = 14) {
   }
 }
 
-export function categoriesForActivity(categories: vidaCategory[] | undefined) {
-  return categories?.length ? categories : ["social"];
+export function categoriesForActivity(
+  categories: vidaCategory[] | undefined,
+): vidaCategory[] {
+  return categories?.length ? categories : defaultActivityCategories;
 }
 
 export function primaryActivityCategory(
   categories: vidaCategory[] | undefined,
-) {
+): vidaCategory {
   return categoriesForActivity(categories)[0] ?? "social";
 }
 
@@ -71,6 +75,10 @@ export function formatDuration(minutes: number) {
 }
 
 export function formatCredits(credits: number) {
+  if (credits === 0) {
+    return "Free";
+  }
+
   return `${credits} credits`;
 }
 

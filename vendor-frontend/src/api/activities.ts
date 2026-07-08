@@ -1,7 +1,9 @@
 import { apiRequest } from "./client";
 import type {
   ActivityAttendeesResponse,
+  ActivityTemplate,
   CreateActivityInput,
+  UpdateActivityOpenResponse,
   UpdateAttendanceResponse,
   VendorActivitiesResponse,
 } from "./types";
@@ -15,6 +17,10 @@ export function createVendorActivity(input: CreateActivityInput) {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function fetchVendorActivityTemplates() {
+  return apiRequest<ActivityTemplate[]>("/vendors/me/activity-templates");
 }
 
 export function fetchActivityAttendees(activityId: number | string) {
@@ -37,6 +43,22 @@ export function updateActivityAttendance({
     {
       method: "PATCH",
       body: JSON.stringify({ attended }),
+    },
+  );
+}
+
+export function updateActivityOpen({
+  activityId,
+  isOpen,
+}: {
+  activityId: number | string;
+  isOpen: boolean;
+}) {
+  return apiRequest<UpdateActivityOpenResponse>(
+    `/vendors/me/activities/${activityId}/open`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isOpen }),
     },
   );
 }

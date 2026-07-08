@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import type { TouchEvent } from "react";
 import {
   CalendarCheck,
@@ -6,12 +6,12 @@ import {
   Clock3,
   Coins,
   Filter,
+  GraduationCap,
   MapPin,
   Maximize2,
   Minimize2,
   Navigation,
   Plus,
-  Search,
   Star,
 } from "lucide-react";
 import {
@@ -47,6 +47,7 @@ const CreateActivityModal = lazy(() =>
 );
 const userLocation = { latitude: 1.321, longitude: 103.845 };
 type ActivityRank = "earliest" | "proximity" | "price";
+type PaymentFilter = "free" | "premium" | "skillsfuture";
 
 const rankOptions: {
   id: ActivityRank;
@@ -74,6 +75,28 @@ const rankOptions: {
   },
 ];
 
+const paymentFilterOptions: {
+  id: PaymentFilter;
+  label: string;
+  Icon: typeof Coins;
+}[] = [
+  {
+    id: "free",
+    label: "Free",
+    Icon: Coins,
+  },
+  {
+    id: "premium",
+    label: "Premium",
+    Icon: Star,
+  },
+  {
+    id: "skillsfuture",
+    label: "SkillsFuture",
+    Icon: GraduationCap,
+  },
+];
+
 function searchableActivityText(activity: Activity) {
   return [
     activity.title,
@@ -86,6 +109,7 @@ function searchableActivityText(activity: Activity) {
     // activity.rating,
     activity.categories.join(" "),
     activity.tags.join(" "),
+    activity.skillsFuturePayable ? "skillsfuture skills future payable" : "",
     activity.joiningFriends
       .map((friend) => `${friend.name} ${friend.handle}`)
       .join(" "),
@@ -164,10 +188,10 @@ export function ActivitiesPage() {
   const startY = useRef<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [createActivityOpen, setCreateActivityOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<vidaCategory[]>(
     [],
   );
@@ -186,9 +210,25 @@ export function ActivitiesPage() {
   const activityMatchesCategories = (activity: Activity) =>
     selectedCategories.length === 0 ||
     activity.categories.some((category) => selectedCategories.includes(category));
+  const activityMatchesPaymentFilter = (activity: Activity) => {
+    if (paymentFilter === "free") {
+      return !activity.isPremium && activity.credits === 0;
+    }
+
+    if (paymentFilter === "premium") {
+      return activity.isPremium;
+    }
+
+    if (paymentFilter === "skillsfuture") {
+      return activity.skillsFuturePayable;
+    }
+
+    return true;
+  };
   const activityMatchesFilters = (activity: Activity) =>
     (!activeSearchQuery || activityMatchesSearch(activity)) &&
-    activityMatchesCategories(activity);
+    activityMatchesCategories(activity) &&
+    activityMatchesPaymentFilter(activity);
   const filteredPremiumActivities = sortActivities(
     premiumActivities.filter(activityMatchesFilters),
     rankBy,
@@ -203,8 +243,12 @@ export function ActivitiesPage() {
     ...filteredPremiumActivities,
     ...filteredStandardActivities,
   ];
-  const activeFilterCount = selectedCategories.length + (rankBy === "earliest" ? 0 : 1);
-  const hasActiveFilters = selectedCategories.length > 0 || rankBy !== "earliest";
+  const activeFilterCount =
+    selectedCategories.length +
+    (rankBy === "earliest" ? 0 : 1) +
+    (paymentFilter ? 1 : 0);
+  const hasActiveFilters =
+    selectedCategories.length > 0 || rankBy !== "earliest" || Boolean(paymentFilter);
   const joinedActivityOrder = new Map(
     joinedActivityIds.map((activityId, index) => [activityId, index]),
   );
@@ -231,24 +275,6 @@ export function ActivitiesPage() {
   const hasSearchResults =
     filteredPremiumActivities.length > 0 || filteredStandardActivities.length > 0;
 
-  useEffect(() => {
-    if (searchOpen) {
-      searchInputRef.current?.focus();
-    }
-  }, [searchOpen]);
-
-  const handleOpenSearch = () => {
-    if (showMap) {
-      setShowMap(false);
-    }
-
-    setSearchOpen(true);
-  };
-
-  const handleClearSearch = () => {
-    setSearchOpen(false);
-  };
-
   const handleToggleCategory = (category: vidaCategory) => {
     setSelectedCategories((current) => {
       if (current.includes(category)) {
@@ -260,8 +286,13 @@ export function ActivitiesPage() {
   };
 
   const handleResetFilters = () => {
+    setPaymentFilter(null);
     setSelectedCategories([]);
     setRankBy("earliest");
+  };
+
+  const handleTogglePaymentFilter = (filter: PaymentFilter) => {
+    setPaymentFilter((current) => (current === filter ? null : filter));
   };
 
   const handleTouchStart = (event: TouchEvent) => {
@@ -300,17 +331,6 @@ export function ActivitiesPage() {
             <Navigation size={15} />
           </button>
           <button
-            onClick={handleOpenSearch}
-            className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
-            aria-label="Search activities"
-          >
-            <Search
-              size={19}
-              strokeWidth={2.4}
-              className="text-muted-foreground"
-            />
-          </button>
-          <button
             onClick={() => setFiltersOpen(true)}
             className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
               hasActiveFilters
@@ -329,7 +349,7 @@ export function ActivitiesPage() {
         </div>
       </div>
 
-      {!showMap && (searchOpen || searchQuery) && (
+      {!showMap && (
         <div className="px-4 pb-3">
           <BaseSearchBar
             value={searchQuery}
@@ -338,10 +358,42 @@ export function ActivitiesPage() {
             inputRef={searchInputRef}
             placeholder="Search activities"
             ariaLabel="Search activities"
+            showIcon={false}
             clearable
             clearAriaLabel="Clear activity search"
-            onClear={handleClearSearch}
           />
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            {paymentFilterOptions.map(({ id, label, Icon }) => {
+              const selected = paymentFilter === id;
+
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleTogglePaymentFilter(id)}
+                  className="flex min-w-0 flex-col items-center gap-1.5 text-center transition-colors"
+                  aria-pressed={selected}
+                >
+                  <span
+                    className={`flex h-12 w-12 items-center justify-center rounded-full border transition-colors ${
+                      selected
+                        ? "border-accent bg-accent text-accent-foreground shadow-sm"
+                        : "border-border bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    <Icon size={18} />
+                  </span>
+                  <span
+                    className={`max-w-full truncate text-[11px] font-bold ${
+                      selected ? "text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -9,8 +9,9 @@ import {
   UserCircle,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { fetchActivity } from "../api";
 import { ActivityCategoryIndicators } from "../components/ActivityCategoryIndicators";
 import { FriendAvatars } from "../components/FriendAvatars";
 import { VendorProfileDialog } from "../components/VendorProfileDialog";
@@ -23,12 +24,8 @@ import {
   primaryActivityCategory,
   vidaCategoryColor,
 } from "../lib/activityPresentation";
-import type { Activity, PremiumActivity } from "../lib/types";
+import type { Activity } from "../lib/types";
 import { useAppState } from "../state";
-
-function isPremiumActivity(activity: Activity): activity is PremiumActivity {
-  return "cover" in activity;
-}
 
 function getActivityById(
   activities: Activity[],
@@ -39,6 +36,12 @@ function getActivityById(
   }
 
   return activities.find((activity) => activity.id === activityId) ?? null;
+}
+
+function parseActivityId(activityId: string | undefined): number | null {
+  const nextActivityId = Number(activityId);
+
+  return Number.isInteger(nextActivityId) ? nextActivityId : null;
 }
 
 export function ActivityDetailPage() {
@@ -54,10 +57,56 @@ export function ActivityDetailPage() {
   const navigate = useNavigate();
   const { activityId } = useParams();
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [fallbackActivity, setFallbackActivity] = useState<Activity | null>(
+    null,
+  );
+  const [fallbackError, setFallbackError] = useState<string | null>(null);
+  const [isLoadingFallback, setIsLoadingFallback] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const activities: Activity[] = [...premiumActivities, ...standardActivities];
-  const activity = getActivityById(activities, Number(activityId));
+  const routeActivityId = parseActivityId(activityId);
+  const listedActivity = getActivityById(activities, routeActivityId);
+  const activity =
+    listedActivity ??
+    (fallbackActivity?.id === routeActivityId ? fallbackActivity : null);
+
+  useEffect(() => {
+    if (routeActivityId === null || listedActivity) {
+      setFallbackActivity(null);
+      setFallbackError(null);
+      return;
+    }
+
+    let ignore = false;
+
+    setIsLoadingFallback(true);
+    setFallbackError(null);
+
+    fetchActivity(routeActivityId)
+      .then((nextActivity) => {
+        if (!ignore) {
+          setFallbackActivity(nextActivity);
+        }
+      })
+      .catch((error) => {
+        if (!ignore) {
+          setFallbackActivity(null);
+          setFallbackError(
+            error instanceof Error ? error.message : "Activity not found.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingFallback(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [listedActivity, routeActivityId]);
 
   if (!activity) {
     return (
@@ -76,7 +125,9 @@ export function ActivityDetailPage() {
         </div>
         <div className="flex flex-1 items-center justify-center px-8 text-center">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            {isLoading ? "Loading activity..." : "Activity not found."}
+            {isLoading || isLoadingFallback
+              ? "Loading activity..."
+              : fallbackError || "Activity not found."}
           </p>
         </div>
       </div>
@@ -84,7 +135,7 @@ export function ActivityDetailPage() {
   }
 
   const liked = Boolean(likedActivityIds[activity.id]);
-  const isPremium = isPremiumActivity(activity);
+  const premiumCover = activity.isPremium ? activity.cover : undefined;
   const categories = categoriesForActivity(activity.categories);
   const primaryCategory = primaryActivityCategory(activity.categories);
   const primaryColor = vidaCategoryColor[primaryCategory];
@@ -95,6 +146,9 @@ export function ActivityDetailPage() {
 
   const handleJoinActivity = async () => {
     setJoinError(null);
+    if (joined) {
+      navigate(`/groups/${activity.id}`);
+    }
 
     if (joinDisabledReason) {
       setJoinError(joinDisabledReason);
@@ -134,10 +188,10 @@ export function ActivityDetailPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
-        {isPremium ? (
+        {premiumCover ? (
           <div className="relative mx-4 h-52 overflow-hidden rounded-2xl bg-secondary">
             <img
-              src={activity.cover}
+              src={premiumCover}
               alt={activity.title}
               className="h-full w-full object-cover"
             />

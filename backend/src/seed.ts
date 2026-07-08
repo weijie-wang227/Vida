@@ -3,6 +3,7 @@ import mongoose, { Types } from "mongoose";
 import { createAvatarUrl, createPasswordRecord } from "./auth.js";
 import { connectDB, disconnectDB } from "./db.js";
 import {
+  activities,
   feedComments,
   feedLikes,
   feedPosts,
@@ -10,9 +11,7 @@ import {
   groupChats,
   mapPins,
   notifications,
-  premiumActivities,
   profile,
-  standardActivities,
 } from "./data.js";
 import {
   AdminModel,
@@ -32,17 +31,15 @@ import {
   UserModel,
   VendorModel,
 } from "./models/VidaData.js";
-import type { ActivitySeed, PremiumActivitySeed } from "./data.js";
+import type { ActivitySeed } from "./data.js";
 
 const legacyCollections = [
-  "premiumActivities",
-  "standardActivities",
   "profiles",
   "friends",
   "groupChats",
 ];
 
-const allActivities: ActivitySeed[] = [...premiumActivities, ...standardActivities];
+const allActivities: ActivitySeed[] = activities;
 const testUserSeed = {
   mockId: 9,
   name: "test",
@@ -82,12 +79,6 @@ function requireSeedValue<T>(value: T | null | undefined, description: string) {
   }
 
   return value;
-}
-
-function isPremiumActivity(
-  activity: ActivitySeed,
-): activity is PremiumActivitySeed {
-  return "cover" in activity;
 }
 
 function uniqueObjectIds(ids: Types.ObjectId[]) {
@@ -348,9 +339,12 @@ async function seed() {
         rating: activity.rating,
         categories: activity.categories,
         chat: chatId,
-        isPremium: isPremiumActivity(activity),
-        cover: isPremiumActivity(activity) ? activity.cover : undefined,
-        tags: isPremiumActivity(activity) ? activity.tags : [],
+        isPremium: activity.isPremium,
+        skillsFuturePayable: activity.skillsFuturePayable ?? false,
+        isOpen: true,
+        isActive: true,
+        cover: activity.cover,
+        tags: activity.tags,
       });
 
       activityBySeedId.set(activity.id, savedActivity._id);
@@ -368,6 +362,10 @@ async function seed() {
     }
 
     for (const pin of mapPins) {
+      const activity = requireSeedValue(
+        allActivities.find((item) => item.id === pin.activityId),
+        `activity ${pin.activityId} for map pin ${pin.id}`,
+      );
       const activityId = requireSeedValue(
         activityBySeedId.get(pin.activityId),
         `activity ${pin.activityId} for map pin ${pin.id}`,
@@ -379,7 +377,7 @@ async function seed() {
         latitude: pin.latitude,
         longitude: pin.longitude,
         label: pin.label,
-        premium: pin.premium,
+        premium: activity.isPremium,
       });
     }
 

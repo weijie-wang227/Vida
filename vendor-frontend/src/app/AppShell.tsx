@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { createVendorActivity, fetchVendorActivities } from "../api/activities";
+import {
+  createVendorActivity,
+  fetchVendorActivities,
+  updateActivityOpen,
+} from "../api/activities";
 import type { AuthMode } from "../api/auth";
 import { fetchCurrentUser, signIn, signUp } from "../api/auth";
 import { clearAuthToken, getAuthToken } from "../api/client";
@@ -24,13 +28,16 @@ export function AppShell() {
   const [activities, setActivities] = useState<VendorActivity[]>([]);
   const [stats, setStats] = useState<VendorStats>({
     activities: 0,
+    pastActivities: 0,
     peopleAttended: 0,
+    attendanceRate: "0%",
     averageRating: 0,
   });
   const [error, setError] = useState<string | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingActivity, setIsCreatingActivity] = useState(false);
+  const [updatingActivityId, setUpdatingActivityId] = useState<string | null>(null);
 
   const loadVendor = async () => {
     setStatus("vendor-check");
@@ -171,6 +178,35 @@ export function AppShell() {
     }
   };
 
+  const handleToggleActivityOpen = async (
+    activityId: number | string,
+    isOpen: boolean,
+  ) => {
+    setActivityError(null);
+    setUpdatingActivityId(String(activityId));
+
+    try {
+      const response = await updateActivityOpen({ activityId, isOpen });
+
+      setActivities((current) =>
+        current.map((activity) =>
+          activity.id === response.activity.id ||
+          activity.mockId === response.activity.mockId
+            ? { ...activity, isOpen: response.activity.isOpen }
+            : activity,
+        ),
+      );
+    } catch (submissionError) {
+      setActivityError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to update activity status.",
+      );
+    } finally {
+      setUpdatingActivityId(null);
+    }
+  };
+
   if (status === "loading" || status === "vendor-check") {
     return (
       <div className="loading-screen">
@@ -208,7 +244,9 @@ export function AppShell() {
       stats={stats}
       activityError={activityError}
       isCreatingActivity={isCreatingActivity}
+      updatingActivityId={updatingActivityId}
       onCreateActivity={handleCreateActivity}
+      onToggleActivityOpen={handleToggleActivityOpen}
       onSignOut={handleSignOut}
     />
   );
