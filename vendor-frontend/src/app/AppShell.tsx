@@ -30,7 +30,7 @@ export function AppShell() {
     activities: 0,
     pastActivities: 0,
     peopleAttended: 0,
-    attendanceRate: "0/0",
+    attendanceRate: "0%",
     averageRating: 0,
   });
   const [error, setError] = useState<string | null>(null);

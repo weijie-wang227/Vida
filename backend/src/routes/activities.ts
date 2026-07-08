@@ -755,7 +755,7 @@ router.post("/:id/review", async (req, res) => {
   const savedReview = await RatingModel.findOneAndUpdate(
     { activity: activity._id, sender: user._id },
     { $set: { rating, review } },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
+    { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
   );
 
   res.json({

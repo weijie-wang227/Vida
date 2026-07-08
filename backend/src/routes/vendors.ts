@@ -70,12 +70,16 @@ async function getVendorStats(vendor: Record<string, any>) {
             10,
         ) / 10
       : 0;
+  const attendanceRate =
+    pastJoinCount > 0
+      ? `${Math.round((pastAttendedCount / pastJoinCount) * 100)}%`
+      : "0%";
 
   return {
     activities: activities.length,
     pastActivities: pastActivityIds.length,
     peopleAttended: attendedCount || vendor.numAttended || 0,
-    attendanceRate: `${pastAttendedCount}/${pastJoinCount}`,
+    attendanceRate,
     averageRating,
   };
 }
