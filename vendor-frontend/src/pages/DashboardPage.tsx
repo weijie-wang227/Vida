@@ -9,11 +9,14 @@ import {
 import {
   AlertCircle,
   CalendarPlus,
+  GraduationCap,
   Loader2,
   MessageCircle,
+  Search,
   Star,
   Users,
 } from "lucide-react";
+import { fetchVendorActivityTemplates } from "../api/activities";
 import {
   searchLocations,
   type LocationSearchResult,
@@ -24,6 +27,7 @@ import { TopBar } from "../components/TopBar";
 import { AttendancePage } from "./AttendancePage";
 import { UpcomingActivitiesPage } from "./UpcomingActivitiesPage";
 import type {
+  ActivityTemplate,
   AuthUser,
   CreateActivityInput,
   Vendor,
@@ -71,8 +75,23 @@ function ActivityCreateForm({
   const [durationMinutes, setDurationMinutes] = useState("60");
   const [spots, setSpots] = useState("10");
   const [credits, setCredits] = useState("0");
-  const [selectedCategories, setSelectedCategories] = useState<VidaCategory[]>([]);
+  const [isPremium, setIsPremium] = useState(false);
+  const [skillsFuturePayable, setSkillsFuturePayable] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<VidaCategory[]>(
+    [],
+  );
   const [localError, setLocalError] = useState<string | null>(null);
+  const [activityTemplateQuery, setActivityTemplateQuery] = useState("");
+  const [isActivityTemplateSearchFocused, setIsActivityTemplateSearchFocused] =
+    useState(false);
+  const [activityTemplates, setActivityTemplates] = useState<
+    ActivityTemplate[]
+  >([]);
+  const [isLoadingActivityTemplates, setIsLoadingActivityTemplates] =
+    useState(false);
+  const [activityTemplateError, setActivityTemplateError] = useState<
+    string | null
+  >(null);
   const [locationSuggestions, setLocationSuggestions] = useState<
     LocationSearchResult[]
   >([]);
@@ -80,6 +99,40 @@ function ActivityCreateForm({
   const [locationSearchError, setLocationSearchError] = useState<string | null>(
     null,
   );
+
+  useEffect(() => {
+    if (!isPremium) {
+      setCredits("0");
+    }
+  }, [isPremium]);
+
+  useEffect(() => {
+    let isActive = true;
+    setIsLoadingActivityTemplates(true);
+    setActivityTemplateError(null);
+
+    fetchVendorActivityTemplates()
+      .then((templates) => {
+        if (isActive) {
+          setActivityTemplates(templates);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setActivityTemplates([]);
+          setActivityTemplateError("Unable to load past activities.");
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoadingActivityTemplates(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const query = location.trim();
@@ -127,6 +180,34 @@ function ActivityCreateForm({
     setLocationSearchError(null);
   };
 
+  const selectActivityTemplate = (template: ActivityTemplate) => {
+    setTitle(template.title);
+    setLocation(template.location);
+    setLatitude(String(template.latitude));
+    setLongitude(String(template.longitude));
+    setDurationMinutes(String(template.durationMinutes));
+    setSpots(String(template.spots));
+    setCredits(String(template.credits));
+    setIsPremium(template.credits > 0);
+    setSelectedCategories(template.categories);
+    setActivityTemplateQuery(template.title);
+    setIsActivityTemplateSearchFocused(false);
+    setLocationSuggestions([]);
+    setLocationSearchError(null);
+    setLocalError(null);
+  };
+
+  const normalizedTemplateQuery = activityTemplateQuery.trim().toLowerCase();
+  const matchingActivityTemplates = (
+    normalizedTemplateQuery
+      ? activityTemplates.filter((template) =>
+          `${template.title} ${template.location}`
+            .toLowerCase()
+            .includes(normalizedTemplateQuery),
+        )
+      : activityTemplates
+  ).slice(0, 5);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLocalError(null);
@@ -136,7 +217,7 @@ function ActivityCreateForm({
     const longitudeValue = Number(longitude);
     const durationValue = Number(durationMinutes);
     const spotsValue = Number(spots);
-    const creditsValue = Number(credits);
+    const creditsValue = isPremium ? Number(credits) : 0;
 
     if (!startsAtIso || Number.isNaN(new Date(startsAtIso).getTime())) {
       setLocalError("Choose a valid date and time.");
@@ -165,12 +246,53 @@ function ActivityCreateForm({
       categories: selectedCategories,
       vendorId: vendor.id,
       createAsVendor: true,
+      isPremium,
+      skillsFuturePayable,
     });
   };
 
   return (
     <Card title="Create Activity">
       <form className="activity-form" onSubmit={handleSubmit}>
+        <label className="activity-form__wide">
+          <span>Copy From Past Activity</span>
+          <div className="location-search-field">
+            <Search size={16} className="activity-template-search__icon" />
+            <input
+              value={activityTemplateQuery}
+              onChange={(event) => setActivityTemplateQuery(event.target.value)}
+              onBlur={() => setIsActivityTemplateSearchFocused(false)}
+              onFocus={() => setIsActivityTemplateSearchFocused(true)}
+              placeholder="Search activities you created"
+            />
+            {isLoadingActivityTemplates && (
+              <Loader2
+                size={16}
+                className="spin location-search-field__loader"
+              />
+            )}
+          </div>
+          {activityTemplateError && (
+            <p className="location-search-error">{activityTemplateError}</p>
+          )}
+          {isActivityTemplateSearchFocused &&
+            matchingActivityTemplates.length > 0 && (
+            <div className="location-suggestions">
+              {matchingActivityTemplates.map((activity) => (
+                <button
+                  key={activity.id}
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectActivityTemplate(activity)}
+                >
+                  <span>{activity.title}</span>
+                  <em>{activity.location}</em>
+                </button>
+              ))}
+            </div>
+          )}
+        </label>
+
         <label>
           <span>Title</span>
           <input
@@ -200,7 +322,10 @@ function ActivityCreateForm({
               required
             />
             {isSearchingLocation && (
-              <Loader2 size={16} className="spin location-search-field__loader" />
+              <Loader2
+                size={16}
+                className="spin location-search-field__loader"
+              />
             )}
           </div>
           {locationSearchError && (
@@ -222,28 +347,6 @@ function ActivityCreateForm({
               ))}
             </div>
           )}
-        </label>
-
-        <label>
-          <span>Latitude</span>
-          <input
-            type="number"
-            step="any"
-            value={latitude}
-            onChange={(event) => setLatitude(event.target.value)}
-            required
-          />
-        </label>
-
-        <label>
-          <span>Longitude</span>
-          <input
-            type="number"
-            step="any"
-            value={longitude}
-            onChange={(event) => setLongitude(event.target.value)}
-            required
-          />
         </label>
 
         <label>
@@ -275,15 +378,59 @@ function ActivityCreateForm({
             min={0}
             value={credits}
             onChange={(event) => setCredits(event.target.value)}
+            disabled={!isPremium}
             required
           />
         </label>
+
+        <fieldset className="activity-form__wide activity-toggle-fieldset">
+          <legend>Payment options</legend>
+          <div>
+            <label
+              className={`activity-toggle-card ${isPremium ? "activity-toggle-card--active" : ""}`}
+            >
+              <input
+                type="checkbox"
+                checked={isPremium}
+                onChange={(event) => setIsPremium(event.target.checked)}
+              />
+              <span>
+                <Star size={15} />
+                Premium
+              </span>
+            </label>
+            <label
+              className={`activity-toggle-card ${
+                skillsFuturePayable ? "activity-toggle-card--active" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={skillsFuturePayable}
+                onChange={(event) =>
+                  setSkillsFuturePayable(event.target.checked)
+                }
+              />
+              <span>
+                <GraduationCap size={15} />
+                SkillsFuture Payable
+              </span>
+            </label>
+          </div>
+        </fieldset>
 
         <fieldset className="activity-form__wide category-fieldset">
           <legend>Categories</legend>
           <div>
             {categories.map((category) => (
-              <label key={category.value}>
+              <label
+                key={category.value}
+                className={`category-option category-option--${category.value} ${
+                  selectedCategories.includes(category.value)
+                    ? "category-option--active"
+                    : ""
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={selectedCategories.includes(category.value)}
@@ -296,7 +443,9 @@ function ActivityCreateForm({
         </fieldset>
 
         {(localError || error) && (
-          <p className="form-error activity-form__wide">{localError || error}</p>
+          <p className="form-error activity-form__wide">
+            {localError || error}
+          </p>
         )}
 
         <button
@@ -304,7 +453,11 @@ function ActivityCreateForm({
           className="primary-action activity-form__wide"
           disabled={isSubmitting}
         >
-          {isSubmitting ? <Loader2 size={16} className="spin" /> : <CalendarPlus size={16} />}
+          {isSubmitting ? (
+            <Loader2 size={16} className="spin" />
+          ) : (
+            <CalendarPlus size={16} />
+          )}
           Create Activity
         </button>
       </form>
@@ -319,7 +472,9 @@ export function DashboardPage({
   stats,
   activityError,
   isCreatingActivity,
+  updatingActivityId,
   onCreateActivity,
+  onToggleActivityOpen,
   onSignOut,
 }: {
   user: AuthUser | null;
@@ -328,14 +483,21 @@ export function DashboardPage({
   stats: VendorStats;
   activityError: string | null;
   isCreatingActivity: boolean;
+  updatingActivityId: string | null;
   onCreateActivity: (input: CreateActivityInput) => Promise<void>;
+  onToggleActivityOpen: (
+    activityId: number | string,
+    isOpen: boolean,
+  ) => Promise<void>;
   onSignOut: () => void;
 }) {
   const navigate = useNavigate();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const dashboardStats = [
     { value: stats.activities, label: "Activities" },
+    { value: stats.pastActivities, label: "Past Activities" },
     { value: stats.peopleAttended, label: "People Attended" },
+    { value: stats.attendanceRate, label: "Attendance Rate" },
     { value: stats.averageRating.toFixed(1), label: "Average Rating" },
   ];
   const handleTabChange = (tab: VendorTab) => {
@@ -352,7 +514,9 @@ export function DashboardPage({
         activityError={activityError}
         isCreateOpen={isCreateOpen}
         isCreatingActivity={isCreatingActivity}
+        updatingActivityId={updatingActivityId}
         onCreateActivity={onCreateActivity}
+        onToggleActivityOpen={onToggleActivityOpen}
         onCreateToggle={() => setIsCreateOpen((current) => !current)}
         onSignOut={onSignOut}
         onTabChange={handleTabChange}
@@ -369,7 +533,9 @@ function VendorLayout({
   activityError,
   isCreateOpen,
   isCreatingActivity,
+  updatingActivityId,
   onCreateActivity,
+  onToggleActivityOpen,
   onCreateToggle,
   onSignOut,
   onTabChange,
@@ -381,7 +547,12 @@ function VendorLayout({
   activityError: string | null;
   isCreateOpen: boolean;
   isCreatingActivity: boolean;
+  updatingActivityId: string | null;
   onCreateActivity: (input: CreateActivityInput) => Promise<void>;
+  onToggleActivityOpen: (
+    activityId: number | string,
+    isOpen: boolean,
+  ) => Promise<void>;
   onCreateToggle: () => void;
   onSignOut: () => void;
   onTabChange: (tab: VendorTab) => void;
@@ -414,7 +585,7 @@ function VendorLayout({
               </span>
               <h1>
                 {activeTab === "dashboard"
-                  ? vendor?.name ?? "Vendor Dashboard"
+                  ? (vendor?.name ?? "Vendor Dashboard")
                   : isAttendancePage
                     ? "Attendance"
                     : "Upcoming Activities"}
@@ -423,7 +594,7 @@ function VendorLayout({
             {activeTab === "dashboard" && (
               <button
                 type="button"
-                className={`primary-action ${
+                className={`primary-action dashboard-create-action ${
                   isCreateOpen ? "primary-action--muted" : ""
                 }`}
                 onClick={onCreateToggle}
@@ -451,7 +622,14 @@ function VendorLayout({
             />
             <Route
               path="/upcoming"
-              element={<UpcomingActivitiesPage activities={activities} />}
+              element={
+                <UpcomingActivitiesPage
+                  activities={activities}
+                  error={activityError}
+                  updatingActivityId={updatingActivityId}
+                  onToggleActivityOpen={onToggleActivityOpen}
+                />
+              }
             />
             <Route
               path="/upcoming/:activityId/attendance"
@@ -486,6 +664,9 @@ function DashboardHome({
   isCreatingActivity: boolean;
   onCreateActivity: (input: CreateActivityInput) => Promise<void>;
 }) {
+  const upcomingActivities = activities.filter((activity) => activity.isActive);
+  const pastActivities = activities.filter((activity) => !activity.isActive);
+
   return (
     <>
       <section className="verification-alert">
@@ -499,7 +680,7 @@ function DashboardHome({
 
       <div className="dashboard__main dashboard__main--full">
         <Card className="order-card">
-          <div className="order-stats order-stats--three">
+          <div className="order-stats order-stats--five">
             {dashboardStats.map((stat) => (
               <div key={stat.label} className="order-stat">
                 <strong>{stat.value}</strong>
@@ -519,11 +700,13 @@ function DashboardHome({
         )}
 
         <Card title="Upcoming">
-          {activities.length === 0 ? (
+          {upcomingActivities.length === 0 ? (
             <div className="empty-state">
               <CalendarPlus size={28} />
-              <strong>No activities created yet</strong>
-              <span>Create an activity to start tracking attendance and ratings.</span>
+              <strong>No upcoming activities</strong>
+              <span>
+                Create an active activity to start tracking attendance.
+              </span>
             </div>
           ) : (
             <div className="activity-table-wrap">
@@ -538,7 +721,54 @@ function DashboardHome({
                   </tr>
                 </thead>
                 <tbody>
-                  {activities.map((activity) => (
+                  {upcomingActivities.map((activity) => (
+                    <tr key={activity.id}>
+                      <td>
+                        <strong>{activity.title}</strong>
+                      </td>
+                      <td>{formatActivityDate(activity.startsAt)}</td>
+                      <td>{activity.location}</td>
+                      <td>
+                        <span className="table-metric">
+                          <Users size={15} />
+                          {activity.attendance} / {activity.spots}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="table-metric">
+                          <Star size={15} />
+                          {activity.rating.toFixed(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        <Card title="Past Activities">
+          {pastActivities.length === 0 ? (
+            <div className="empty-state">
+              <CalendarPlus size={28} />
+              <strong>No past activities</strong>
+              <span>Inactive activities will appear here.</span>
+            </div>
+          ) : (
+            <div className="activity-table-wrap">
+              <table className="activity-table">
+                <thead>
+                  <tr>
+                    <th>Activity</th>
+                    <th>Date</th>
+                    <th>Location</th>
+                    <th>Attendance</th>
+                    <th>Rating</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pastActivities.map((activity) => (
                     <tr key={activity.id}>
                       <td>
                         <strong>{activity.title}</strong>

@@ -1,4 +1,9 @@
-import { useEffect, type ReactNode, type Ref } from "react";
+import {
+  useEffect,
+  type FocusEventHandler,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { Search, X } from "lucide-react";
 import { useDebouncedMinimumQuery } from "../hooks/useDebouncedMinimumQuery";
 
@@ -12,12 +17,15 @@ type BaseSearchBarProps = {
   inputClassName?: string;
   inputRef?: Ref<HTMLInputElement>;
   iconSize?: number;
+  showIcon?: boolean;
   clearable?: boolean;
   clearAriaLabel?: string;
   debounceMs?: number;
   minLength?: number;
   endAdornment?: ReactNode;
+  onBlur?: FocusEventHandler<HTMLInputElement>;
   onClear?: () => void;
+  onFocus?: FocusEventHandler<HTMLInputElement>;
 };
 
 export function BaseSearchBar({
@@ -30,12 +38,15 @@ export function BaseSearchBar({
   inputClassName = "min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground",
   inputRef,
   iconSize = 18,
+  showIcon = true,
   clearable = false,
   clearAriaLabel = "Clear search",
   debounceMs,
   minLength,
   endAdornment,
+  onBlur,
   onClear,
+  onFocus,
 }: BaseSearchBarProps) {
   const debouncedQuery = useDebouncedMinimumQuery(value, {
     debounceMs,
@@ -54,15 +65,19 @@ export function BaseSearchBar({
 
   return (
     <div className={className}>
-      <Search
-        size={iconSize}
-        className="flex-shrink-0 text-muted-foreground"
-      />
+      {showIcon && (
+        <Search
+          size={iconSize}
+          className="flex-shrink-0 text-muted-foreground"
+        />
+      )}
       <input
         ref={inputRef}
         type="search"
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
+        onBlur={onBlur}
+        onFocus={onFocus}
         className={inputClassName}
         placeholder={placeholder}
         aria-label={ariaLabel}

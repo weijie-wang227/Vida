@@ -7,7 +7,7 @@ export type FriendSeed = {
   avatar: string;
 };
 
-type ActivityBase = {
+export type ActivitySeed = {
   id: number;
   title: string;
   host: string;
@@ -18,16 +18,12 @@ type ActivityBase = {
   credits: number;
   rating: number;
   categories: vidaCategory[];
+  isPremium: boolean;
+  skillsFuturePayable?: boolean;
+  cover?: string;
+  tags: string[];
   joiningFriends: FriendSeed[];
 };
-
-export type PremiumActivitySeed = ActivityBase & {
-  cover: string;
-  tags: string[];
-};
-
-export type StandardActivitySeed = ActivityBase;
-export type ActivitySeed = PremiumActivitySeed | StandardActivitySeed;
 
 export const friends: FriendSeed[] = [
   {
@@ -101,11 +97,12 @@ export const profile = {
   ],
 };
 
-export const premiumActivities: PremiumActivitySeed[] = [
+export const activities: ActivitySeed[] = [
   {
     id: 1,
     title: "Tai Chi at Fort Canning",
     host: "Master Chen Wei",
+    isPremium: true,
     cover:
       "https://images.unsplash.com/photo-1548957175-84f0f9af659e?w=400&h=220&fit=crop&auto=format",
     startsAt: "2026-06-27T07:00:00+08:00",
@@ -122,6 +119,7 @@ export const premiumActivities: PremiumActivitySeed[] = [
     id: 2,
     title: "Hawker Heritage Food Walk",
     host: "Chef Mdm Siti",
+    isPremium: true,
     cover:
       "https://images.unsplash.com/photo-1562593028-1fe2d15bde36?w=400&h=220&fit=crop&auto=format",
     startsAt: "2026-06-28T09:00:00+08:00",
@@ -138,6 +136,8 @@ export const premiumActivities: PremiumActivitySeed[] = [
     id: 3,
     title: "Botanic Gardens Photography",
     host: "Raymond Koh",
+    isPremium: true,
+    skillsFuturePayable: true,
     cover:
       "https://images.unsplash.com/photo-1501554728187-ce583db33af7?w=400&h=220&fit=crop&auto=format",
     startsAt: "2026-06-29T07:30:00+08:00",
@@ -150,13 +150,11 @@ export const premiumActivities: PremiumActivitySeed[] = [
     tags: ["Camera tips", "Print included"],
     joiningFriends: [friends[1], friends[4], friends[0]],
   },
-];
-
-export const standardActivities: StandardActivitySeed[] = [
   {
     id: 4,
     title: "Morning Walk - East Coast Park",
     host: "David Ng",
+    isPremium: false,
     startsAt: "2026-06-27T07:00:00+08:00",
     location: "East Coast Park",
     durationMinutes: 75,
@@ -164,12 +162,14 @@ export const standardActivities: StandardActivitySeed[] = [
     credits: 0,
     rating: 4.7,
     categories: ["physical", "social"],
+    tags: [],
     joiningFriends: [friends[3], friends[7], friends[1]],
   },
   {
     id: 5,
     title: "Senior Chess Club",
     host: "James Ho",
+    isPremium: false,
     startsAt: "2026-06-26T14:00:00+08:00",
     location: "Bishan Community Club",
     durationMinutes: 120,
@@ -177,12 +177,15 @@ export const standardActivities: StandardActivitySeed[] = [
     credits: 0,
     rating: 4.6,
     categories: ["social", "cognitive"],
+    tags: [],
     joiningFriends: [friends[5], friends[3]],
   },
   {
     id: 6,
     title: "Cantonese Cooking Class",
     host: "Mdm Grace Wong",
+    isPremium: false,
+    skillsFuturePayable: true,
     startsAt: "2026-06-28T10:00:00+08:00",
     location: "Toa Payoh CC Kitchen",
     durationMinutes: 120,
@@ -190,12 +193,14 @@ export const standardActivities: StandardActivitySeed[] = [
     credits: 22,
     rating: 4.9,
     categories: ["social", "cognitive", "creative"],
+    tags: [],
     joiningFriends: [friends[6], friends[2], friends[4]],
   },
   {
     id: 7,
     title: "Kelong Fishing Day Trip",
     host: "Uncle Ravi",
+    isPremium: false,
     startsAt: "2026-06-27T06:00:00+08:00",
     location: "Pulau Ubin Jetty",
     durationMinutes: 360,
@@ -203,12 +208,14 @@ export const standardActivities: StandardActivitySeed[] = [
     credits: 45,
     rating: 4.8,
     categories: ["physical", "social", "cognitive"],
+    tags: [],
     joiningFriends: [friends[0], friends[3]],
   },
   {
     id: 8,
     title: "Book Club - Cafe Meeting",
     host: "Linda Tan",
+    isPremium: false,
     startsAt: "2026-06-26T15:30:00+08:00",
     location: "Tiong Bahru Bakery",
     durationMinutes: 90,
@@ -216,6 +223,7 @@ export const standardActivities: StandardActivitySeed[] = [
     credits: 0,
     rating: 4.7,
     categories: ["social", "cognitive"],
+    tags: [],
     joiningFriends: [friends[0], friends[6], friends[2]],
   },
 ];
@@ -310,7 +318,6 @@ export const mapPins = [
     latitude: 1.295,
     longitude: 103.8465,
     label: "Tai Chi - Fort Canning",
-    premium: true,
   },
   {
     id: 2,
@@ -318,7 +325,6 @@ export const mapPins = [
     latitude: 1.2823,
     longitude: 103.8433,
     label: "Hawker Walk - Chinatown",
-    premium: true,
   },
   {
     id: 3,
@@ -326,7 +332,6 @@ export const mapPins = [
     latitude: 1.3138,
     longitude: 103.8159,
     label: "Botanic Gardens",
-    premium: true,
   },
   {
     id: 4,

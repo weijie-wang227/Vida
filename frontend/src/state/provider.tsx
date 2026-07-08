@@ -34,10 +34,8 @@ import type {
   GroupChat,
   MapPin,
   Notification,
-  PremiumActivity,
   Profile,
   SettingsPreferences,
-  StandardActivity,
 } from "../lib/types";
 import { AppStateContext } from "./context";
 import {
@@ -122,10 +120,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [showMap, setShowMap] = useState(false);
   const [showProfileFriends, setShowProfileFriends] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [premiumActivities, setPremiumActivities] = useState<PremiumActivity[]>([]);
-  const [standardActivities, setStandardActivities] = useState<
-    StandardActivity[]
-  >([]);
+  const [premiumActivities, setPremiumActivities] = useState<Activity[]>([]);
+  const [standardActivities, setStandardActivities] = useState<Activity[]>([]);
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
   const [feedComments, setFeedComments] = useState<Record<number, FeedComment[]>>(
     {},
@@ -180,7 +176,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   });
 
   const applyActivityUpdate = useCallback((activity: Activity) => {
-    if ("cover" in activity) {
+    if (activity.isPremium) {
       setPremiumActivities((current) => replaceActivity(current, activity));
       return;
     }

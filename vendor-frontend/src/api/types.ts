@@ -23,7 +23,9 @@ export type Vendor = {
 
 export type VendorStats = {
   activities: number;
+  pastActivities: number;
   peopleAttended: number;
+  attendanceRate: string;
   averageRating: number;
 };
 
@@ -43,6 +45,8 @@ export type VendorActivity = {
   spots: number;
   attendance: number;
   rating: number;
+  isOpen: boolean;
+  isActive: boolean;
 };
 
 export type ActivityAttendee = {
@@ -66,6 +70,20 @@ export type CreateActivityInput = {
   categories: VidaCategory[];
   vendorId: string;
   createAsVendor: true;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+};
+
+export type ActivityTemplate = {
+  id: number;
+  title: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  durationMinutes: number;
+  spots: number;
+  credits: number;
+  categories: VidaCategory[];
 };
 
 export type VendorActivitiesResponse = {
@@ -86,5 +104,14 @@ export type UpdateAttendanceResponse = {
   attendee: {
     id: string;
     attended: boolean;
+  };
+};
+
+export type UpdateActivityOpenResponse = {
+  activity: {
+    id: string;
+    mockId: number;
+    title: string;
+    isOpen: boolean;
   };
 };

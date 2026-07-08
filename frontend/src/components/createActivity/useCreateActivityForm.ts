@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { CreateActivityInput, vidaCategory } from "../../lib/types";
+import { fetchCreatedActivityTemplates } from "../../api/activities";
+import type {
+  ActivityTemplate,
+  CreateActivityInput,
+  vidaCategory,
+} from "../../lib/types";
 import { SEARCH_MIN_QUERY_LENGTH } from "../../hooks/useDebouncedMinimumQuery";
 import { useAppState } from "../../state";
 import { searchPhotonLocations } from "./locationSearch";
@@ -31,6 +36,44 @@ export function useCreateActivityForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [activityTemplateQuery, setActivityTemplateQuery] = useState("");
+  const [activityTemplates, setActivityTemplates] = useState<ActivityTemplate[]>([]);
+  const [isLoadingActivityTemplates, setIsLoadingActivityTemplates] = useState(false);
+  const [activityTemplateError, setActivityTemplateError] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let isActive = true;
+    setIsLoadingActivityTemplates(true);
+    setActivityTemplateError(null);
+
+    fetchCreatedActivityTemplates()
+      .then((templates) => {
+        if (isActive) {
+          setActivityTemplates(templates);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setActivityTemplates([]);
+          setActivityTemplateError("Unable to load your past activities.");
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoadingActivityTemplates(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [open]);
 
   const selectMapPosition = useCallback((position: [number, number]) => {
     setSelectedPosition(position);
@@ -46,6 +89,32 @@ export function useCreateActivityForm({
     setLocationSearchError(null);
     setForm((current) => ({ ...current, location: result.label }));
   }, []);
+
+  const selectActivityTemplate = useCallback((template: ActivityTemplate) => {
+    const groupId = template.groupId === undefined ? "" : String(template.groupId);
+
+    setForm((current) => ({
+      ...current,
+      title: template.title,
+      location: template.location,
+      durationMinutes: String(template.durationMinutes),
+      spots: String(template.spots),
+      credits: String(template.credits),
+      categories:
+        template.categories.length > 0 ? template.categories : current.categories,
+      linkedGroupId:
+        groupId && adminGroups.some((group) => String(group.id) === groupId)
+          ? groupId
+          : current.linkedGroupId,
+    }));
+    setSelectedPosition([template.latitude, template.longitude]);
+    setLocationQuery(template.location);
+    setDebouncedLocationQuery("");
+    setLocationSuggestions([]);
+    setLocationSearchError(null);
+    setActivityTemplateQuery(template.title);
+    setError(null);
+  }, [adminGroups]);
 
   useEffect(() => {
     const query = debouncedLocationQuery.trim();
@@ -130,6 +199,7 @@ export function useCreateActivityForm({
     setDebouncedLocationQuery("");
     setLocationSuggestions([]);
     setLocationSearchError(null);
+    setActivityTemplateQuery("");
     setError(null);
   };
 
@@ -206,21 +276,38 @@ export function useCreateActivityForm({
     }
   };
 
+  const normalizedTemplateQuery = activityTemplateQuery.trim().toLowerCase();
+  const matchingActivityTemplates = (
+    normalizedTemplateQuery
+      ? activityTemplates.filter((template) =>
+          `${template.title} ${template.location}`
+            .toLowerCase()
+            .includes(normalizedTemplateQuery),
+        )
+      : activityTemplates
+  ).slice(0, 5);
+
   return {
+    activityTemplateError,
+    activityTemplateQuery,
     clearLocationQuery,
     error,
     form,
     adminGroups,
     handleClose,
     handleSubmit,
+    isLoadingActivityTemplates,
     isSaving,
     isSearchingLocation,
     locationQuery,
     locationSearchError,
     locationSuggestions,
+    matchingActivityTemplates,
+    selectActivityTemplate,
     selectMapPosition,
     selectSearchLocation,
     selectedPosition,
+    setActivityTemplateQuery,
     setDebouncedLocationQuery,
     setLocationQuery,
     toggleCategory,

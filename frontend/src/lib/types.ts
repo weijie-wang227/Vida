@@ -10,7 +10,9 @@ export type VendorSummary = {
 
 export type VendorStats = {
   activities: number;
+  pastActivities: number;
   peopleAttended: number;
+  attendanceRate: string;
   averageRating: number;
 };
 
@@ -23,6 +25,7 @@ export type VendorActivity = {
   spots: number;
   attendance: number;
   rating: number;
+  isActive: boolean;
 };
 
 export type Friend = {
@@ -39,7 +42,7 @@ export type FriendSearchResult = {
   avatar: string;
 };
 
-type ActivityBase = {
+export type Activity = {
   id: ActivityId;
   title: string;
   host: string;
@@ -51,18 +54,15 @@ type ActivityBase = {
   rating: number;
   categories: vidaCategory[];
   tags: string[];
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+  isOpen: boolean;
+  isActive: boolean;
+  cover?: string;
   vendor?: VendorSummary;
   joiningFriends: Friend[];
   joinDisabledReason?: string;
 };
-
-export type PremiumActivity = ActivityBase & {
-  cover: string;
-};
-
-export type StandardActivity = ActivityBase;
-
-export type Activity = PremiumActivity | StandardActivity;
 
 export type CreateActivityInput = {
   title: string;
@@ -78,7 +78,7 @@ export type CreateActivityInput = {
 };
 
 export type CreateActivityResponse = {
-  activity: StandardActivity;
+  activity: Activity;
   mapPin: MapPin;
   group: GroupChat;
 };
@@ -88,6 +88,40 @@ export type PreviousActivity = {
   title: string;
   startsAt: string;
   location: string;
+};
+
+export type ActivityTemplate = {
+  id: ActivityId;
+  title: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  durationMinutes: number;
+  spots: number;
+  credits: number;
+  categories: vidaCategory[];
+  groupId?: number;
+};
+
+export type ActivityReview = {
+  id: string;
+  activityId: string;
+  rating: number;
+  review: string;
+};
+
+export type ActivityReviewResponse = {
+  activity: {
+    id: ActivityId;
+    title: string;
+    startsAt: string;
+  };
+  review: ActivityReview | null;
+};
+
+export type SubmitActivityReviewInput = {
+  rating: number;
+  review: string;
 };
 
 export type FeedPost = {

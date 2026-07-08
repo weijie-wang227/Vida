@@ -15,6 +15,11 @@ const ActivityDetailPage = lazy(() =>
     default: module.ActivityDetailPage,
   })),
 );
+const ActivityReviewPage = lazy(() =>
+  import("../pages/ActivityReviewPage").then((module) => ({
+    default: module.ActivityReviewPage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("../pages/ChatPage").then((module) => ({
     default: module.ChatPage,
@@ -86,6 +91,10 @@ export function AppShell() {
               <Route
                 path="/activities/:activityId"
                 element={<ActivityDetailPage />}
+              />
+              <Route
+                path="/activities/:activityId/review"
+                element={<ActivityReviewPage />}
               />
               <Route path="/feed" element={<FeedPage />} />
               <Route path="/groups" element={<ChatPage />} />

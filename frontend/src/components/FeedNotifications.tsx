@@ -1,6 +1,6 @@
-import { Bell, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Bell, Check, Loader2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import {
   Sheet,
   SheetContent,
@@ -21,11 +21,35 @@ export function FeedNotifications({
   onMarkAsRead,
 }: FeedNotificationsProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [showReviewSubmitted, setShowReviewSubmitted] = useState(false);
   const [markingReadId, setMarkingReadId] = useState<string | null>(null);
   const unreadCount = notifications.filter(
     (notification) => !notification.read,
   ).length;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldOpenNotifications = params.get("notifications") === "1";
+    const shouldShowReviewSubmitted = params.get("reviewSubmitted") === "1";
+
+    if (!shouldOpenNotifications && !shouldShowReviewSubmitted) {
+      return;
+    }
+
+    setIsOpen(true);
+    setShowReviewSubmitted(shouldShowReviewSubmitted);
+    params.delete("notifications");
+    params.delete("reviewSubmitted");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString() ? `?${params.toString()}` : "",
+      },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate]);
 
   const handleNotificationClick = async (
     link: string | undefined,
@@ -86,6 +110,30 @@ export function FeedNotifications({
           </SheetHeader>
 
           <div className="max-h-[58vh] overflow-y-auto px-4 py-3 scrollbar-minimal">
+            {showReviewSubmitted && (
+              <div className="mb-3 flex gap-3 rounded-2xl border border-border bg-secondary px-3 py-3">
+                <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                  <Check size={15} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-foreground">
+                    Review submitted
+                  </p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                    Thanks for sharing your feedback.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowReviewSubmitted(false)}
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-background/70 text-muted-foreground"
+                  aria-label="Dismiss review submitted message"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {notifications.length > 0 ? (
               <div className="space-y-2">
                 {notifications.map((notification) => (
