@@ -74,6 +74,7 @@ export type CreateActivityInput = {
   spots: number;
   credits: number;
   categories: vidaCategory[];
+  cover?: string;
   groupId?: number;
 };
 

@@ -360,6 +360,7 @@ router.post("/", async (req, res, next) => {
     const durationMinutes = getFiniteNumber(req.body?.durationMinutes);
     const spots = getFiniteNumber(req.body?.spots);
     const credits = getFiniteNumber(req.body?.credits ?? 0);
+    const cover = getString(req.body?.cover);
     const createAsVendor = Boolean(req.body?.vendorId || req.body?.createAsVendor);
     const isPremium = createAsVendor && req.body?.isPremium === true;
     const skillsFuturePayable =
@@ -506,6 +507,7 @@ router.post("/", async (req, res, next) => {
       skillsFuturePayable,
       isOpen: true,
       isActive: true,
+      cover: cover || undefined,
       tags: [],
     });
 

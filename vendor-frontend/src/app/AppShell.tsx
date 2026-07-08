@@ -14,7 +14,7 @@ import type {
   VendorActivity,
   VendorStats,
 } from "../api/types";
-import { createVendor, fetchMyVendor } from "../api/vendors";
+import { createVendor, fetchMyVendor, updateVendorProfile } from "../api/vendors";
 import { CreateVendorPage } from "../pages/CreateVendorPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { LoginPage } from "../pages/LoginPage";
@@ -173,9 +173,20 @@ export function AppShell() {
           ? submissionError.message
           : "Unable to create activity.",
       );
+      throw submissionError;
     } finally {
       setIsCreatingActivity(false);
     }
+  };
+
+  const handleVendorProfileUpdate = async (input: {
+    profileUrl: string;
+    description: string;
+  }) => {
+    const response = await updateVendorProfile(input);
+
+    setVendor(response.vendor);
+    setStats(response.stats);
   };
 
   const handleToggleActivityOpen = async (
@@ -237,17 +248,18 @@ export function AppShell() {
   }
 
   return (
-    <DashboardPage
-      user={user}
-      vendor={vendor}
+      <DashboardPage
+        user={user}
+        vendor={vendor}
       activities={activities}
       stats={stats}
       activityError={activityError}
       isCreatingActivity={isCreatingActivity}
       updatingActivityId={updatingActivityId}
-      onCreateActivity={handleCreateActivity}
-      onToggleActivityOpen={handleToggleActivityOpen}
-      onSignOut={handleSignOut}
-    />
+        onCreateActivity={handleCreateActivity}
+        onUpdateVendorProfile={handleVendorProfileUpdate}
+        onToggleActivityOpen={handleToggleActivityOpen}
+        onSignOut={handleSignOut}
+      />
   );
 }

@@ -271,6 +271,40 @@ router.get("/me/activities", async (req, res, next) => {
   }
 });
 
+router.patch("/me", async (req, res, next) => {
+  try {
+    const user = await findAuthenticatedUser(req.headers.authorization);
+
+    if (!user) {
+      res.status(401).json({ message: "Sign in to update your vendor profile." });
+      return;
+    }
+
+    const vendor = await VendorModel.findOne({ owner: user._id });
+
+    if (!vendor) {
+      res.status(404).json({ message: "Vendor profile not found." });
+      return;
+    }
+
+    const profileUrl = String(req.body?.profileUrl ?? "").trim();
+    const description = String(req.body?.description ?? "").trim();
+
+    if (description.length > 500) {
+      res.status(400).json({ message: "Description must be 500 characters or less." });
+      return;
+    }
+
+    vendor.profileUrl = profileUrl;
+    vendor.description = description;
+    await vendor.save();
+
+    await sendVendorResponse(res, vendor);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/me/activity-templates", async (req, res, next) => {
   try {
     const user = await findAuthenticatedUser(req.headers.authorization);

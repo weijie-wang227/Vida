@@ -68,6 +68,7 @@ export type CreateActivityInput = {
   spots: number;
   credits: number;
   categories: VidaCategory[];
+  cover?: string;
   vendorId: string;
   createAsVendor: true;
   isPremium: boolean;

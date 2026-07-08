@@ -1,6 +1,7 @@
 import {
   Calendar,
   Clock,
+  Image,
   MapPin,
   MessageCircle,
   Timer,
@@ -15,11 +16,13 @@ export function ActivityDetailsFields({
   form,
   adminGroups,
   onCategoryToggle,
+  onCoverFileChange,
   onFieldChange,
 }: {
   form: CreateActivityFormState;
   adminGroups: GroupChat[];
   onCategoryToggle: (category: vidaCategory) => void;
+  onCoverFileChange: (file: File | null) => void;
   onFieldChange: <Key extends keyof CreateActivityFormState>(
     field: Key,
     value: CreateActivityFormState[Key],
@@ -38,6 +41,45 @@ export function ActivityDetailsFields({
           placeholder="Morning qigong in the park"
           required
         />
+      </label>
+
+      <label className="block">
+        <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          <Image size={13} />
+          Cover Image
+        </span>
+        <div className="rounded-xl border border-border bg-input-background p-3">
+          {form.coverPreview ? (
+            <img
+              src={form.coverPreview}
+              alt=""
+              className="mb-3 h-32 w-full rounded-lg object-cover"
+            />
+          ) : (
+            <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-muted-foreground">
+              No cover selected
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) =>
+                onCoverFileChange(event.target.files?.[0] ?? null)
+              }
+              className="min-w-0 flex-1 text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-foreground"
+            />
+            {form.coverFile && (
+              <button
+                type="button"
+                onClick={() => onCoverFileChange(null)}
+                className="rounded-full bg-secondary px-3 py-1.5 text-xs font-bold text-foreground"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
       </label>
 
       {adminGroups.length > 0 && (

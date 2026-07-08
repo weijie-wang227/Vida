@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { fetchCreatedActivityTemplates } from "../../api/activities";
+import { uploadImageToR2 } from "../../api/uploads";
 import type {
   ActivityTemplate,
   CreateActivityInput,
@@ -172,6 +173,21 @@ export function useCreateActivityForm({
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const updateCoverFile = (file: File | null) => {
+    setForm((current) => {
+      if (current.coverPreview) {
+        URL.revokeObjectURL(current.coverPreview);
+      }
+
+      return {
+        ...current,
+        coverFile: file,
+        coverPreview: file ? URL.createObjectURL(file) : "",
+      };
+    });
+    setError(null);
+  };
+
   const toggleCategory = (category: vidaCategory) => {
     setForm((current) => {
       const isSelected = current.categories.includes(category);
@@ -193,7 +209,13 @@ export function useCreateActivityForm({
   };
 
   const resetForm = () => {
-    setForm(initialFormState);
+    setForm((current) => {
+      if (current.coverPreview) {
+        URL.revokeObjectURL(current.coverPreview);
+      }
+
+      return initialFormState;
+    });
     setSelectedPosition(null);
     setLocationQuery("");
     setDebouncedLocationQuery("");
@@ -264,6 +286,9 @@ export function useCreateActivityForm({
 
     try {
       setIsSaving(true);
+      if (form.coverFile) {
+        payload.cover = await uploadImageToR2(form.coverFile, "activities");
+      }
       const activity = await createActivity(payload);
 
       setIsSaving(false);
@@ -311,6 +336,7 @@ export function useCreateActivityForm({
     setDebouncedLocationQuery,
     setLocationQuery,
     toggleCategory,
+    updateCoverFile,
     updateField,
   };
 }

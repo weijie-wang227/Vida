@@ -7,6 +7,11 @@ export type CreateVendorInput = {
   description?: string;
 };
 
+export type UpdateVendorProfileInput = {
+  profileUrl: string;
+  description: string;
+};
+
 export function fetchMyVendor() {
   return apiRequest<VendorResponse>("/vendors/me");
 }
@@ -14,6 +19,13 @@ export function fetchMyVendor() {
 export function createVendor(input: CreateVendorInput) {
   return apiRequest<Required<VendorResponse>>("/vendors/createVendor", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateVendorProfile(input: UpdateVendorProfileInput) {
+  return apiRequest<Required<VendorResponse>>("/vendors/me", {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

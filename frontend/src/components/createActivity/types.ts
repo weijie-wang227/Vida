@@ -13,6 +13,8 @@ export type CreateActivityFormState = {
   durationMinutes: string;
   spots: string;
   credits: string;
+  coverFile: File | null;
+  coverPreview: string;
   categories: vidaCategory[];
   linkedGroupId: string;
 };
@@ -56,6 +58,8 @@ export const initialFormState: CreateActivityFormState = {
   durationMinutes: "60",
   spots: "8",
   credits: "0",
+  coverFile: null,
+  coverPreview: "",
   categories: ["social"],
   linkedGroupId: "",
 };

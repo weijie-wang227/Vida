@@ -11,6 +11,7 @@ const safeFolders = new Set([
   "posts",
   "groups",
   "activities",
+  "vendors",
 ]);
 
 function getString(value: unknown) {

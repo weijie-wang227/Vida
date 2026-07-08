@@ -135,7 +135,7 @@ export function ActivityDetailPage() {
   }
 
   const liked = Boolean(likedActivityIds[activity.id]);
-  const premiumCover = activity.isPremium ? activity.cover : undefined;
+  const cover = activity.cover;
   const categories = categoriesForActivity(activity.categories);
   const primaryCategory = primaryActivityCategory(activity.categories);
   const primaryColor = vidaCategoryColor[primaryCategory];
@@ -188,18 +188,22 @@ export function ActivityDetailPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
-        {premiumCover ? (
+        {cover ? (
           <div className="relative mx-4 h-52 overflow-hidden rounded-2xl bg-secondary">
             <img
-              src={premiumCover}
+              src={cover}
               alt={activity.title}
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
-              <Star size={10} fill="var(--brand-yellow)" stroke="none" />
-              <span className="text-[10px] font-bold text-accent">Premium</span>
-            </div>
+            {activity.isPremium && (
+              <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
+                <Star size={10} fill="var(--brand-yellow)" stroke="none" />
+                <span className="text-[10px] font-bold text-accent">
+                  Premium
+                </span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mx-4 flex h-32 items-center justify-center rounded-2xl bg-secondary">

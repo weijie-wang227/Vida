@@ -10,6 +10,7 @@ import {
   AlertCircle,
   CalendarPlus,
   GraduationCap,
+  Image,
   Loader2,
   MessageCircle,
   Search,
@@ -17,6 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { fetchVendorActivityTemplates } from "../api/activities";
+import { uploadImageToR2 } from "../api/uploads";
 import {
   searchLocations,
   type LocationSearchResult,
@@ -75,6 +77,8 @@ function ActivityCreateForm({
   const [durationMinutes, setDurationMinutes] = useState("60");
   const [spots, setSpots] = useState("10");
   const [credits, setCredits] = useState("0");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
   const [isPremium, setIsPremium] = useState(false);
   const [skillsFuturePayable, setSkillsFuturePayable] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<VidaCategory[]>(
@@ -99,6 +103,15 @@ function ActivityCreateForm({
   const [locationSearchError, setLocationSearchError] = useState<string | null>(
     null,
   );
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (coverPreview) {
+        URL.revokeObjectURL(coverPreview);
+      }
+    };
+  }, [coverPreview]);
 
   useEffect(() => {
     if (!isPremium) {
@@ -197,6 +210,16 @@ function ActivityCreateForm({
     setLocalError(null);
   };
 
+  const selectCoverFile = (file: File | null) => {
+    if (coverPreview) {
+      URL.revokeObjectURL(coverPreview);
+    }
+
+    setCoverFile(file);
+    setCoverPreview(file ? URL.createObjectURL(file) : "");
+    setLocalError(null);
+  };
+
   const normalizedTemplateQuery = activityTemplateQuery.trim().toLowerCase();
   const matchingActivityTemplates = (
     normalizedTemplateQuery
@@ -234,7 +257,7 @@ function ActivityCreateForm({
       return;
     }
 
-    await onCreateActivity({
+    const payload: CreateActivityInput = {
       title: title.trim(),
       startsAt: startsAtIso,
       location: location.trim(),
@@ -248,7 +271,27 @@ function ActivityCreateForm({
       createAsVendor: true,
       isPremium,
       skillsFuturePayable,
-    });
+    };
+
+    try {
+      setIsUploadingCover(true);
+      if (coverFile) {
+        payload.cover = await uploadImageToR2(coverFile, "activities");
+      }
+
+      await onCreateActivity(payload);
+      setCoverFile(null);
+      if (coverPreview) {
+        URL.revokeObjectURL(coverPreview);
+      }
+      setCoverPreview("");
+    } catch (error) {
+      setLocalError(
+        error instanceof Error ? error.message : "Unable to upload cover image.",
+      );
+    } finally {
+      setIsUploadingCover(false);
+    }
   };
 
   return (
@@ -300,6 +343,32 @@ function ActivityCreateForm({
             onChange={(event) => setTitle(event.target.value)}
             required
           />
+        </label>
+
+        <label className="activity-form__wide activity-cover-field">
+          <span>
+            <Image size={15} />
+            Cover Image
+          </span>
+          {coverPreview ? (
+            <img src={coverPreview} alt="" />
+          ) : (
+            <div>No cover selected</div>
+          )}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(event) => selectCoverFile(event.target.files?.[0] ?? null)}
+          />
+          {coverFile && (
+            <button
+              type="button"
+              className="secondary-action"
+              onClick={() => selectCoverFile(null)}
+            >
+              Remove cover
+            </button>
+          )}
         </label>
 
         <label>
@@ -451,14 +520,14 @@ function ActivityCreateForm({
         <button
           type="submit"
           className="primary-action activity-form__wide"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingCover}
         >
-          {isSubmitting ? (
+          {isSubmitting || isUploadingCover ? (
             <Loader2 size={16} className="spin" />
           ) : (
             <CalendarPlus size={16} />
           )}
-          Create Activity
+          {isUploadingCover ? "Uploading Cover" : "Create Activity"}
         </button>
       </form>
     </Card>
@@ -474,6 +543,7 @@ export function DashboardPage({
   isCreatingActivity,
   updatingActivityId,
   onCreateActivity,
+  onUpdateVendorProfile,
   onToggleActivityOpen,
   onSignOut,
 }: {
@@ -485,6 +555,10 @@ export function DashboardPage({
   isCreatingActivity: boolean;
   updatingActivityId: string | null;
   onCreateActivity: (input: CreateActivityInput) => Promise<void>;
+  onUpdateVendorProfile: (input: {
+    profileUrl: string;
+    description: string;
+  }) => Promise<void>;
   onToggleActivityOpen: (
     activityId: number | string,
     isOpen: boolean,
@@ -516,6 +590,7 @@ export function DashboardPage({
         isCreatingActivity={isCreatingActivity}
         updatingActivityId={updatingActivityId}
         onCreateActivity={onCreateActivity}
+        onUpdateVendorProfile={onUpdateVendorProfile}
         onToggleActivityOpen={onToggleActivityOpen}
         onCreateToggle={() => setIsCreateOpen((current) => !current)}
         onSignOut={onSignOut}
@@ -535,6 +610,7 @@ function VendorLayout({
   isCreatingActivity,
   updatingActivityId,
   onCreateActivity,
+  onUpdateVendorProfile,
   onToggleActivityOpen,
   onCreateToggle,
   onSignOut,
@@ -549,6 +625,10 @@ function VendorLayout({
   isCreatingActivity: boolean;
   updatingActivityId: string | null;
   onCreateActivity: (input: CreateActivityInput) => Promise<void>;
+  onUpdateVendorProfile: (input: {
+    profileUrl: string;
+    description: string;
+  }) => Promise<void>;
   onToggleActivityOpen: (
     activityId: number | string,
     isOpen: boolean,
@@ -570,6 +650,8 @@ function VendorLayout({
       <div className="workspace">
         <TopBar
           accountName={vendor?.name || user?.handle || user?.name || "Vendor"}
+          vendor={vendor}
+          onUpdateVendorProfile={onUpdateVendorProfile}
           onSignOut={onSignOut}
         />
 
