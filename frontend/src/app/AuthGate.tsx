@@ -76,6 +76,7 @@ function AuthScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSignup = mode === "signup";
+  const vendorUrl = import.meta.env.VITE_VENDOR_URL as string | undefined;
 
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -227,6 +228,18 @@ function AuthScreen() {
               )}
               {isSignup ? "Create account" : "Sign in"}
             </button>
+
+            {!isSignup && vendorUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = vendorUrl;
+                }}
+                className="flex h-12 w-full items-center justify-center rounded-2xl border border-border bg-card px-4 text-sm font-bold text-foreground transition-colors hover:bg-secondary active:scale-[0.98]"
+              >
+                Sign in as vendor
+              </button>
+            )}
           </form>
         </div>
       </div>
