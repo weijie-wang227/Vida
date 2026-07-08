@@ -10,13 +10,12 @@ import type {
   GroupChat,
   MapPin,
   Notification,
-  PremiumActivity,
   Profile,
   SettingsPreferences,
   SignInInput,
   SignUpInput,
   UpdateFeedPostInput,
-  StandardActivity,
+  Activity,
   UpdateProfileInput,
 } from "../lib/types";
 
@@ -38,8 +37,8 @@ export type AppState = {
   showSettings: boolean;
   selectedActivityId: number | null;
   selectedGroupId: number | null;
-  premiumActivities: PremiumActivity[];
-  standardActivities: StandardActivity[];
+  premiumActivities: Activity[];
+  standardActivities: Activity[];
   feedPosts: FeedPost[];
   feedComments: Record<number, FeedComment[]>;
   groupChats: GroupChat[];
@@ -54,7 +53,7 @@ export type AppState = {
   settingsPreferences: SettingsPreferences;
   signIn: (input: SignInInput) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<void>;
-  createActivity: (input: CreateActivityInput) => Promise<StandardActivity>;
+  createActivity: (input: CreateActivityInput) => Promise<Activity>;
   createFeedPost: (input: CreateFeedPostInput) => Promise<FeedPost>;
   updateFeedPost: (
     postId: number,

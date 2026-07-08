@@ -7,10 +7,9 @@ import {
   fetchGroupChats,
   fetchMapPins,
   fetchNotifications,
-  fetchPremiumActivities,
+  fetchActivities,
   fetchProfile,
   fetchSettingsPreferences,
-  fetchStandardActivities,
   getAuthToken,
 } from "../api";
 import { persistThemeMode } from "../app/themeMode";
@@ -22,14 +21,19 @@ import type {
   GroupChat,
   MapPin,
   Notification,
-  PremiumActivity,
   Profile,
   SettingsPreferences,
-  StandardActivity,
 } from "../lib/types";
 import { activityIdsJoinedByProfile } from "./providerHelpers";
 
 type Setter<T> = Dispatch<SetStateAction<T>>;
+
+function splitActivitiesByPremium(activities: Activity[]) {
+  return {
+    premiumActivities: activities.filter((activity) => activity.isPremium),
+    standardActivities: activities.filter((activity) => !activity.isPremium),
+  };
+}
 
 export function useRestoreSession({
   setAuthError,
@@ -110,11 +114,11 @@ export function useLoadAppData({
   setIsLoading: Setter<boolean>;
   setMapPins: Setter<MapPin[]>;
   setNotifications: Setter<Notification[]>;
-  setPremiumActivities: Setter<PremiumActivity[]>;
+  setPremiumActivities: Setter<Activity[]>;
   setJoinedActivityIds: Setter<number[]>;
   setProfile: Setter<Profile>;
   setSettingsPreferences: Setter<SettingsPreferences>;
-  setStandardActivities: Setter<StandardActivity[]>;
+  setStandardActivities: Setter<Activity[]>;
 }) {
   useEffect(() => {
     let ignore = false;
@@ -129,8 +133,7 @@ export function useLoadAppData({
 
       try {
         const [
-          nextPremiumActivities,
-          nextStandardActivities,
+          nextActivities,
           nextFeedPosts,
           nextGroupChats,
           nextFriends,
@@ -139,8 +142,7 @@ export function useLoadAppData({
           nextProfile,
           nextSettingsPreferences,
         ] = await Promise.all([
-          fetchPremiumActivities(),
-          fetchStandardActivities(),
+          fetchActivities(),
           fetchFeedPosts(),
           fetchGroupChats(),
           fetchFriends(),
@@ -154,14 +156,14 @@ export function useLoadAppData({
           return;
         }
 
-        setPremiumActivities(nextPremiumActivities);
-        setStandardActivities(nextStandardActivities);
+        const { premiumActivities, standardActivities } =
+          splitActivitiesByPremium(nextActivities);
+
+        setPremiumActivities(premiumActivities);
+        setStandardActivities(standardActivities);
         setJoinedActivityIds(
           activityIdsJoinedByProfile(
-            [
-              ...nextPremiumActivities,
-              ...nextStandardActivities,
-            ] as Activity[],
+            nextActivities,
             nextProfile.handle,
           ),
         );

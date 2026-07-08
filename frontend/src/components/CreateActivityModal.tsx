@@ -1,6 +1,7 @@
 import { Check, X } from "lucide-react";
 import { ActivityDetailsFields } from "./createActivity/ActivityDetailsFields";
 import { LocationSection } from "./createActivity/LocationSection";
+import { PastActivitySearch } from "./createActivity/PastActivitySearch";
 import type { CreateActivityModalProps } from "./createActivity/types";
 import { useCreateActivityForm } from "./createActivity/useCreateActivityForm";
 
@@ -46,6 +47,15 @@ export function CreateActivityModal({ open, onClose }: CreateActivityModalProps)
         onSubmit={activityForm.handleSubmit}
         className="flex-1 overflow-y-auto px-4 pb-6 pt-4 scrollbar-minimal"
       >
+        <PastActivitySearch
+          activities={activityForm.matchingActivityTemplates}
+          error={activityForm.activityTemplateError}
+          isLoading={activityForm.isLoadingActivityTemplates}
+          query={activityForm.activityTemplateQuery}
+          onQueryChange={activityForm.setActivityTemplateQuery}
+          onSelectActivity={activityForm.selectActivityTemplate}
+        />
+
         <LocationSection
           selectedPosition={activityForm.selectedPosition}
           locationQuery={activityForm.locationQuery}

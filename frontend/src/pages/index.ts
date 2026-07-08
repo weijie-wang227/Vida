@@ -1,5 +1,6 @@
 export * from "./ActivitiesPage";
 export * from "./ActivityDetailPage";
+export * from "./ActivityReviewPage";
 export * from "./ChatPage";
 export * from "./FeedPage";
 export * from "./GroupDetailPage";

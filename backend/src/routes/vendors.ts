@@ -4,6 +4,8 @@ import { findAuthenticatedUser } from "../auth.js";
 import {
   ActivityJoinModel,
   ActivityModel,
+  MapPinModel,
+  NotificationModel,
   RatingModel,
   VendorModel,
 } from "../models/VidaData.js";
@@ -28,8 +30,11 @@ async function getVendorStats(vendor: Record<string, any>) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ vendor: vendorId }, { _id: { $in: linkedEventIds } }],
-  }).select("_id rating");
+  }).select("_id rating isActive");
   const activityIds = activities.map((activity: Record<string, any>) => activity._id);
+  const pastActivityIds = activities
+    .filter((activity: Record<string, any>) => activity.isActive === false)
+    .map((activity: Record<string, any>) => activity._id);
   const attendedCount =
     activityIds.length > 0
       ? await ActivityJoinModel.countDocuments({
@@ -37,6 +42,18 @@ async function getVendorStats(vendor: Record<string, any>) {
           attended: true,
         })
       : 0;
+  const [pastAttendedCount, pastJoinCount] =
+    pastActivityIds.length > 0
+      ? await Promise.all([
+          ActivityJoinModel.countDocuments({
+            activityId: { $in: pastActivityIds },
+            attended: true,
+          }),
+          ActivityJoinModel.countDocuments({
+            activityId: { $in: pastActivityIds },
+          }),
+        ])
+      : [0, 0];
   const ratingRows =
     activityIds.length > 0
       ? await RatingModel.find({ activity: { $in: activityIds } }).select("rating")
@@ -56,7 +73,9 @@ async function getVendorStats(vendor: Record<string, any>) {
 
   return {
     activities: activities.length,
+    pastActivities: pastActivityIds.length,
     peopleAttended: attendedCount || vendor.numAttended || 0,
+    attendanceRate: `${pastAttendedCount}/${pastJoinCount}`,
     averageRating,
   };
 }
@@ -118,8 +137,87 @@ async function getVendorActivities(vendor: Record<string, any>) {
       spots: activity.spots,
       attendance: attendanceByActivityId.get(activityId) ?? 0,
       rating: Number.isFinite(rating) ? rating : 0,
+      isOpen: activity.isOpen !== false,
+      isActive: activity.isActive !== false,
     };
   });
+}
+
+function serializeActivityTemplate(activity: Record<string, any>, pin: Record<string, any>) {
+  return {
+    id: activity.mockId,
+    title: activity.title,
+    location: activity.location,
+    latitude: pin.latitude,
+    longitude: pin.longitude,
+    durationMinutes: activity.durationMinutes,
+    spots: activity.spots,
+    credits: activity.credits,
+    categories: Array.isArray(activity.categories) ? activity.categories : [],
+  };
+}
+
+async function getVendorActivityTemplates(vendor: Record<string, any>) {
+  const linkedEventIds = getLinkedActivityIds(vendor);
+  const activities = await ActivityModel.find({
+    $or: [{ vendor: vendor._id }, { _id: { $in: linkedEventIds } }],
+    startsAt: { $lt: new Date() },
+  })
+    .sort({ startsAt: -1 })
+    .lean();
+  const activityIds = activities.map((activity: Record<string, any>) => activity._id);
+  const pins = activityIds.length
+    ? await MapPinModel.find({ activity: { $in: activityIds } }).lean()
+    : [];
+  const pinsByActivityId = new Map(
+    pins.map((pin: Record<string, any>) => [
+      String(pin.activity?._id ?? pin.activity),
+      pin,
+    ]),
+  );
+
+  return activities
+    .map((activity: Record<string, any>) => {
+      const pin = pinsByActivityId.get(String(activity._id));
+
+      return pin ? serializeActivityTemplate(activity, pin) : null;
+    })
+    .filter(Boolean);
+}
+
+function getActivitySelector(activityId: string) {
+  const activitySelector: Record<string, any>[] = [];
+  const mockId = Number(activityId);
+
+  if (Number.isInteger(mockId)) {
+    activitySelector.push({ mockId });
+  }
+
+  if (Types.ObjectId.isValid(activityId)) {
+    activitySelector.push({ _id: activityId });
+  }
+
+  return activitySelector;
+}
+
+async function findVendorActivity(
+  vendor: Record<string, any>,
+  activityId: string,
+  select = "_id mockId title isOpen",
+) {
+  const linkedEventIds = getLinkedActivityIds(vendor);
+  const activitySelector = getActivitySelector(activityId);
+
+  if (activitySelector.length === 0) {
+    return null;
+  }
+
+  return ActivityModel.findOne({
+    $and: [
+      { $or: [{ vendor: vendor._id }, { _id: { $in: linkedEventIds } }] },
+      { $or: activitySelector },
+    ],
+  }).select(select);
 }
 
 router.get("/me", async (req, res, next) => {
@@ -169,6 +267,28 @@ router.get("/me/activities", async (req, res, next) => {
   }
 });
 
+router.get("/me/activity-templates", async (req, res, next) => {
+  try {
+    const user = await findAuthenticatedUser(req.headers.authorization);
+
+    if (!user) {
+      res.status(401).json({ message: "Sign in to view vendor activities." });
+      return;
+    }
+
+    const vendor = await VendorModel.findOne({ owner: user._id });
+
+    if (!vendor) {
+      res.status(404).json({ message: "Vendor profile not found." });
+      return;
+    }
+
+    res.json(await getVendorActivityTemplates(vendor));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/me/activities/:activityId/attendees", async (req, res, next) => {
   try {
     const user = await findAuthenticatedUser(req.headers.authorization);
@@ -185,29 +305,18 @@ router.get("/me/activities/:activityId/attendees", async (req, res, next) => {
       return;
     }
 
-    const linkedEventIds = getLinkedActivityIds(vendor);
-    const activitySelector: Record<string, any>[] = [];
-    const mockId = Number(req.params.activityId);
-
-    if (Number.isInteger(mockId)) {
-      activitySelector.push({ mockId });
-    }
-
-    if (Types.ObjectId.isValid(req.params.activityId)) {
-      activitySelector.push({ _id: req.params.activityId });
-    }
+    const activitySelector = getActivitySelector(req.params.activityId);
 
     if (activitySelector.length === 0) {
       res.status(400).json({ message: "Choose a valid activity." });
       return;
     }
 
-    const activity = await ActivityModel.findOne({
-      $and: [
-        { $or: [{ vendor: vendor._id }, { _id: { $in: linkedEventIds } }] },
-        { $or: activitySelector },
-      ],
-    }).select("_id mockId title");
+    const activity = await findVendorActivity(
+      vendor,
+      req.params.activityId,
+      "_id mockId title",
+    );
 
     if (!activity) {
       res.status(404).json({ message: "Activity not found." });
@@ -243,6 +352,59 @@ router.get("/me/activities/:activityId/attendees", async (req, res, next) => {
   }
 });
 
+router.patch("/me/activities/:activityId/open", async (req, res, next) => {
+  try {
+    const user = await findAuthenticatedUser(req.headers.authorization);
+
+    if (!user) {
+      res.status(401).json({ message: "Sign in to update activity status." });
+      return;
+    }
+
+    const vendor = await VendorModel.findOne({ owner: user._id });
+
+    if (!vendor) {
+      res.status(404).json({ message: "Vendor profile not found." });
+      return;
+    }
+
+    const activitySelector = getActivitySelector(req.params.activityId);
+
+    if (activitySelector.length === 0) {
+      res.status(400).json({ message: "Choose a valid activity." });
+      return;
+    }
+
+    const isOpen = req.body?.isOpen;
+
+    if (typeof isOpen !== "boolean") {
+      res.status(400).json({ message: "Choose whether the activity is open." });
+      return;
+    }
+
+    const activity = await findVendorActivity(vendor, req.params.activityId);
+
+    if (!activity) {
+      res.status(404).json({ message: "Activity not found." });
+      return;
+    }
+
+    activity.isOpen = isOpen;
+    await activity.save();
+
+    res.json({
+      activity: {
+        id: String(activity._id),
+        mockId: activity.mockId,
+        title: activity.title,
+        isOpen: activity.isOpen !== false,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch(
   "/me/activities/:activityId/attendees/:userId",
   async (req, res, next) => {
@@ -261,29 +423,18 @@ router.patch(
         return;
       }
 
-      const linkedEventIds = getLinkedActivityIds(vendor);
-      const activitySelector: Record<string, any>[] = [];
-      const mockId = Number(req.params.activityId);
-
-      if (Number.isInteger(mockId)) {
-        activitySelector.push({ mockId });
-      }
-
-      if (Types.ObjectId.isValid(req.params.activityId)) {
-        activitySelector.push({ _id: req.params.activityId });
-      }
+      const activitySelector = getActivitySelector(req.params.activityId);
 
       if (activitySelector.length === 0 || !Types.ObjectId.isValid(req.params.userId)) {
         res.status(400).json({ message: "Choose a valid attendee." });
         return;
       }
 
-      const activity = await ActivityModel.findOne({
-        $and: [
-          { $or: [{ vendor: vendor._id }, { _id: { $in: linkedEventIds } }] },
-          { $or: activitySelector },
-        ],
-      }).select("_id");
+      const activity = await findVendorActivity(
+        vendor,
+        req.params.activityId,
+        "_id mockId title",
+      );
 
       if (!activity) {
         res.status(404).json({ message: "Activity not found." });
@@ -294,12 +445,25 @@ router.patch(
       const join = await ActivityJoinModel.findOneAndUpdate(
         { activityId: activity._id, userId: req.params.userId },
         { attended },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!join) {
         res.status(404).json({ message: "Signed-up user not found." });
         return;
+      }
+
+      if (attended && !join.sentReview) {
+        await NotificationModel.create({
+          user: join.userId,
+          title: "Review your activity",
+          content: `How was ${activity.title}? Share a quick rating and note.`,
+          link: `/activities/${activity.mockId}/review`,
+          read: false,
+        });
+
+        join.sentReview = true;
+        await join.save();
       }
 
       res.json({

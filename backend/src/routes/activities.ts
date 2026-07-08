@@ -8,6 +8,7 @@ import {
   ChatMessageModel,
   ChatModel,
   MapPinModel,
+  RatingModel,
   SettingsModel,
   UserModel,
   VendorModel,
@@ -24,6 +25,7 @@ const vidaCategories = new Set([
 ]);
 const blacklistJoinReason =
   "You cannot join this activity because you are blacklisted from its group.";
+const openActivityFilter = { isOpen: { $ne: false }, isActive: { $ne: false } };
 
 function asObject(doc: Record<string, any>) {
   return typeof doc.toObject === "function" ? doc.toObject() : doc;
@@ -95,10 +97,56 @@ function serializePreviousActivity(activityValue: unknown) {
   };
 }
 
+function serializeCreatedActivityTemplate(
+  activityValue: unknown,
+  pinValue: unknown,
+) {
+  const activity =
+    typeof activityValue === "object" && activityValue !== null
+      ? asObject(activityValue as Record<string, any>)
+      : {};
+  const pin =
+    typeof pinValue === "object" && pinValue !== null
+      ? asObject(pinValue as Record<string, any>)
+      : {};
+  const chat =
+    typeof activity.chat === "object" && activity.chat !== null
+      ? asObject(activity.chat)
+      : null;
+
+  return {
+    id: activity.mockId,
+    title: activity.title,
+    location: activity.location,
+    latitude: pin.latitude,
+    longitude: pin.longitude,
+    durationMinutes: activity.durationMinutes,
+    spots: activity.spots,
+    credits: activity.credits,
+    categories: Array.isArray(activity.categories) ? activity.categories : [],
+    groupId: chat?.mockId,
+  };
+}
+
 function getFiniteNumber(value: unknown) {
   const numberValue = Number(value);
 
   return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function serializeReview(review: Record<string, any> | null) {
+  if (!review) {
+    return null;
+  }
+
+  const item = asObject(review);
+
+  return {
+    id: String(item._id),
+    activityId: String(item.activity?._id ?? item.activity),
+    rating: Number(item.rating),
+    review: item.review ?? "",
+  };
 }
 
 async function nextMockId(
@@ -177,28 +225,7 @@ function withJoinDisabledReason(activity: Record<string, any>, groupIds: Set<str
 
 router.get("/", async (req, res) => {
   const user = await findAuthenticatedUser(req.headers.authorization);
-  const activities = await ActivityModel.find({ isPremium: false })
-    .populate("host")
-    .populate("vendor")
-    .sort({ mockId: 1 });
-  const joiningUsersByActivityId = await getJoiningUsersByActivityId(activities);
-  const blacklistedGroupIds = user
-    ? await findBlacklistedGroupIds(user._id, activities)
-    : new Set<string>();
-
-  res.json(
-    activities.map((activity) =>
-      serializeActivity(
-        withJoinDisabledReason(activity, blacklistedGroupIds),
-        joiningUsersByActivityId.get(String(activity._id)) ?? [],
-      ),
-    ),
-  );
-});
-
-router.get("/premium", async (req, res) => {
-  const user = await findAuthenticatedUser(req.headers.authorization);
-  const activities = await ActivityModel.find({ isPremium: true })
+  const activities = await ActivityModel.find(openActivityFilter)
     .populate("host")
     .populate("vendor")
     .sort({ mockId: 1 });
@@ -219,9 +246,16 @@ router.get("/premium", async (req, res) => {
 
 router.get("/map-pins", async (_req, res) => {
   const pins = await MapPinModel.find()
-    .populate("activity")
+    .populate({
+      path: "activity",
+      match: openActivityFilter,
+    })
     .sort({ mockId: 1 });
-  res.json(pins.map(serializeMapPin));
+  res.json(
+    pins
+      .filter((pin: Record<string, any>) => Boolean(pin.activity))
+      .map(serializeMapPin),
+  );
 });
 
 router.get("/previous/:userId", async (req, res) => {
@@ -264,6 +298,51 @@ router.get("/previous/:userId", async (req, res) => {
   res.json(previousActivities);
 });
 
+router.get("/created-history", async (req, res, next) => {
+  try {
+    const user = await findAuthenticatedUser(req.headers.authorization);
+
+    if (!user) {
+      res.status(401).json({ message: "Not signed in." });
+      return;
+    }
+
+    const activities = await ActivityModel.find({
+      host: user._id,
+      startsAt: { $lt: new Date() },
+    })
+      .populate("chat")
+      .sort({ startsAt: -1 });
+    const activityIds = activities.map((activity: Record<string, any>) => activity._id);
+    const pins = activityIds.length
+      ? await MapPinModel.find({ activity: { $in: activityIds } })
+      : [];
+    const pinsByActivityId = new Map(
+      pins.map((pin: Record<string, any>) => [
+        String(pin.activity?._id ?? pin.activity),
+        pin,
+      ]),
+    );
+
+    res.json(
+      activities
+        .map((activity: Record<string, any>) =>
+          serializeCreatedActivityTemplate(
+            activity,
+            pinsByActivityId.get(String(activity._id)),
+          ),
+        )
+        .filter(
+          (template: Record<string, any>) =>
+            Number.isFinite(Number(template.latitude)) &&
+            Number.isFinite(Number(template.longitude)),
+        ),
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/", async (req, res, next) => {
   try {
     const user = await findAuthenticatedUser(req.headers.authorization);
@@ -282,6 +361,10 @@ router.post("/", async (req, res, next) => {
     const spots = getFiniteNumber(req.body?.spots);
     const credits = getFiniteNumber(req.body?.credits ?? 0);
     const createAsVendor = Boolean(req.body?.vendorId || req.body?.createAsVendor);
+    const isPremium = createAsVendor && req.body?.isPremium === true;
+    const skillsFuturePayable =
+      createAsVendor &&
+      Boolean(req.body?.skillsFuturePayable ?? req.body?.isSkillsFuturePayable);
     const linkedGroupId =
       req.body?.groupId === undefined ||
       req.body?.groupId === null ||
@@ -298,6 +381,8 @@ router.post("/", async (req, res, next) => {
       });
       return;
     }
+
+    const activityCredits = createAsVendor && !isPremium ? 0 : credits;
 
     if (linkedGroupId !== null && !Number.isInteger(linkedGroupId)) {
       res.status(400).json({ message: "Choose a valid group chat." });
@@ -413,11 +498,14 @@ router.post("/", async (req, res, next) => {
       location,
       durationMinutes: Math.round(durationMinutes),
       spots: Math.round(spots),
-      credits,
+      credits: activityCredits,
       rating: 5,
       categories,
       chat: chat._id,
-      isPremium: false,
+      isPremium,
+      skillsFuturePayable,
+      isOpen: true,
+      isActive: true,
       tags: [],
     });
 
@@ -433,7 +521,7 @@ router.post("/", async (req, res, next) => {
       latitude,
       longitude,
       label: title,
-      premium: false,
+      premium: activity.isPremium,
     });
 
     await ActivityJoinModel.create({
@@ -483,9 +571,12 @@ router.post("/:id/join", async (req, res, next) => {
     }
 
     const activityId = Number(req.params.id);
-    const activity = await ActivityModel.findOne({ mockId: activityId }).populate(
-      "host",
-    ).populate("vendor");
+    const activity = await ActivityModel.findOne({
+      mockId: activityId,
+      ...openActivityFilter,
+    })
+      .populate("host")
+      .populate("vendor");
 
     if (!activity) {
       res.status(404).json({ message: "Activity not found" });
@@ -566,6 +657,118 @@ router.get("/:id", async (req, res) => {
       joiningUsersByActivityId.get(String(activity._id)) ?? [],
     ),
   );
+});
+
+router.get("/:id/review", async (req, res) => {
+  const user = await findAuthenticatedUser(req.headers.authorization);
+
+  if (!user) {
+    res.status(401).json({ message: "Sign in to review this activity." });
+    return;
+  }
+
+  const activityId = Number(req.params.id);
+  const activity = await ActivityModel.findOne({ mockId: activityId }).select(
+    "_id mockId title startsAt",
+  );
+
+  if (!activity) {
+    res.status(404).json({ message: "Activity not found" });
+    return;
+  }
+
+  const join = await ActivityJoinModel.findOne({
+    activityId: activity._id,
+    userId: user._id,
+    attended: true,
+  }).select("_id");
+
+  if (!join) {
+    res.status(403).json({
+      message: "You can review this activity after your attendance is marked.",
+    });
+    return;
+  }
+
+  const review = await RatingModel.findOne({
+    activity: activity._id,
+    sender: user._id,
+  });
+
+  res.json({
+    activity: {
+      id: activity.mockId,
+      title: activity.title,
+      startsAt:
+        activity.startsAt instanceof Date
+          ? activity.startsAt.toISOString()
+          : new Date(String(activity.startsAt ?? "")).toISOString(),
+    },
+    review: serializeReview(review),
+  });
+});
+
+router.post("/:id/review", async (req, res) => {
+  const user = await findAuthenticatedUser(req.headers.authorization);
+
+  if (!user) {
+    res.status(401).json({ message: "Sign in to review this activity." });
+    return;
+  }
+
+  const activityId = Number(req.params.id);
+  const activity = await ActivityModel.findOne({ mockId: activityId }).select(
+    "_id mockId title startsAt",
+  );
+
+  if (!activity) {
+    res.status(404).json({ message: "Activity not found" });
+    return;
+  }
+
+  const join = await ActivityJoinModel.findOne({
+    activityId: activity._id,
+    userId: user._id,
+    attended: true,
+  }).select("_id");
+
+  if (!join) {
+    res.status(403).json({
+      message: "You can review this activity after your attendance is marked.",
+    });
+    return;
+  }
+
+  const rating = Number(req.body?.rating);
+  const review = getString(req.body?.review);
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ message: "Choose a rating from 1 to 5 stars." });
+    return;
+  }
+
+  if (review.length > 500) {
+    res.status(400).json({ message: "Review must be 500 characters or less." });
+    return;
+  }
+
+  const savedReview = await RatingModel.findOneAndUpdate(
+    { activity: activity._id, sender: user._id },
+    { $set: { rating, review } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+
+  res.json({
+    activity: {
+      id: activity.mockId,
+      title: activity.title,
+      startsAt:
+        activity.startsAt instanceof Date
+          ? activity.startsAt.toISOString()
+          : new Date(String(activity.startsAt ?? "")).toISOString(),
+    },
+    review: serializeReview(savedReview),
+  });
 });
 
 export default router;

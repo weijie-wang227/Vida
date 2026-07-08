@@ -100,6 +100,19 @@ async function migrateActivityScheduleFields() {
   );
 }
 
+async function migrateActivityOpenField() {
+  const activities = mongoose.connection.db?.collection("activities");
+
+  if (!activities) {
+    return;
+  }
+
+  await activities.updateMany(
+    { isOpen: { $exists: false } },
+    { $set: { isOpen: true } },
+  );
+}
+
 export async function connectDB() {
   const mongoUri = process.env.MONGODB_URI?.trim();
 
@@ -141,6 +154,7 @@ export async function connectDB() {
 
   console.log(`Connected to MongoDB database "${databaseName}".`);
   await migrateActivityScheduleFields();
+  await migrateActivityOpenField();
 
   return true;
 }
