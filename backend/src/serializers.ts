@@ -251,6 +251,7 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
     skillsFuturePayable: Boolean(item.skillsFuturePayable),
     isOpen: item.isOpen !== false,
     isActive: item.isActive !== false,
+    cover: item.cover || undefined,
     vendor: vendor
       ? {
           id: String(vendor._id ?? item.vendor),
@@ -263,14 +264,7 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
     joinDisabledReason: item.joinDisabledReason,
   };
 
-  if (!item.isPremium) {
-    return baseActivity;
-  }
-
-  return {
-    ...baseActivity,
-    cover: item.cover,
-  };
+  return baseActivity;
 }
 
 export function serializeActivityJoinUser(user: AnyDoc) {
