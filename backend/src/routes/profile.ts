@@ -2,24 +2,24 @@ import { Router } from "express";
 import { Types } from "mongoose";
 import {
   createAvatarUrl,
-  findAuthenticatedUser,
   normalizeHandle,
 } from "../auth.js";
+import { requireAuth } from "../middleware/auth.js";
 import {
+  AccountModel,
+  FeedPostModel,
   FriendshipModel,
   NotificationModel,
   SettingsModel,
   UserModel,
 } from "../models/VidaData.js";
 import { serializeFriend, serializeProfile } from "../serializers.js";
+import { getString } from "../utils/input.js";
+import { asObject } from "../utils/mongoose.js";
 
 const router = Router();
 const maxNameLength = 80;
 const maxBioLength = 240;
-
-function getString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 function hasHandleCharacters(value: string) {
   return /[a-z0-9_]/i.test(value.replace(/^@+/, ""));
@@ -88,25 +88,64 @@ async function findFriendByRouteId(friendId: string) {
   return null;
 }
 
-router.get("/profile", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
+async function getLiveProfileStats(userId: Types.ObjectId) {
+  const [user, friendsCount, postsCount] = await Promise.all([
+    UserModel.findById(userId).select("attendedSessionsCount"),
+    FriendshipModel.countDocuments({ userId }),
+    FeedPostModel.countDocuments({ user: userId }),
+  ]);
+  const activitiesCount = Number(user?.attendedSessionsCount) || 0;
 
-  if (authUser) {
-    res.json(serializeProfile(authUser));
-    return;
+  return [
+    { value: String(activitiesCount), label: "Activities" },
+    { value: String(friendsCount), label: "Friends" },
+    { value: String(postsCount), label: "Posts" },
+  ];
+}
+
+async function getProfileAccount(userId: unknown) {
+  const account = await AccountModel.findOne({ user: userId })
+    .populate("membership")
+    .sort({ startAt: -1, createdAt: -1 });
+
+  if (!account) {
+    return null;
   }
 
-  res.status(401).json({ message: "Not signed in." });
+  const item = asObject(account);
+  const membership = asObject(item.membership);
+
+  return {
+    membershipName: membership.name ?? "Membership",
+    creditsLeft: Number(item.creditsLeft ?? 0),
+  };
+}
+
+async function serializeCurrentProfile(user: Record<string, any>) {
+  const [stats, account] = await Promise.all([
+    getLiveProfileStats(user._id),
+    getProfileAccount(user._id),
+  ]);
+
+  return {
+    ...serializeProfile({
+      ...asObject(user),
+      stats,
+    }),
+    account,
+  };
+}
+
+router.use(requireAuth);
+
+// Returns the signed-in user's profile.
+router.get("/profile", async (_req, res) => {
+  res.json(await serializeCurrentProfile(res.locals.user));
 });
 
+// Checks whether a requested profile handle is available.
 router.get("/profile/handle-availability", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+  const authUser = res.locals.user;
   const requestedHandle = getString(req.query.handle);
 
   if (!requestedHandle || !hasHandleCharacters(requestedHandle)) {
@@ -128,15 +167,10 @@ router.get("/profile/handle-availability", async (req, res) => {
   });
 });
 
+// Replaces editable profile fields for the signed-in user.
 router.put("/profile", async (req, res, next) => {
   try {
-    const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!authUser) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const authUser = res.locals.user;
     const name = getString(req.body?.name);
     const requestedHandle = getString(req.body?.handle);
     const bio = getString(req.body?.bio);
@@ -200,7 +234,7 @@ router.put("/profile", async (req, res, next) => {
       return;
     }
 
-    res.json(serializeProfile(updatedUser));
+    res.json(await serializeCurrentProfile(updatedUser));
   } catch (error) {
     if (isDuplicateKeyError(error)) {
       res.status(409).json({
@@ -214,14 +248,9 @@ router.put("/profile", async (req, res, next) => {
   }
 });
 
-router.get("/friends", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+// Lists friends for the signed-in user.
+router.get("/friends", async (_req, res) => {
+  const authUser = res.locals.user;
   const savedFriends = await FriendshipModel.find({ userId: authUser._id })
     .populate("friendId")
     .sort({ createdAt: 1 });
@@ -229,14 +258,9 @@ router.get("/friends", async (req, res) => {
   res.json(savedFriends.map(serializeFriend));
 });
 
+// Searches users that can be added as friends.
 router.get("/friends/search", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+  const authUser = res.locals.user;
   const query = normalizeHandleSearchQuery(getString(req.query.query));
 
   if (!query) {
@@ -268,14 +292,9 @@ router.get("/friends/search", async (req, res) => {
   );
 });
 
+// Adds another user as a friend for the signed-in user.
 router.post("/friends/add/:friendId", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+  const authUser = res.locals.user;
   const userId = String(authUser._id);
   const friendId = String(req.params.friendId ?? "").trim();
 
@@ -345,14 +364,9 @@ router.post("/friends/add/:friendId", async (req, res) => {
   res.json(serializeFriend(friendship));
 });
 
+// Removes a friend from the signed-in user's friend list.
 router.delete("/friends/:friendId", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+  const authUser = res.locals.user;
   const friendId = String(req.params.friendId ?? "").trim();
 
   if (!friendId) {

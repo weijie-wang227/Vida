@@ -1,10 +1,13 @@
 import { BrowserRouter } from "react-router";
-import { AppShell } from "./AppShell";
+import { VendorStateProvider } from "../state";
+import { AuthGate } from "./AuthGate";
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AppShell />
+      <VendorStateProvider>
+        <AuthGate />
+      </VendorStateProvider>
     </BrowserRouter>
   );
 }

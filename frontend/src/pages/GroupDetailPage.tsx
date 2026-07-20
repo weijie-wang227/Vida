@@ -1,13 +1,9 @@
 import {
-  ArrowUpRight,
   Ban,
-  Calendar,
   ChevronLeft,
-  Clock,
   Info,
   Loader2,
   LogOut,
-  MapPin,
   Send,
   ShieldCheck,
   Trash2,
@@ -34,11 +30,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../app/components/ui/alert-dialog";
-import {
-  formatActivityDate,
-  formatActivityTime,
-} from "../lib/activityPresentation";
-import { FriendAvatar, FriendAvatars } from "../components/FriendAvatars";
+import { FriendAvatar } from "../components/FriendAvatars";
+import { ChatMessageItem } from "../components/chat/ChatMessageItem";
 import type { GroupMember } from "../lib/types";
 import { useAppState } from "../state";
 
@@ -61,6 +54,7 @@ export function GroupDetailPage() {
     profile,
     removeGroupMember,
     sendGroupMessage,
+    voteOnPoll,
   } = useAppState();
   const navigate = useNavigate();
   const { groupId: groupIdParam } = useParams();
@@ -68,6 +62,7 @@ export function GroupDetailPage() {
   const [draft, setDraft] = useState("");
   const [messageError, setMessageError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [pendingPollId, setPendingPollId] = useState<string | null>(null);
   const [isMemberSheetOpen, setIsMemberSheetOpen] = useState(false);
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
@@ -127,6 +122,25 @@ export function GroupDetailPage() {
       );
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handlePollVote = async (messageId: string, optionId: string) => {
+    if (!Number.isFinite(groupId)) {
+      return;
+    }
+
+    setMessageError(null);
+    setPendingPollId(messageId);
+
+    try {
+      await voteOnPoll(groupId, messageId, optionId);
+    } catch (error) {
+      setMessageError(
+        error instanceof Error ? error.message : "Unable to record vote.",
+      );
+    } finally {
+      setPendingPollId(null);
     }
   };
 
@@ -456,150 +470,15 @@ export function GroupDetailPage() {
               const isMine =
                 message.sender.id === authUser?.id ||
                 message.sender.handle === profile.handle;
-              const invite = message.activityInvite;
-              const senderAvatar = (
-                <FriendAvatar user={message.sender} className="h-7 w-7" />
-              );
-
-              if (message.type === "activity_invite" && invite) {
-                const joinedFriends = invite.joiningFriends;
-
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex items-end gap-2 ${
-                      isMine ? "justify-end" : ""
-                    }`}
-                  >
-                    {!isMine && senderAvatar}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate(`/activities/${invite.activity.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          navigate(`/activities/${invite.activity.id}`);
-                        }
-                      }}
-                      className={`max-w-[86%] rounded-2xl border px-3 py-3 text-left shadow-sm transition-transform active:scale-[0.99] ${
-                        isMine
-                          ? "rounded-br-md border-accent/25 bg-accent/10"
-                          : "rounded-bl-md border-border bg-card"
-                      }`}
-                      aria-label={`Open ${invite.activity.title}`}
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="truncate text-[10px] font-semibold text-accent">
-                              {message.sender.name}
-                            </p>
-                            {message.sender.isAdmin && (
-                              <span className="rounded-full border border-accent/25 bg-accent/10 px-1.5 py-0.5 text-[9px] font-medium text-accent">
-                                Admin
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[9px] text-muted-foreground">
-                            {message.time}
-                          </p>
-                        </div>
-                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                          <ArrowUpRight size={13} />
-                        </div>
-                      </div>
-
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                        Activity Invite
-                      </p>
-                      <h3 className="mt-1 text-sm font-bold leading-tight text-foreground">
-                        {invite.activity.title}
-                      </h3>
-
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <Calendar size={11} className="flex-shrink-0 text-accent" />
-                          <span className="truncate">
-                            {formatActivityDate(invite.activity.startsAt)}
-                          </span>
-                        </div>
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <Clock size={11} className="flex-shrink-0 text-accent" />
-                          <span className="truncate">
-                            {formatActivityTime(invite.activity.startsAt)}
-                          </span>
-                        </div>
-                        <div className="col-span-2 flex min-w-0 items-center gap-1.5">
-                          <MapPin size={11} className="flex-shrink-0 text-accent" />
-                          <span className="truncate">
-                            {invite.activity.location}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 border-t border-border pt-2">
-                        {joinedFriends.length > 0 ? (
-                          <FriendAvatars friends={joinedFriends} max={4} />
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground">
-                            No one has joined yet.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {isMine && senderAvatar}
-                  </div>
-                );
-              }
 
               return (
-                <div
+                <ChatMessageItem
                   key={message.id}
-                  className={`flex items-end gap-2 ${
-                    isMine ? "justify-end" : ""
-                  }`}
-                >
-                  {!isMine && senderAvatar}
-                  <div
-                    className={`max-w-[78%] rounded-2xl px-3 py-2 ${
-                      isMine
-                        ? "rounded-br-md bg-accent text-accent-foreground"
-                        : "rounded-bl-md bg-card text-foreground border border-border"
-                    }`}
-                  >
-                    {isMine && message.sender.isAdmin && (
-                      <div className="mb-1 flex justify-end">
-                        <span className="rounded-full border border-accent-foreground/20 bg-accent-foreground/10 px-1.5 py-0.5 text-[9px] font-medium text-accent-foreground/75">
-                          Admin
-                        </span>
-                      </div>
-                    )}
-                    {!isMine && (
-                      <div className="mb-1 flex items-center gap-1.5">
-                        <p className="text-[10px] font-semibold text-accent">
-                          {message.sender.name}
-                        </p>
-                        {message.sender.isAdmin && (
-                          <span className="rounded-full border border-accent/25 bg-accent/10 px-1.5 py-0.5 text-[9px] font-medium text-accent">
-                            Admin
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <p className="text-[12px] leading-snug">{message.body}</p>
-                    <p
-                      className={`mt-1 text-[9px] ${
-                        isMine
-                          ? "text-accent-foreground/70"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {message.time}
-                    </p>
-                  </div>
-                  {isMine && senderAvatar}
-                </div>
+                  message={message}
+                  isMine={isMine}
+                  isVoting={pendingPollId === message.id}
+                  onVote={handlePollVote}
+                />
               );
             })}
             <div ref={endRef} />

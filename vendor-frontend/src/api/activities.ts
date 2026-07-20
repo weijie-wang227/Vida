@@ -1,48 +1,72 @@
 import { apiRequest } from "./client";
 import type {
   ActivityAttendeesResponse,
-  ActivityTemplate,
+  ActivityReviewsResponse,
   CreateActivityInput,
+  CreateVendorActivityResponse,
+  CreateSessionInput,
+  CreateVendorSessionResponse,
   UpdateActivityOpenResponse,
   UpdateAttendanceResponse,
+  AttendanceStatus,
   VendorActivitiesResponse,
+  VendorSessionsResponse,
 } from "./types";
 
 export function fetchVendorActivities() {
-  return apiRequest<VendorActivitiesResponse>("/vendors/me/activities");
+  return apiRequest<VendorActivitiesResponse>("/vendors/me/activities").then(
+    (response) => response.activities,
+  );
+}
+
+export function fetchVendorSessions() {
+  return apiRequest<VendorSessionsResponse>("/vendors/me/sessions").then(
+    (response) => response.sessions,
+  );
 }
 
 export function createVendorActivity(input: CreateActivityInput) {
-  return apiRequest<{ activity: unknown }>("/activities", {
+  return apiRequest<CreateVendorActivityResponse>("/activities", {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
-export function fetchVendorActivityTemplates() {
-  return apiRequest<ActivityTemplate[]>("/vendors/me/activity-templates");
+export function createVendorSession(input: CreateSessionInput) {
+  return apiRequest<CreateVendorSessionResponse>("/sessions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
-export function fetchActivityAttendees(activityId: number | string) {
+export function fetchActivityAttendees(
+  activityId: number | string,
+  page = 1,
+  limit = 50,
+) {
   return apiRequest<ActivityAttendeesResponse>(
-    `/vendors/me/activities/${activityId}/attendees`,
+    `/vendors/me/sessions/${activityId}/attendees?page=${page}&limit=${limit}`,
   );
+}
+
+export function fetchActivityReviews(sessionId: number | string) {
+  return apiRequest<ActivityReviewsResponse>(`/sessions/${sessionId}/reviews`);
 }
 
 export function updateActivityAttendance({
   activityId,
-  attended,
+  status,
   userId,
 }: {
   activityId: number | string;
-  attended: boolean;
+  status: AttendanceStatus;
   userId: string;
 }) {
   return apiRequest<UpdateAttendanceResponse>(
-    `/vendors/me/activities/${activityId}/attendees/${userId}`,
+    `/vendors/me/sessions/${activityId}/attendees/${userId}`,
     {
       method: "PATCH",
-      body: JSON.stringify({ attended }),
+      body: JSON.stringify({ status }),
     },
   );
 }
@@ -55,10 +79,20 @@ export function updateActivityOpen({
   isOpen: boolean;
 }) {
   return apiRequest<UpdateActivityOpenResponse>(
-    `/vendors/me/activities/${activityId}/open`,
+    `/vendors/me/sessions/${activityId}/open`,
     {
       method: "PATCH",
       body: JSON.stringify({ isOpen }),
     },
   );
+}
+
+export function updateSessionOpen({
+  sessionId,
+  isOpen,
+}: {
+  sessionId: number | string;
+  isOpen: boolean;
+}) {
+  return updateActivityOpen({ activityId: sessionId, isOpen });
 }

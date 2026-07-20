@@ -4,6 +4,7 @@ import type {
   GroupMutationResponse,
   GroupChat,
   JoinGroupResponse,
+  PollVoteResponse,
   SendGroupMessageResponse,
 } from "../lib/types";
 
@@ -15,11 +16,25 @@ export async function fetchGroupMessages(groupId: number) {
   return apiRequest<ChatMessage[]>(`/groups/${groupId}/messages`);
 }
 
-export async function sendGroupMessage(groupId: number, body: string) {
+export async function sendGroupMessage(groupId: number, text: string) {
   return apiRequest<SendGroupMessageResponse>(`/groups/${groupId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ text }),
   });
+}
+
+export async function voteInGroupPoll(
+  groupId: number,
+  messageId: string,
+  optionId: string,
+) {
+  return apiRequest<PollVoteResponse>(
+    `/groups/${groupId}/polls/${encodeURIComponent(messageId)}/votes`,
+    {
+      method: "POST",
+      body: JSON.stringify({ optionId }),
+    },
+  );
 }
 
 export async function joinGroup(groupId: number) {

@@ -1,18 +1,15 @@
 import type { ChatPreview } from "./chatPreviews.js";
+import {
+  getChatMessageType,
+  normalizeChatMessagePayload,
+  type ChatMessageType,
+} from "./chatMessages.js";
+import { toIsoString } from "./utils/date.js";
+import { asObject } from "./utils/mongoose.js";
 
 type vidaCategory = "physical" | "social" | "cognitive" | "creative";
 
 type AnyDoc = Record<string, any>;
-
-function asObject(doc: AnyDoc) {
-  return typeof doc.toObject === "function" ? doc.toObject() : doc;
-}
-
-function toIsoString(value: unknown) {
-  const date = value instanceof Date ? value : new Date(String(value ?? ""));
-
-  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-}
 
 function formatChatTime(value: unknown) {
   const date = new Date(toIsoString(value));
@@ -48,17 +45,76 @@ function getActivityCredits(activity: AnyDoc) {
   return 0;
 }
 
-function getActivityStartsAt(activity: AnyDoc) {
+function getSessionDuration(sessionValue: unknown) {
+  const session = asObject((sessionValue ?? {}) as AnyDoc);
+  const duration = Number(session.duration ?? session.durationMinutes);
+
+  return Number.isFinite(duration) ? duration : 0;
+}
+
+function getActivitySessions(activity: AnyDoc) {
   const item = asObject(activity ?? {});
+
+  if (Array.isArray(item.sessions)) {
+    return item.sessions.map((session: AnyDoc) => asObject(session));
+  }
+
+  if (item.primarySession) {
+    return [asObject(item.primarySession)];
+  }
+
+  return [];
+}
+
+function getPrimarySession(activity: AnyDoc) {
+  const sessions = getActivitySessions(activity);
+
+  if (sessions.length > 0) {
+    return sessions[0];
+  }
+
+  return asObject(activity ?? {});
+}
+
+function getActivityStartsAt(activity: AnyDoc, sessionValue?: unknown) {
+  const item = asObject((sessionValue ?? getPrimarySession(activity)) as AnyDoc);
+  const activityItem = asObject(activity ?? {});
   const startsAt = new Date(String(item.startsAt ?? ""));
 
   if (!Number.isNaN(startsAt.getTime())) {
     return startsAt.toISOString();
   }
 
-  const fallback = new Date(toIsoString(item.createdAt ?? item.updatedAt));
+  const fallback = new Date(
+    toIsoString(item.createdAt ?? activityItem.createdAt ?? activityItem.updatedAt),
+  );
 
   return fallback.toISOString();
+}
+
+function getActivityHost(activity: AnyDoc) {
+  const item = asObject(activity ?? {});
+  const host = asObject(item.host ?? item.vendor ?? {});
+
+  return host;
+}
+
+export function serializeTagNames(tagsValue: unknown) {
+  if (!Array.isArray(tagsValue)) {
+    return [];
+  }
+
+  return tagsValue
+    .map((tagValue) => {
+      if (typeof tagValue === "string") {
+        return tagValue;
+      }
+
+      const tag = asObject((tagValue ?? {}) as AnyDoc);
+
+      return typeof tag.name === "string" ? tag.name : "";
+    })
+    .filter(Boolean);
 }
 
 export function serializeFriend(friendship: AnyDoc) {
@@ -175,24 +231,60 @@ function serializeChatMember(
 export function serializeChatMessage(
   message: AnyDoc,
   adminUserIds = new Set<string>(),
-  joiningUsersByActivityId = new Map<string, AnyDoc[]>(),
+  participatingUsersBySessionId = new Map<string, AnyDoc[]>(),
+  pollResultsByMessageId = new Map<
+    string,
+    {
+      voteCounts: Record<string, number>;
+      selectedOptionIds: string[];
+      totalVotes: number;
+    }
+  >(),
 ) {
   const item = asObject(message);
   const chat = asObject(item.chat ?? {});
   const sender = asObject(item.sender ?? {});
-  const messageType = item.type === "activity_invite" ? item.type : "text";
-  const activity = item.activity ? asObject(item.activity) : null;
+  const messageType = getChatMessageType(item.type);
+  const storedPayload = normalizeChatMessagePayload(
+    messageType as never,
+    item.payload,
+  );
   const createdAt = toIsoString(item.createdAt ?? item.updatedAt);
   const senderId = String(sender._id ?? "");
-  const activityId = activity ? String(activity._id ?? "") : "";
-  const joiningFriends = activityId
-    ? (joiningUsersByActivityId.get(activityId) ?? []).map(serializeActivityJoinUser)
-    : [];
+  const messageId = String(item._id);
+  const payloadSerializers: Record<ChatMessageType, (payload: any) => unknown> = {
+    text: (payload) => payload,
+    activity_invite: (payload) => ({
+      ...payload,
+      participatingFriends: (
+        participatingUsersBySessionId.get(String(payload.session.objectId)) ?? []
+      ).map(serializeParticipationUser),
+    }),
+    poll: (payload) => {
+      const result = pollResultsByMessageId.get(messageId) ?? {
+        voteCounts: {},
+        selectedOptionIds: [],
+        totalVotes: 0,
+      };
+      const selectedOptionIds = new Set(result.selectedOptionIds);
+
+      return {
+        ...payload,
+        options: payload.options.map((option: Record<string, any>) => ({
+          ...option,
+          votes: result.voteCounts[option.id] ?? 0,
+          selected: selectedOptionIds.has(option.id),
+        })),
+        totalVotes: result.totalVotes,
+      };
+    },
+  };
 
   return {
-    id: String(item._id),
+    id: messageId,
     groupId: chat.mockId,
     type: messageType,
+    schemaVersion: Number(item.schemaVersion) || 1,
     sender: {
       id: senderId,
       name: sender.name ?? "Unknown user",
@@ -200,32 +292,21 @@ export function serializeChatMessage(
       avatar: sender.avatarUrl ?? "",
       isAdmin: adminUserIds.has(senderId),
     },
-    body: item.body,
     time: formatChatTime(createdAt),
     createdAt,
-    activityInvite:
-      messageType === "activity_invite" && activity
-        ? {
-            activity: {
-              id: activity.mockId,
-              title: activity.title,
-              startsAt: getActivityStartsAt(activity),
-              location: activity.location,
-              durationMinutes: activity.durationMinutes,
-              credits: getActivityCredits(activity),
-              categories: (activity.categories ?? []) as vidaCategory[],
-            },
-            joiningFriends,
-          }
-        : undefined,
+    payload: payloadSerializers[messageType](storedPayload),
   };
 }
 
-export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = []) {
+export function serializeActivity(
+  activity: AnyDoc,
+  participatingUsers: AnyDoc[] = [],
+) {
   const item = asObject(activity);
-  const host = asObject(item.host);
-  const vendor = item.vendor ? asObject(item.vendor) : null;
-  const joiningFriends = joiningUsers.map((user: AnyDoc) => {
+  const host = getActivityHost(item);
+  const primarySession = getPrimarySession(item);
+  const sessions = getActivitySessions(item).map(serializeSession);
+  const participatingFriends = participatingUsers.map((user: AnyDoc) => {
     const friend = asObject(user);
 
     return {
@@ -238,42 +319,80 @@ export function serializeActivity(activity: AnyDoc, joiningUsers: AnyDoc[] = [])
   const baseActivity = {
     id: item.mockId,
     title: item.title,
+    description: item.description ?? "",
     host: host?.name ?? item.hostName ?? "Unknown host",
-    startsAt: getActivityStartsAt(item),
-    location: item.location,
-    durationMinutes: item.durationMinutes,
-    spots: item.spots,
-    credits: getActivityCredits(item),
+    startsAt: getActivityStartsAt(item, primarySession),
+    location: primarySession.location ?? item.location,
+    lat: primarySession.lat ?? item.lat,
+    lng: primarySession.lng ?? item.lng,
+    latitude: primarySession.lat ?? item.latitude,
+    longitude: primarySession.lng ?? item.longitude,
+    duration: getSessionDuration(primarySession),
+    durationMinutes: getSessionDuration(primarySession),
+    spots: primarySession.spots,
+    registeredCount: Number(
+      primarySession.registeredCount ?? participatingFriends.length,
+    ),
+    attendedCount: Number(primarySession.attendedCount ?? 0),
+    credits: getActivityCredits(primarySession),
     rating: item.rating,
     categories: (item.categories ?? []) as vidaCategory[],
-    tags: item.tags ?? [],
+    tags: serializeTagNames(item.tags),
+    isVolunteer: Boolean(item.isVolunteer),
+    isPremium: Boolean(primarySession.isPremium),
+    skillsFuturePayable: Boolean(primarySession.skillsFuturePayable),
+    isOpen: primarySession.isOpen !== false,
+    isActive: primarySession.isActive !== false,
+    cover: item.cover || undefined,
+    vendor: host?._id
+      ? {
+          id: String(host._id ?? item.host),
+          name: host.name,
+          profileUrl: host.profileUrl ?? "",
+          description: host.description ?? "",
+        }
+      : undefined,
+    sessions,
+    participatingFriends,
+    joinDisabledReason: item.joinDisabledReason,
+  };
+
+  return baseActivity;
+}
+
+export function serializeSession(session: AnyDoc) {
+  const item = asObject(session);
+  const activity = item.activity ? asObject(item.activity) : null;
+  const chat = item.chat ? asObject(item.chat) : null;
+  const duration = getSessionDuration(item);
+
+  return {
+    id: item.mockId ?? String(item._id ?? ""),
+    objectId: String(item._id ?? ""),
+    activityId: activity?.mockId ?? String(activity?._id ?? item.activity ?? ""),
+    title: item.title,
+    startsAt: getActivityStartsAt(activity ?? item, item),
+    duration,
+    durationMinutes: duration,
+    spots: item.spots,
+    registeredCount: Number(item.registeredCount ?? 0),
+    attendedCount: Number(item.attendedCount ?? 0),
+    credits: getActivityCredits(item),
+    chat: chat?._id ? String(chat._id) : String(item.chat ?? ""),
+    groupId: chat?.mockId,
     isPremium: Boolean(item.isPremium),
     skillsFuturePayable: Boolean(item.skillsFuturePayable),
     isOpen: item.isOpen !== false,
     isActive: item.isActive !== false,
-    vendor: vendor
-      ? {
-          id: String(vendor._id ?? item.vendor),
-          name: vendor.name,
-          profileUrl: vendor.profileUrl ?? "",
-          description: vendor.description ?? "",
-        }
-      : undefined,
-    joiningFriends,
-    joinDisabledReason: item.joinDisabledReason,
-  };
-
-  if (!item.isPremium) {
-    return baseActivity;
-  }
-
-  return {
-    ...baseActivity,
-    cover: item.cover,
+    location: item.location,
+    lat: item.lat,
+    lng: item.lng,
+    latitude: item.lat,
+    longitude: item.lng,
   };
 }
 
-export function serializeActivityJoinUser(user: AnyDoc) {
+export function serializeParticipationUser(user: AnyDoc) {
   const friend = asObject(user);
 
   return {
@@ -291,12 +410,14 @@ export function serializeMapPin(pin: AnyDoc) {
   return {
     id: item.mockId,
     activityId: activity.mockId,
-    latitude: item.latitude,
-    longitude: item.longitude,
+    sessionId: item.mockId,
+    registeredCount: Number(item.registeredCount ?? 0),
+    latitude: item.lat ?? item.latitude,
+    longitude: item.lng ?? item.longitude,
     x: 0,
     y: 0,
-    label: item.label,
-    premium: item.premium,
+    label: item.title ?? item.label,
+    premium: item.isPremium ?? item.premium,
     categories: (activity.categories ?? []) as vidaCategory[],
   };
 }

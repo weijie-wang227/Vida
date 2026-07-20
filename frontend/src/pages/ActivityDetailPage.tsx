@@ -24,7 +24,7 @@ import {
   primaryActivityCategory,
   vidaCategoryColor,
 } from "../lib/activityPresentation";
-import type { Activity } from "../lib/types";
+import type { Activity, ActivitySession } from "../lib/types";
 import { useAppState } from "../state";
 
 function getActivityById(
@@ -42,6 +42,12 @@ function parseActivityId(activityId: string | undefined): number | null {
   const nextActivityId = Number(activityId);
 
   return Number.isInteger(nextActivityId) ? nextActivityId : null;
+}
+
+function getSessionRouteId(session: ActivitySession) {
+  const sessionId = Number(session.id);
+
+  return Number.isInteger(sessionId) ? sessionId : null;
 }
 
 export function ActivityDetailPage() {
@@ -62,7 +68,7 @@ export function ActivityDetailPage() {
   );
   const [fallbackError, setFallbackError] = useState<string | null>(null);
   const [isLoadingFallback, setIsLoadingFallback] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
+  const [joiningSessionId, setJoiningSessionId] = useState<number | null>(null);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const activities: Activity[] = [...premiumActivities, ...standardActivities];
   const routeActivityId = parseActivityId(activityId);
@@ -139,15 +145,32 @@ export function ActivityDetailPage() {
   const categories = categoriesForActivity(activity.categories);
   const primaryCategory = primaryActivityCategory(activity.categories);
   const primaryColor = vidaCategoryColor[primaryCategory];
-  const joined = activity.joiningFriends.some(
-    (friend) => friend.handle === profile.handle,
-  );
   const joinDisabledReason = activity.joinDisabledReason;
+  const openSessions = (activity.sessions ?? []).filter(
+    (session) => session.isOpen && session.isActive,
+  );
 
-  const handleJoinActivity = async () => {
+  const handleJoinSession = async (session: ActivitySession) => {
+    const sessionId = getSessionRouteId(session);
+    const joined = (session.participatingFriends ?? []).some(
+      (friend) => friend.handle === profile.handle,
+    );
+
     setJoinError(null);
+
+    if (joined && session.groupId) {
+      navigate(`/groups/${session.groupId}`);
+      return;
+    }
+
     if (joined) {
-      navigate(`/groups/${activity.id}`);
+      setJoinError("This session is already joined, but its group is unavailable.");
+      return;
+    }
+
+    if (sessionId === null) {
+      setJoinError("This session is unavailable.");
+      return;
     }
 
     if (joinDisabledReason) {
@@ -155,14 +178,16 @@ export function ActivityDetailPage() {
       return;
     }
 
-    setIsJoining(true);
+    setJoiningSessionId(sessionId);
 
     try {
-      await joinActivity(activity.id);
+      await joinActivity(sessionId);
     } catch (error) {
-      setJoinError(error instanceof Error ? error.message : "Unable to join.");
+      setJoinError(
+        error instanceof Error ? error.message : "Unable to join session.",
+      );
     } finally {
-      setIsJoining(false);
+      setJoiningSessionId(null);
     }
   };
 
@@ -322,7 +347,7 @@ export function ActivityDetailPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Friends joining
                 </p>
-                <FriendAvatars friends={activity.joiningFriends} max={5} />
+                <FriendAvatars friends={activity.participatingFriends} max={5} />
               </div>
               {/*
               <div className="flex items-center gap-1">
@@ -338,31 +363,102 @@ export function ActivityDetailPage() {
               Singapore at an easy pace.
             </p>
           </div>
-        </div>
-      </div>
 
-      <div className="border-t border-border bg-background px-4 py-3">
-        {joinError && (
-          <p className="mb-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
-            {joinError}
-          </p>
-        )}
-        {joinDisabledReason && !joinError && (
-          <p className="mb-2 rounded-xl border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
-            {joinDisabledReason}
-          </p>
-        )}
-        <button
-          onClick={handleJoinActivity}
-          disabled={isJoining || Boolean(joinDisabledReason)}
-          className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-accent-foreground active:scale-[0.99] transition-transform disabled:opacity-70"
-        >
-          {isJoining
-            ? "Joining..."
-            : joined
-              ? "Open group chat"
-              : "Join activity"}
-        </button>
+          <div className="mt-4 pb-6">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Available sessions
+              </p>
+              <span className="text-[11px] text-muted-foreground">
+                {openSessions.length} open
+              </span>
+            </div>
+
+            {joinError && (
+              <p className="mb-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                {joinError}
+              </p>
+            )}
+            {joinDisabledReason && !joinError && (
+              <p className="mb-2 rounded-xl border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
+                {joinDisabledReason}
+              </p>
+            )}
+
+            {openSessions.length === 0 ? (
+              <div className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                No open sessions are available right now.
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                {openSessions.map((session) => {
+                  const sessionId = getSessionRouteId(session);
+                  const sessionFriends = session.participatingFriends ?? [];
+                  const joined = sessionFriends.some(
+                    (friend) => friend.handle === profile.handle,
+                  );
+                  const isJoining = joiningSessionId === sessionId;
+
+                  return (
+                    <div
+                      key={String(session.id)}
+                      className="rounded-2xl border border-border bg-card p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-sm font-bold text-foreground">
+                            {session.title || activity.title}
+                          </h3>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar size={12} className="text-accent" />
+                              {formatActivityDate(session.startsAt)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} className="text-accent" />
+                              {formatActivityTime(session.startsAt)}
+                            </span>
+                            <span className="flex items-center gap-1 truncate">
+                              <MapPin size={12} className="text-accent" />
+                              <span className="truncate">{session.location}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users size={12} className="text-accent" />
+                              {session.spots} spots
+                            </span>
+                          </div>
+                        </div>
+                        <span className="flex-shrink-0 text-xs font-bold text-accent">
+                          {formatCredits(session.credits)}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <FriendAvatars friends={sessionFriends} max={4} />
+                        <button
+                          type="button"
+                          onClick={() => handleJoinSession(session)}
+                          disabled={
+                            isJoining ||
+                            Boolean(joinDisabledReason) ||
+                            sessionId === null
+                          }
+                          className="min-w-28 rounded-xl bg-accent px-3 py-2 text-xs font-bold text-accent-foreground transition-transform active:scale-[0.98] disabled:opacity-70"
+                        >
+                          {isJoining
+                            ? "Joining..."
+                            : joined
+                              ? "Open group chat"
+                              : "Join session"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <VendorProfileDialog

@@ -1,4 +1,6 @@
 import { ChatMessageModel } from "./models/VidaData.js";
+import { getChatMessagePreviewText } from "./chatMessages.js";
+import { asObject } from "./utils/mongoose.js";
 
 type AnyDoc = Record<string, any>;
 
@@ -11,10 +13,6 @@ export const emptyChatPreview: ChatPreview = {
   lastMessage: "",
   time: "",
 };
-
-function asObject(doc: AnyDoc) {
-  return typeof doc.toObject === "function" ? doc.toObject() : doc;
-}
 
 function formatPreviewTime(value: unknown) {
   const date = value instanceof Date ? value : new Date(String(value ?? ""));
@@ -31,14 +29,9 @@ function formatPreviewTime(value: unknown) {
 
 function previewFromMessage(message: AnyDoc): ChatPreview {
   const item = asObject(message);
-  const sender = asObject(item.sender ?? {});
-  const activity = asObject(item.activity ?? {});
-  const isActivityInvite = item.type === "activity_invite";
 
   return {
-    lastMessage: isActivityInvite
-      ? `Activity invite: ${activity.title ?? item.body ?? ""}`
-      : `${sender.name ?? "Unknown user"}: ${item.body ?? ""}`,
+    lastMessage: getChatMessagePreviewText(item),
     time: formatPreviewTime(item.createdAt ?? item.updatedAt),
   };
 }
@@ -54,16 +47,34 @@ export async function getLatestChatPreviews(chats: AnyDoc[]) {
 
   const messages = await ChatMessageModel.find({ chat: { $in: chatIds } })
     .populate("sender")
-    .populate("activity")
     .sort({ createdAt: -1, _id: -1 });
   const previews = new Map<string, ChatPreview>();
+  const chatById = new Map(
+    chats.map((chat) => [String(asObject(chat)._id), asObject(chat)]),
+  );
 
   for (const message of messages) {
     const item = asObject(message);
     const chatId = String(item.chat?._id ?? item.chat);
 
     if (!previews.has(chatId)) {
-      previews.set(chatId, previewFromMessage(item));
+      try {
+        previews.set(chatId, previewFromMessage(item));
+      } catch (error) {
+        console.warn(
+          `Skipping malformed chat message ${String(item._id ?? "")}.`,
+          error,
+        );
+      }
+    }
+  }
+
+  for (const [chatId, chat] of chatById) {
+    if (!previews.has(chatId) && chat.lastMessage) {
+      previews.set(chatId, {
+        lastMessage: String(chat.lastMessage),
+        time: String(chat.time ?? ""),
+      });
     }
   }
 

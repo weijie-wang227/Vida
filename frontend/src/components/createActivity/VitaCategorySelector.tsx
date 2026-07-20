@@ -7,7 +7,7 @@ import {
 import type { vidaCategory } from "../../lib/types";
 import { Check } from "lucide-react";
 
-export function vidaCategorySelector({
+export function VitaCategorySelector({
   value,
   onToggle,
 }: {

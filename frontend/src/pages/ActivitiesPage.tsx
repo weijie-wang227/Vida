@@ -2,6 +2,7 @@ import { lazy, Suspense, useRef, useState } from "react";
 import type { TouchEvent } from "react";
 import {
   CalendarCheck,
+  CalendarDays,
   ChevronDown,
   Clock3,
   Coins,
@@ -14,6 +15,7 @@ import {
   Plus,
   Star,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import {
   Sheet,
   SheetContent,
@@ -110,7 +112,7 @@ function searchableActivityText(activity: Activity) {
     activity.categories.join(" "),
     activity.tags.join(" "),
     activity.skillsFuturePayable ? "skillsfuture skills future payable" : "",
-    activity.joiningFriends
+    activity.participatingFriends
       .map((friend) => `${friend.name} ${friend.handle}`)
       .join(" "),
   ]
@@ -176,6 +178,7 @@ function sortActivities(
 }
 
 export function ActivitiesPage() {
+  const navigate = useNavigate();
   const {
     joinedActivityIds,
     mapPins,
@@ -254,7 +257,9 @@ export function ActivitiesPage() {
   );
   const upcomingActivities = filteredActivities
     .filter((activity) =>
-      activity.joiningFriends.some((friend) => friend.handle === profile.handle),
+      activity.participatingFriends.some(
+        (friend) => friend.handle === profile.handle,
+      ),
     )
     .sort((firstActivity, secondActivity) => {
       const firstOrder =
@@ -485,6 +490,15 @@ export function ActivitiesPage() {
                   All Activities
                 </span>
                 <div className="flex-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => navigate("/activities/calendar")}
+                  className="flex h-8 items-center gap-1.5 rounded-full bg-secondary px-3 text-[11px] font-bold text-foreground transition-colors hover:bg-secondary/80 active:scale-[0.98]"
+                  aria-label="View activities calendar"
+                >
+                  <CalendarDays size={13} className="text-accent" />
+                  View calendar
+                </button>
               </div>
               {filteredStandardActivities.map((activity) => (
                 <StandardRow key={activity.id} activity={activity} />

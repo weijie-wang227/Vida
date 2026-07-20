@@ -1,27 +1,30 @@
 import { Router } from "express";
-import { findAuthenticatedUser } from "../auth.js";
+import { Types } from "mongoose";
+import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
+import { requireAuth } from "../middleware/auth.js";
 import {
   AdminModel,
-  ActivityJoinModel,
-  ActivityModel,
   BlacklistModel,
   ChatMessageModel,
   ChatModel,
   FeedPostModel,
-  MapPinModel,
+  PollVoteModel,
+  SessionParticipationModel,
+  SessionModel,
+  VendorModel,
 } from "../models/VidaData.js";
 import { getChatPreview, getLatestChatPreviews } from "../chatPreviews.js";
 import { serializeChat, serializeChatMessage } from "../serializers.js";
+import { getString } from "../utils/input.js";
+import { asObject } from "../utils/mongoose.js";
+import {
+  ChatMessagePayloadError,
+  getChatMessageType,
+  normalizeChatMessagePayload,
+} from "../chatMessages.js";
 
 const router = Router();
-
-function getString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function asObject(doc: Record<string, any>) {
-  return typeof doc.toObject === "function" ? doc.toObject() : doc;
-}
+router.use(requireAuth);
 
 function formatPreviewTime(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -105,44 +108,26 @@ async function isGroupAdmin(userId: unknown, groupId: unknown) {
 }
 
 async function deleteGroupById(groupObjectId: unknown) {
-  const activities = await ActivityModel.find({ chat: groupObjectId }).select("_id");
-  const activityIds = activities.map((activity: Record<string, any>) => activity._id);
-
-  if (activityIds.length > 0) {
-    await FeedPostModel.updateMany(
-      { activity: { $in: activityIds } },
-      { $unset: { activity: "" } },
-    );
-    await ActivityJoinModel.deleteMany({ activityId: { $in: activityIds } });
-    await MapPinModel.deleteMany({ activity: { $in: activityIds } });
-    await ActivityModel.deleteMany({ _id: { $in: activityIds } });
-  }
+  const messageIds = await ChatMessageModel.find({ chat: groupObjectId }).distinct(
+    "_id",
+  );
 
   await Promise.all([
     AdminModel.deleteMany({ group: groupObjectId }),
     BlacklistModel.deleteMany({ group: groupObjectId }),
     ChatMessageModel.deleteMany({ chat: groupObjectId }),
+    PollVoteModel.deleteMany({ message: { $in: messageIds } }),
     FeedPostModel.updateMany({ group: groupObjectId }, { $unset: { group: "" } }),
     ChatModel.findByIdAndDelete(groupObjectId),
   ]);
 }
 
 async function removeMemberFromGroup(group: Record<string, any>, userId: unknown) {
-  const activities = await ActivityModel.find({ chat: group._id }).select("_id");
-  const activityIds = activities.map((activity: Record<string, any>) => activity._id);
-
   await ChatModel.updateOne(
     { _id: group._id },
     { $pull: { members: userId } },
   );
   await AdminModel.deleteOne({ group: group._id, user: userId });
-
-  if (activityIds.length > 0) {
-    await ActivityJoinModel.deleteMany({
-      userId,
-      activityId: { $in: activityIds },
-    });
-  }
 }
 
 async function ensureGroupHasAdmin(groupObjectId: unknown) {
@@ -168,41 +153,115 @@ async function ensureGroupHasAdmin(groupObjectId: unknown) {
   );
 }
 
-async function getJoiningUsersByActivityId(activities: Record<string, any>[]) {
-  const activityIds = activities
-    .map((activity) => asObject(activity)._id)
-    .filter((id): id is NonNullable<typeof id> => Boolean(id));
+async function getParticipatingUsersBySessionId(sessionValues: unknown[]) {
+  const sessionIds = sessionValues.filter(
+    (id): id is NonNullable<typeof id> => Boolean(id),
+  );
 
-  if (activityIds.length === 0) {
+  if (sessionIds.length === 0) {
     return new Map<string, Record<string, any>[]>();
   }
 
-  const joins = await ActivityJoinModel.find({ activityId: { $in: activityIds } })
+  const participations = await SessionParticipationModel.find({
+    sessionId: { $in: sessionIds },
+    role: "participant",
+    status: { $in: countedRegistrationStatuses },
+  })
     .populate("userId")
     .sort({ createdAt: 1 });
-  const usersByActivityId = new Map<string, Record<string, any>[]>();
+  const usersBySessionId = new Map<string, Record<string, any>[]>();
 
-  for (const join of joins) {
-    const item = asObject(join);
-    const activityId = String(item.activityId?._id ?? item.activityId);
-    const users = usersByActivityId.get(activityId) ?? [];
+  for (const participation of participations) {
+    const item = asObject(participation);
+    const sessionId = String(item.sessionId?._id ?? item.sessionId);
+    const users = usersBySessionId.get(sessionId) ?? [];
 
-    users.push(item.userId);
-    usersByActivityId.set(activityId, users);
-  }
-
-  return usersByActivityId;
-}
-
-router.get("/", async (req, res, next) => {
-  try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
+    if (item.userId) {
+      users.push(item.userId);
     }
 
+    usersBySessionId.set(sessionId, users);
+  }
+
+  return usersBySessionId;
+}
+
+async function getPollResultsByMessageId(
+  messages: Record<string, any>[],
+  userId: unknown,
+) {
+  const pollMessageIds = messages
+    .filter((message) => getChatMessageType(asObject(message).type) === "poll")
+    .map((message) => asObject(message)._id)
+    .filter(Boolean);
+
+  if (pollMessageIds.length === 0) {
+    return new Map();
+  }
+
+  const votes = await PollVoteModel.find({ message: { $in: pollMessageIds } }).lean();
+  const results = new Map<
+    string,
+    {
+      voteCounts: Record<string, number>;
+      selectedOptionIds: string[];
+      totalVotes: number;
+    }
+  >();
+
+  for (const messageId of pollMessageIds) {
+    results.set(String(messageId), {
+      voteCounts: {},
+      selectedOptionIds: [],
+      totalVotes: 0,
+    });
+  }
+
+  for (const voteValue of votes as Record<string, any>[]) {
+    const vote = asObject(voteValue);
+    const messageId = String(vote.message?._id ?? vote.message);
+    const result = results.get(messageId);
+
+    if (!result) {
+      continue;
+    }
+
+    result.totalVotes += 1;
+    for (const optionId of Array.isArray(vote.optionIds) ? vote.optionIds : []) {
+      const key = String(optionId);
+      result.voteCounts[key] = (result.voteCounts[key] ?? 0) + 1;
+    }
+
+    if (String(vote.user?._id ?? vote.user) === String(userId)) {
+      result.selectedOptionIds = (vote.optionIds ?? []).map(String);
+    }
+  }
+
+  return results;
+}
+
+async function isVendorManagedChat(userId: unknown, chatId: unknown) {
+  const vendor = await VendorModel.findOne({ owner: userId }).select("_id");
+
+  if (!vendor) {
+    return false;
+  }
+
+  const session = await SessionModel.findOne({ chat: chatId })
+    .populate({
+      path: "activity",
+      match: { host: vendor._id },
+      select: "_id",
+    })
+    .select("activity");
+
+  return Boolean(session?.activity);
+}
+
+// Lists group chats that the signed-in user belongs to.
+router.get("/", async (req, res, next) => {
+  try {
+    const user = res.locals.user;
     const groups = await ChatModel.find({ members: user._id })
       .populate("members")
       .sort({ updatedAt: -1, mockId: 1 });
@@ -227,15 +286,10 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// Returns details for one group chat the signed-in user can access.
 router.get("/:id", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await findMemberChat(groupId, user._id);
 
@@ -261,15 +315,10 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
+// Adds the signed-in user to a group chat when joining is allowed.
 router.post("/:id/join", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await ChatModel.findOne({ mockId: groupId });
 
@@ -301,16 +350,6 @@ router.post("/:id/join", async (req, res, next) => {
       return;
     }
 
-    const activity = await ActivityModel.findOne({ chat: group._id });
-
-    if (activity) {
-      await ActivityJoinModel.updateOne(
-        { userId: user._id, activityId: activity._id },
-        { $setOnInsert: { userId: user._id, activityId: activity._id } },
-        { upsert: true },
-      );
-    }
-
     const previews = await getLatestChatPreviews([updatedGroup]);
     const isAdmin = await isGroupAdmin(user._id, updatedGroup._id);
     const adminUserIds = await findAdminUserIds(updatedGroup._id);
@@ -328,15 +367,10 @@ router.post("/:id/join", async (req, res, next) => {
   }
 });
 
+// Deletes a group chat when the signed-in user has permission.
 router.delete("/:id", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await ChatModel.findOne({ mockId: groupId }).select("_id");
 
@@ -357,15 +391,10 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
+// Removes the signed-in user from a group chat.
 router.delete("/:id/members/me", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await findMemberChat(groupId, user._id);
 
@@ -388,15 +417,10 @@ router.delete("/:id/members/me", async (req, res, next) => {
   }
 });
 
+// Removes a member from a group chat when the requester is an admin.
 router.delete("/:id/members/:memberId", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await ChatModel.findOne({ mockId: groupId }).populate("members");
 
@@ -452,15 +476,10 @@ router.delete("/:id/members/:memberId", async (req, res, next) => {
   }
 });
 
+// Promotes a group member to admin when the requester is an admin.
 router.post("/:id/admins/:memberId", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await ChatModel.findOne({ mockId: groupId }).populate("members");
 
@@ -510,15 +529,10 @@ router.post("/:id/admins/:memberId", async (req, res, next) => {
   }
 });
 
+// Blacklists a member from a group and removes them from related access.
 router.post("/:id/blacklist/:memberId", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await ChatModel.findOne({ mockId: groupId }).populate("members");
 
@@ -586,15 +600,10 @@ router.post("/:id/blacklist/:memberId", async (req, res, next) => {
   }
 });
 
+// Lists messages for a group chat visible to the signed-in user.
 router.get("/:id/messages", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await findMemberChat(groupId, user._id);
 
@@ -606,22 +615,38 @@ router.get("/:id/messages", async (req, res, next) => {
     const messages = await ChatMessageModel.find({ chat: group._id })
       .populate("chat")
       .populate("sender")
-      .populate("activity")
       .sort({ createdAt: 1, _id: 1 })
       .limit(200);
     const adminUserIds = await findAdminUserIds(group._id);
-    const inviteActivities = messages
-      .map((message) => asObject(message).activity)
-      .filter(
-        (activity): activity is Record<string, any> =>
-          Boolean(activity && asObject(activity)._id),
+    const inviteSessionIds = messages.flatMap((messageValue) => {
+      const message = asObject(messageValue);
+
+      if (getChatMessageType(message.type) !== "activity_invite") {
+        return [];
+      }
+
+      const payload = normalizeChatMessagePayload(
+        "activity_invite",
+        message.payload,
       );
-    const joiningUsersByActivityId =
-      await getJoiningUsersByActivityId(inviteActivities);
+
+      return [payload.session.objectId];
+    });
+    const participatingUsersBySessionId =
+      await getParticipatingUsersBySessionId(inviteSessionIds);
+    const pollResultsByMessageId = await getPollResultsByMessageId(
+      messages,
+      user._id,
+    );
 
     res.json(
       messages.map((message) =>
-        serializeChatMessage(message, adminUserIds, joiningUsersByActivityId),
+        serializeChatMessage(
+          message,
+          adminUserIds,
+          participatingUsersBySessionId,
+          pollResultsByMessageId,
+        ),
       ),
     );
   } catch (error) {
@@ -629,15 +654,10 @@ router.get("/:id/messages", async (req, res, next) => {
   }
 });
 
+// Sends a message to a group chat as the signed-in user.
 router.post("/:id/messages", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const groupId = Number(req.params.id);
     const group = await findMemberChat(groupId, user._id);
 
@@ -646,14 +666,14 @@ router.post("/:id/messages", async (req, res, next) => {
       return;
     }
 
-    const body = getString(req.body?.body);
+    const text = getString(req.body?.text);
 
-    if (!body) {
+    if (!text) {
       res.status(400).json({ message: "Message cannot be empty." });
       return;
     }
 
-    if (body.length > 1000) {
+    if (text.length > 1000) {
       res.status(400).json({ message: "Message is too long." });
       return;
     }
@@ -661,14 +681,16 @@ router.post("/:id/messages", async (req, res, next) => {
     const message = await ChatMessageModel.create({
       chat: group._id,
       sender: user._id,
-      body,
+      type: "text",
+      schemaVersion: 1,
+      payload: normalizeChatMessagePayload("text", { text }),
     });
     const createdAt =
       message.createdAt instanceof Date ? message.createdAt : new Date();
     const updatedGroup = await ChatModel.findByIdAndUpdate(
       group._id,
       {
-        lastMessage: `${user.name}: ${body}`,
+        lastMessage: `${user.name}: ${text}`,
         time: formatPreviewTime(createdAt),
       },
       { new: true },
@@ -687,6 +709,148 @@ router.post("/:id/messages", async (req, res, next) => {
     res.status(201).json({
       message: serializeChatMessage(savedMessage, adminUserIds),
       group: serializeChat(updatedGroup, undefined, isAdmin, adminUserIds),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Creates a poll in a session chat. Only the vendor managing that session may do so.
+router.post("/:id/polls", async (req, res, next) => {
+  try {
+    const user = res.locals.user;
+    const groupId = Number(req.params.id);
+    const group = await findMemberChat(groupId, user._id);
+
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    if (!(await isVendorManagedChat(user._id, group._id))) {
+      res.status(403).json({
+        message: "Only the vendor managing this session can create polls.",
+      });
+      return;
+    }
+
+    let payload;
+
+    try {
+      payload = normalizeChatMessagePayload("poll", {
+        question: req.body?.question,
+        options: req.body?.options,
+      });
+    } catch (error) {
+      if (error instanceof ChatMessagePayloadError) {
+        res.status(400).json({ message: error.message });
+        return;
+      }
+
+      throw error;
+    }
+
+    const message = await ChatMessageModel.create({
+      chat: group._id,
+      sender: user._id,
+      type: "poll",
+      schemaVersion: 1,
+      payload,
+    });
+    const createdAt =
+      message.createdAt instanceof Date ? message.createdAt : new Date();
+    const updatedGroup = await ChatModel.findByIdAndUpdate(
+      group._id,
+      {
+        lastMessage: `${user.name} created a poll: ${payload.question}`,
+        time: formatPreviewTime(createdAt),
+      },
+      { new: true },
+    ).populate("members");
+    const savedMessage = await ChatMessageModel.findById(message._id)
+      .populate("chat")
+      .populate("sender");
+    const adminUserIds = await findAdminUserIds(group._id);
+    const isAdmin = await isGroupAdmin(user._id, group._id);
+
+    if (!updatedGroup || !savedMessage) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    res.status(201).json({
+      message: serializeChatMessage(savedMessage, adminUserIds),
+      group: serializeChat(updatedGroup, undefined, isAdmin, adminUserIds),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Records or replaces one chat member's selection in a poll.
+router.post("/:id/polls/:messageId/votes", async (req, res, next) => {
+  try {
+    const user = res.locals.user;
+    const groupId = Number(req.params.id);
+    const group = await findMemberChat(groupId, user._id);
+
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    if (!Types.ObjectId.isValid(req.params.messageId)) {
+      res.status(400).json({ message: "Choose a valid poll." });
+      return;
+    }
+
+    const message = await ChatMessageModel.findOne({
+      _id: req.params.messageId,
+      chat: group._id,
+      type: "poll",
+    });
+
+    if (!message) {
+      res.status(404).json({ message: "Poll not found." });
+      return;
+    }
+
+    const payload = normalizeChatMessagePayload("poll", message.payload);
+    const optionId = getString(req.body?.optionId);
+
+    if (!payload.options.some((option) => option.id === optionId)) {
+      res.status(400).json({ message: "Choose a valid poll option." });
+      return;
+    }
+
+    await PollVoteModel.findOneAndUpdate(
+      { message: message._id, user: user._id },
+      { $set: { optionIds: [optionId] } },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+    );
+
+    const savedMessage = await ChatMessageModel.findById(message._id)
+      .populate("chat")
+      .populate("sender");
+    const adminUserIds = await findAdminUserIds(group._id);
+
+    if (!savedMessage) {
+      res.status(404).json({ message: "Poll not found." });
+      return;
+    }
+
+    const pollResults = await getPollResultsByMessageId(
+      [savedMessage],
+      user._id,
+    );
+
+    res.json({
+      message: serializeChatMessage(
+        savedMessage,
+        adminUserIds,
+        new Map(),
+        pollResults,
+      ),
     });
   } catch (error) {
     next(error);

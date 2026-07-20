@@ -4,6 +4,7 @@ import type {
   Activity,
   ActivityTemplate,
   ActivityReviewResponse,
+  AvailableTag,
   CreateActivityInput,
   CreateActivityResponse,
   JoinActivityResponse,
@@ -11,6 +12,10 @@ import type {
   PreviousActivity,
   SubmitActivityReviewInput,
 } from "../lib/types";
+
+export async function fetchAvailableTags() {
+  return apiRequest<AvailableTag[]>("/tags");
+}
 
 export async function fetchActivities() {
   return apiRequest<Activity[]>("/activities");
@@ -41,21 +46,25 @@ export async function createActivity(input: CreateActivityInput) {
   });
 }
 
-export async function joinActivity(activityId: ActivityId) {
-  return apiRequest<JoinActivityResponse>(`/activities/${activityId}/join`, {
+export async function joinSession(sessionId: ActivityId) {
+  return apiRequest<JoinActivityResponse>(`/sessions/${sessionId}/join`, {
     method: "POST",
   });
 }
 
+export async function joinActivity(activityId: ActivityId) {
+  return joinSession(activityId);
+}
+
 export async function fetchActivityReview(activityId: ActivityId) {
-  return apiRequest<ActivityReviewResponse>(`/activities/${activityId}/review`);
+  return apiRequest<ActivityReviewResponse>(`/sessions/${activityId}/review`);
 }
 
 export async function submitActivityReview(
   activityId: ActivityId,
   input: SubmitActivityReviewInput,
 ) {
-  return apiRequest<ActivityReviewResponse>(`/activities/${activityId}/review`, {
+  return apiRequest<ActivityReviewResponse>(`/sessions/${activityId}/review`, {
     method: "POST",
     body: JSON.stringify(input),
   });

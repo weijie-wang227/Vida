@@ -6,7 +6,11 @@ import {
   updateActivityAttendance,
 } from "../api/activities";
 import { Card } from "../components/Card";
-import type { ActivityAttendee, VendorActivity } from "../api/types";
+import type {
+  ActivityAttendee,
+  AttendanceStatus,
+  Session,
+} from "../api/types";
 
 function formatSignedUpAt(value: string) {
   const date = new Date(value);
@@ -21,25 +25,38 @@ function formatSignedUpAt(value: string) {
   }).format(date);
 }
 
+const nextStatusByStatus: Record<AttendanceStatus, AttendanceStatus> = {
+  registered: "attended",
+  approved: "attended",
+  attended: "no_show",
+  no_show: "registered",
+};
+
 export function AttendancePage({
-  activities,
+  sessions,
 }: {
-  activities: VendorActivity[];
+  sessions: Session[];
 }) {
   const navigate = useNavigate();
-  const { activityId } = useParams();
-  const activity =
-    activities.find((item) => String(item.mockId) === activityId) ??
-    activities.find((item) => item.id === activityId) ??
+  const { sessionId } = useParams();
+  const session =
+    sessions.find((item) => String(item.mockId) === sessionId) ??
+    sessions.find((item) => item.id === sessionId) ??
+    sessions.find((item) => item.objectId === sessionId) ??
     null;
   const [attendees, setAttendees] = useState<ActivityAttendee[]>([]);
   const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [attendeePage, setAttendeePage] = useState(1);
+  const [attendeeTotalPages, setAttendeeTotalPages] = useState(1);
 
   useEffect(() => {
-    if (!activity) {
+    if (!session) {
       setAttendees([]);
+      setAttendeePage(1);
+      setAttendeeTotalPages(1);
       return;
     }
 
@@ -48,10 +65,12 @@ export function AttendancePage({
     setIsLoadingAttendees(true);
     setAttendanceError(null);
 
-    fetchActivityAttendees(activity.mockId)
+    fetchActivityAttendees(session.mockId ?? session.id ?? session.objectId ?? "")
       .then((response) => {
         if (active) {
           setAttendees(response.attendees);
+          setAttendeePage(response.pagination.page);
+          setAttendeeTotalPages(response.pagination.totalPages);
         }
       })
       .catch((error) => {
@@ -73,10 +92,42 @@ export function AttendancePage({
     return () => {
       active = false;
     };
-  }, [activity]);
+  }, [session]);
 
-  const toggleAttended = async (attendee: ActivityAttendee) => {
-    if (!activity) {
+  const loadMoreAttendees = async () => {
+    if (!session || attendeePage >= attendeeTotalPages) {
+      return;
+    }
+
+    try {
+      setAttendanceError(null);
+      setIsLoadingMore(true);
+      const response = await fetchActivityAttendees(
+        session.mockId ?? session.id ?? session.objectId ?? "",
+        attendeePage + 1,
+      );
+
+      setAttendees((current) => {
+        const existingIds = new Set(current.map((attendee) => attendee.id));
+
+        return [
+          ...current,
+          ...response.attendees.filter((attendee) => !existingIds.has(attendee.id)),
+        ];
+      });
+      setAttendeePage(response.pagination.page);
+      setAttendeeTotalPages(response.pagination.totalPages);
+    } catch (error) {
+      setAttendanceError(
+        error instanceof Error ? error.message : "Unable to load more attendees.",
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const cycleAttendanceStatus = async (attendee: ActivityAttendee) => {
+    if (!session) {
       return;
     }
 
@@ -84,15 +135,18 @@ export function AttendancePage({
       setAttendanceError(null);
       setUpdatingUserId(attendee.id);
       const response = await updateActivityAttendance({
-        activityId: activity.mockId,
-        attended: !attendee.attended,
+        activityId: session.mockId ?? session.id ?? session.objectId ?? "",
+        status: nextStatusByStatus[attendee.status],
         userId: attendee.id,
       });
 
       setAttendees((currentAttendees) =>
         currentAttendees.map((currentAttendee) =>
           currentAttendee.id === attendee.id
-            ? { ...currentAttendee, attended: response.attendee.attended }
+            ? {
+                ...currentAttendee,
+                status: response.attendee.status,
+              }
             : currentAttendee,
         ),
       );
@@ -105,22 +159,22 @@ export function AttendancePage({
     }
   };
 
-  if (!activity) {
+  if (!session) {
     return (
       <div className="dashboard__main dashboard__main--full">
         <button
           type="button"
           className="back-button"
-          onClick={() => navigate("/upcoming")}
+          onClick={() => navigate("/activities")}
         >
           <ArrowLeft size={16} />
-          Upcoming Activities
+          View All Activities
         </button>
         <Card title="Attendance">
           <div className="empty-state">
             <CalendarPlus size={28} />
-            <strong>Activity not found</strong>
-            <span>Choose an activity from Upcoming Activities.</span>
+            <strong>Session not found</strong>
+            <span>Choose a session from View All Activities.</span>
           </div>
         </Card>
       </div>
@@ -132,13 +186,13 @@ export function AttendancePage({
       <button
         type="button"
         className="back-button"
-        onClick={() => navigate("/upcoming")}
+        onClick={() => navigate("/activities")}
       >
         <ArrowLeft size={16} />
-        Upcoming Activities
+        View All Activities
       </button>
 
-      <Card title={`Attendance - ${activity.title}`}>
+      <Card title={`Attendance - ${session.title}`}>
         <div className="attendance-panel">
           <div className="attendee-list">
             <h3>Signed-up users</h3>
@@ -155,8 +209,9 @@ export function AttendancePage({
                 <span>No users have signed up yet.</span>
               </div>
             ) : (
-              attendees.map((attendee) => (
-                <div key={attendee.id} className="attendee-row">
+              <>
+                {attendees.map((attendee) => (
+                  <div key={attendee.id} className="attendee-row">
                   <img src={attendee.avatar} alt="" />
                   <div>
                     <strong>{attendee.name}</strong>
@@ -170,21 +225,40 @@ export function AttendancePage({
                   <button
                     type="button"
                     className={`attendance-status-button ${
-                      attendee.attended ? "attendance-status-button--present" : ""
+                      attendee.status === "attended"
+                        ? "attendance-status-button--present"
+                        : ""
                     }`}
                     disabled={updatingUserId === attendee.id}
-                    onClick={() => toggleAttended(attendee)}
+                    onClick={() => cycleAttendanceStatus(attendee)}
                   >
                     {updatingUserId === attendee.id ? (
                       <Loader2 size={14} className="spin" />
-                    ) : attendee.attended ? (
+                    ) : attendee.status === "attended" ? (
                       "Present"
+                    ) : attendee.status === "no_show" ? (
+                      "No show"
                     ) : (
-                      "Absent"
+                      "Not marked"
                     )}
                   </button>
-                </div>
-              ))
+                  </div>
+                ))}
+                {attendeePage < attendeeTotalPages ? (
+                  <button
+                    type="button"
+                    className="attendance-status-button"
+                    disabled={isLoadingMore}
+                    onClick={loadMoreAttendees}
+                  >
+                    {isLoadingMore ? (
+                      <Loader2 size={14} className="spin" />
+                    ) : (
+                      "Load more"
+                    )}
+                  </button>
+                ) : null}
+              </>
             )}
           </div>
         </div>

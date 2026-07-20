@@ -20,6 +20,11 @@ const ActivityReviewPage = lazy(() =>
     default: module.ActivityReviewPage,
   })),
 );
+const ActivityCalendarPage = lazy(() =>
+  import("../pages/ActivityCalendarPage").then((module) => ({
+    default: module.ActivityCalendarPage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("../pages/ChatPage").then((module) => ({
     default: module.ChatPage,
@@ -52,6 +57,7 @@ export function AppShell() {
   const [isLogoExpanded, setIsLogoExpanded] = useState(false);
   const [nextPortionIndex, setNextPortionIndex] = useState(0);
   const hasFullScreenView =
+    location.pathname === "/activities/calendar" ||
     /^\/activities\/[^/]+$/.test(location.pathname) ||
     /^\/groups\/[^/]+$/.test(location.pathname) ||
     location.pathname === "/settings";
@@ -88,6 +94,10 @@ export function AppShell() {
             <Routes>
               <Route path="/" element={<Navigate to="/activities" replace />} />
               <Route path="/activities" element={<ActivitiesPage />} />
+              <Route
+                path="/activities/calendar"
+                element={<ActivityCalendarPage />}
+              />
               <Route
                 path="/activities/:activityId"
                 element={<ActivityDetailPage />}

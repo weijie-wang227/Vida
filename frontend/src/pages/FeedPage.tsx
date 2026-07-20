@@ -1,11 +1,4 @@
-import {
-  ImagePlus,
-  Loader2,
-  Plus,
-  Send,
-  Users,
-  X,
-} from "lucide-react";
+import { ImagePlus, Loader2, Plus, Send, Users, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { uploadImageToR2 } from "../api/uploads";
 import {
@@ -193,6 +186,8 @@ export function FeedPage() {
       const uploadedImageUrl = imageFile
         ? await uploadImageToR2(imageFile, "posts")
         : undefined;
+
+      console.log(uploadedImageUrl);
 
       await createFeedPost({
         caption: trimmedCaption,
@@ -429,188 +424,188 @@ export function FeedPage() {
         </p>
       )}
 
-      {isComposerOpen && (
-        <div className="px-4 pb-3">
-          <form
-            onSubmit={handleCreatePost}
-            className="rounded-2xl border border-border bg-card p-3 shadow-lg shadow-black/10"
-          >
-            <div className="flex gap-2.5">
-              <FriendAvatar user={profile} className="h-9 w-9" />
-              <textarea
-                value={caption}
-                onChange={(event) => setCaption(event.target.value)}
-                className="min-h-[82px] min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
-                placeholder="Share something with your friends"
-                maxLength={1200}
-              />
-            </div>
+      <div className="flex-1 overflow-y-auto scrollbar-minimal">
+        {isComposerOpen && (
+          <div className="px-4 pb-4">
+            <form
+              onSubmit={handleCreatePost}
+              className="rounded-2xl border border-border bg-card p-3 shadow-lg shadow-black/10"
+            >
+              <div className="flex gap-2.5">
+                <FriendAvatar user={profile} className="h-9 w-9" />
+                <textarea
+                  value={caption}
+                  onChange={(event) => setCaption(event.target.value)}
+                  className="min-h-[82px] min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+                  placeholder="Share something with your friends"
+                  maxLength={1200}
+                />
+              </div>
 
-            {imagePreviewUrl && (
-              <div className="relative mt-3 overflow-hidden rounded-xl bg-secondary">
-                <img
-                  src={imagePreviewUrl}
-                  alt=""
-                  className="max-h-64 w-full object-cover"
+              {imagePreviewUrl && (
+                <div className="relative mt-3 overflow-hidden rounded-xl bg-secondary">
+                  <img
+                    src={imagePreviewUrl}
+                    alt=""
+                    className="max-h-64 w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur"
+                    aria-label="Remove selected image"
+                  >
+                    <X size={15} />
+                  </button>
+                  {imageName && (
+                    <p className="absolute bottom-2 left-2 max-w-[82%] truncate rounded-full bg-background/80 px-2.5 py-1 text-[10px] text-muted-foreground backdrop-blur">
+                      {imageName}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-3 grid gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                    Reference group
+                  </span>
+                  <select
+                    value={selectedGroupId}
+                    onChange={(event) => setSelectedGroupId(event.target.value)}
+                    disabled={groupChats.length === 0}
+                    className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-xs text-foreground outline-none disabled:opacity-60"
+                  >
+                    <option value="">No group</option>
+                    {groupChats.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div>
+                  <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                    Categories
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {vidaCategories.map((category) => {
+                      const selected = selectedCategories.includes(category);
+                      const color = vidaCategoryColor[category];
+
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => handleToggleComposerCategory(category)}
+                          className="flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-bold transition"
+                          style={{
+                            borderColor: selected ? color : "var(--border)",
+                            backgroundColor: selected
+                              ? `${color}22`
+                              : "transparent",
+                            color: selected ? color : "var(--muted-foreground)",
+                          }}
+                          aria-pressed={selected}
+                        >
+                          {categoryIcon(category, 13)}
+                          {vidaCategoryLabel[category]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                    Duration
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="sr-only">Hours</span>
+                      <select
+                        value={durationHours}
+                        onChange={(event) =>
+                          setDurationHours(Number(event.target.value))
+                        }
+                        className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-xs text-foreground outline-none"
+                      >
+                        {hourOptions.map((hours) => (
+                          <option key={hours} value={hours}>
+                            {hours} {hours === 1 ? "hr" : "hrs"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="sr-only">Minutes</span>
+                      <select
+                        value={durationMinuteRemainder}
+                        onChange={(event) =>
+                          setDurationMinuteRemainder(Number(event.target.value))
+                        }
+                        className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-xs text-foreground outline-none"
+                      >
+                        {minuteOptions.map((minutes) => (
+                          <option key={minutes} value={minutes}>
+                            {minutes} min
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {composerError && (
+                <p className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                  {composerError}
+                </p>
+              )}
+
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleImageChange}
+                  className="sr-only"
                 />
                 <button
                   type="button"
-                  onClick={handleRemoveImage}
-                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur"
-                  aria-label="Remove selected image"
+                  onClick={() => imageInputRef.current?.click()}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground"
+                  aria-label="Upload image"
                 >
-                  <X size={15} />
+                  <ImagePlus size={16} />
                 </button>
-                {imageName && (
-                  <p className="absolute bottom-2 left-2 max-w-[82%] truncate rounded-full bg-background/80 px-2.5 py-1 text-[10px] text-muted-foreground backdrop-blur">
-                    {imageName}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="mt-3 grid gap-2">
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                  Reference group
+                <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+                  {formatDuration(durationMinutes)} /{" "}
+                  {selectedCategories.length} selected
                 </span>
-                <select
-                  value={selectedGroupId}
-                  onChange={(event) => setSelectedGroupId(event.target.value)}
-                  disabled={groupChats.length === 0}
-                  className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-xs text-foreground outline-none disabled:opacity-60"
+                <button
+                  type="submit"
+                  disabled={
+                    isPosting ||
+                    !caption.trim() ||
+                    selectedCategories.length === 0 ||
+                    durationMinutes <= 0
+                  }
+                  className="flex h-9 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-bold text-accent-foreground disabled:opacity-60"
                 >
-                  <option value="">No group</option>
-                  {groupChats.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div>
-                <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                  Categories
-                </span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {vidaCategories.map((category) => {
-                    const selected = selectedCategories.includes(category);
-                    const color = vidaCategoryColor[category];
-
-                    return (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => handleToggleComposerCategory(category)}
-                        className="flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-bold transition"
-                        style={{
-                          borderColor: selected ? color : "var(--border)",
-                          backgroundColor: selected
-                            ? `${color}22`
-                            : "transparent",
-                          color: selected ? color : "var(--muted-foreground)",
-                        }}
-                        aria-pressed={selected}
-                      >
-                        {categoryIcon(category, 13)}
-                        {vidaCategoryLabel[category]}
-                      </button>
-                    );
-                  })}
-                </div>
+                  {isPosting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Send size={14} />
+                  )}
+                  Post
+                </button>
               </div>
+            </form>
+          </div>
+        )}
 
-              <div>
-                <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                  Duration
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="block">
-                    <span className="sr-only">Hours</span>
-                    <select
-                      value={durationHours}
-                      onChange={(event) =>
-                        setDurationHours(Number(event.target.value))
-                      }
-                      className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-xs text-foreground outline-none"
-                    >
-                      {hourOptions.map((hours) => (
-                        <option key={hours} value={hours}>
-                          {hours} {hours === 1 ? "hr" : "hrs"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="sr-only">Minutes</span>
-                    <select
-                      value={durationMinuteRemainder}
-                      onChange={(event) =>
-                        setDurationMinuteRemainder(Number(event.target.value))
-                      }
-                      className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-xs text-foreground outline-none"
-                    >
-                      {minuteOptions.map((minutes) => (
-                        <option key={minutes} value={minutes}>
-                          {minutes} min
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {composerError && (
-              <p className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
-                {composerError}
-              </p>
-            )}
-
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleImageChange}
-                className="sr-only"
-              />
-              <button
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground"
-                aria-label="Upload image"
-              >
-                <ImagePlus size={16} />
-              </button>
-              <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
-                {formatDuration(durationMinutes)} / {selectedCategories.length}{" "}
-                selected
-              </span>
-              <button
-                type="submit"
-                disabled={
-                  isPosting ||
-                  !caption.trim() ||
-                  selectedCategories.length === 0 ||
-                  durationMinutes <= 0
-                }
-                className="flex h-9 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-bold text-accent-foreground disabled:opacity-60"
-              >
-                {isPosting ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Send size={14} />
-                )}
-                Post
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto scrollbar-minimal">
         {feedPosts.map((post) => {
           const liked = Boolean(likedPostIds[post.id] ?? post.likedByMe);
           const isLiking = Boolean(likingPostIds[post.id]);
@@ -638,7 +633,7 @@ export function FeedPage() {
             />
           );
         })}
-        <div className="h-6" />
+        <div className="h-24" />
       </div>
 
       <FloatingActionButton

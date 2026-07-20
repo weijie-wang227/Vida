@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { findAuthenticatedUser } from "../auth.js";
+import { requireAuth } from "../middleware/auth.js";
 import {
   ChatModel,
   CommentModel,
@@ -8,6 +8,8 @@ import {
   LikeModel,
 } from "../models/VidaData.js";
 import { serializeComment, serializeFeedPost } from "../serializers.js";
+import { getString } from "../utils/input.js";
+import { asObject } from "../utils/mongoose.js";
 
 const router = Router();
 const maxCaptionLength = 1200;
@@ -21,13 +23,7 @@ const validCategories = new Set([
   "creative",
 ]);
 
-function asObject(doc: Record<string, any>) {
-  return typeof doc.toObject === "function" ? doc.toObject() : doc;
-}
-
-function getString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
+router.use(requireAuth);
 
 function getCategories(value: unknown) {
   if (!Array.isArray(value)) {
@@ -130,15 +126,10 @@ async function adjustPostLikeCount(postObjectId: unknown, delta: number) {
   return updatedPost ? getPostLikeCount(updatedPost) : 0;
 }
 
+// Lists feed posts visible to the signed-in user.
 router.get("/", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const visibleUserIds = await findVisibleUserIds(user);
     const posts = await FeedPostModel.find({ user: { $in: visibleUserIds } })
       .populate("user")
@@ -185,15 +176,10 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// Creates a new feed post for the signed-in user.
 router.post("/", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const caption = getString(req.body?.caption);
     const imageUrl = getString(req.body?.image);
     const categories = getCategories(req.body?.categories);
@@ -281,15 +267,10 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+// Updates an existing feed post owned by the signed-in user.
 router.patch("/:id", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const postId = Number(req.params.id);
     const caption = getString(req.body?.caption);
 
@@ -329,15 +310,10 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
+// Deletes an existing feed post owned by the signed-in user.
 router.delete("/:id", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const postId = Number(req.params.id);
     const post = await findOwnedFeedPost(postId, user);
 
@@ -358,15 +334,10 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
+// Likes a feed post as the signed-in user.
 router.post("/:id/likes", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const postId = Number(req.params.id);
     const post = await findVisibleFeedPost(postId, user);
 
@@ -400,15 +371,10 @@ router.post("/:id/likes", async (req, res, next) => {
   }
 });
 
+// Removes the signed-in user's like from a feed post.
 router.delete("/:id/likes", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const postId = Number(req.params.id);
     const post = await findVisibleFeedPost(postId, user);
 
@@ -434,15 +400,10 @@ router.delete("/:id/likes", async (req, res, next) => {
   }
 });
 
+// Lists comments for a feed post.
 router.get("/:id/comments", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const postId = Number(req.params.id);
     const post = await findVisibleFeedPost(postId, user);
 
@@ -467,15 +428,10 @@ router.get("/:id/comments", async (req, res, next) => {
   }
 });
 
+// Adds a comment to a feed post as the signed-in user.
 router.post("/:id/comments", async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const postId = Number(req.params.id);
     const post = await findVisibleFeedPost(postId, user);
 

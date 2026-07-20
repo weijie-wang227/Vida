@@ -25,7 +25,7 @@ export function PastActivitySearch({
       <label className="block">
         <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
           <Clock3 size={13} />
-          Copy From Past Activity
+          Copy From Past Session
         </span>
         <BaseSearchBar
           value={query}

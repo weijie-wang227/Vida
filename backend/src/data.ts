@@ -10,9 +10,12 @@ export type FriendSeed = {
 export type ActivitySeed = {
   id: number;
   title: string;
+  description?: string;
   host: string;
   startsAt: string;
   location: string;
+  lat: number;
+  lng: number;
   durationMinutes: number;
   spots: number;
   credits: number;
@@ -22,7 +25,7 @@ export type ActivitySeed = {
   skillsFuturePayable?: boolean;
   cover?: string;
   tags: string[];
-  joiningFriends: FriendSeed[];
+  participatingFriends: FriendSeed[];
 };
 
 export const friends: FriendSeed[] = [
@@ -101,40 +104,50 @@ export const activities: ActivitySeed[] = [
   {
     id: 1,
     title: "Tai Chi at Fort Canning",
+    description:
+      "A guided outdoor Tai Chi session focused on mobility, breath, and balance.",
     host: "Master Chen Wei",
     isPremium: true,
     cover:
       "https://images.unsplash.com/photo-1548957175-84f0f9af659e?w=400&h=220&fit=crop&auto=format",
     startsAt: "2026-06-27T07:00:00+08:00",
     location: "Fort Canning Park",
+    lat: 1.295,
+    lng: 103.8465,
     durationMinutes: 60,
     spots: 6,
     credits: 18,
     rating: 4.9,
     categories: ["physical", "cognitive"],
     tags: ["Guided", "All levels"],
-    joiningFriends: [friends[0], friends[2], friends[6]],
+    participatingFriends: [friends[0], friends[2], friends[6]],
   },
   {
     id: 2,
     title: "Hawker Heritage Food Walk",
+    description:
+      "A small-group food walk through Chinatown stories, stalls, and tastings.",
     host: "Chef Mdm Siti",
     isPremium: true,
     cover:
       "https://images.unsplash.com/photo-1562593028-1fe2d15bde36?w=400&h=220&fit=crop&auto=format",
     startsAt: "2026-06-28T09:00:00+08:00",
     location: "Chinatown Complex",
+    lat: 1.2823,
+    lng: 103.8433,
     durationMinutes: 150,
     spots: 4,
     credits: 35,
     rating: 5,
     categories: ["physical", "social", "creative"],
     tags: ["Tasting included", "Small group"],
-    joiningFriends: [friends[4], friends[1]],
+    participatingFriends: [friends[4], friends[1]],
   },
   {
     id: 3,
     title: "Botanic Gardens Photography",
+    description:
+      "A practical photo walk for framing, light, and simple camera techniques.",
     host: "Raymond Koh",
     isPremium: true,
     skillsFuturePayable: true,
@@ -142,89 +155,111 @@ export const activities: ActivitySeed[] = [
       "https://images.unsplash.com/photo-1501554728187-ce583db33af7?w=400&h=220&fit=crop&auto=format",
     startsAt: "2026-06-29T07:30:00+08:00",
     location: "Singapore Botanic Gardens",
+    lat: 1.3138,
+    lng: 103.8159,
     durationMinutes: 90,
     spots: 8,
     credits: 25,
     rating: 4.8,
     categories: ["physical", "cognitive", "creative"],
     tags: ["Camera tips", "Print included"],
-    joiningFriends: [friends[1], friends[4], friends[0]],
+    participatingFriends: [friends[1], friends[4], friends[0]],
   },
   {
     id: 4,
     title: "Morning Walk - East Coast Park",
+    description:
+      "A relaxed social walk along East Coast Park with an easy, friendly pace.",
     host: "David Ng",
     isPremium: false,
     startsAt: "2026-06-27T07:00:00+08:00",
     location: "East Coast Park",
+    lat: 1.3008,
+    lng: 103.9122,
     durationMinutes: 75,
     spots: 15,
     credits: 0,
     rating: 4.7,
     categories: ["physical", "social"],
     tags: [],
-    joiningFriends: [friends[3], friends[7], friends[1]],
+    participatingFriends: [friends[3], friends[7], friends[1]],
   },
   {
     id: 5,
     title: "Senior Chess Club",
+    description:
+      "A casual chess meet-up for friendly games, puzzles, and conversation.",
     host: "James Ho",
     isPremium: false,
     startsAt: "2026-06-26T14:00:00+08:00",
     location: "Bishan Community Club",
+    lat: 1.3508,
+    lng: 103.8485,
     durationMinutes: 120,
     spots: 12,
     credits: 0,
     rating: 4.6,
     categories: ["social", "cognitive"],
     tags: [],
-    joiningFriends: [friends[5], friends[3]],
+    participatingFriends: [friends[5], friends[3]],
   },
   {
     id: 6,
     title: "Cantonese Cooking Class",
+    description:
+      "A hands-on Cantonese cooking class with practical kitchen guidance.",
     host: "Mdm Grace Wong",
     isPremium: false,
     skillsFuturePayable: true,
     startsAt: "2026-06-28T10:00:00+08:00",
     location: "Toa Payoh CC Kitchen",
+    lat: 1.3343,
+    lng: 103.8563,
     durationMinutes: 120,
     spots: 10,
     credits: 22,
     rating: 4.9,
     categories: ["social", "cognitive", "creative"],
     tags: [],
-    joiningFriends: [friends[6], friends[2], friends[4]],
+    participatingFriends: [friends[6], friends[2], friends[4]],
   },
   {
     id: 7,
     title: "Kelong Fishing Day Trip",
+    description:
+      "A day trip for fishing, shared lunch, and stories by the water.",
     host: "Uncle Ravi",
     isPremium: false,
     startsAt: "2026-06-27T06:00:00+08:00",
     location: "Pulau Ubin Jetty",
+    lat: 1.4022,
+    lng: 103.9605,
     durationMinutes: 360,
     spots: 6,
     credits: 45,
     rating: 4.8,
     categories: ["physical", "social", "cognitive"],
     tags: [],
-    joiningFriends: [friends[0], friends[3]],
+    participatingFriends: [friends[0], friends[3]],
   },
   {
     id: 8,
     title: "Book Club - Cafe Meeting",
+    description:
+      "A cafe book club meet-up for thoughtful conversation and new friends.",
     host: "Linda Tan",
     isPremium: false,
     startsAt: "2026-06-26T15:30:00+08:00",
     location: "Tiong Bahru Bakery",
+    lat: 1.2848,
+    lng: 103.8329,
     durationMinutes: 90,
     spots: 10,
     credits: 0,
     rating: 4.7,
     categories: ["social", "cognitive"],
     tags: [],
-    joiningFriends: [friends[0], friends[6], friends[2]],
+    participatingFriends: [friends[0], friends[6], friends[2]],
   },
 ];
 
@@ -308,65 +343,6 @@ export const groupChats = [
     lastMessage: "",
     time: "",
     unread: 0,
-  },
-];
-
-export const mapPins = [
-  {
-    id: 1,
-    activityId: 1,
-    latitude: 1.295,
-    longitude: 103.8465,
-    label: "Tai Chi - Fort Canning",
-  },
-  {
-    id: 2,
-    activityId: 2,
-    latitude: 1.2823,
-    longitude: 103.8433,
-    label: "Hawker Walk - Chinatown",
-  },
-  {
-    id: 3,
-    activityId: 3,
-    latitude: 1.3138,
-    longitude: 103.8159,
-    label: "Botanic Gardens",
-  },
-  {
-    id: 4,
-    activityId: 4,
-    latitude: 1.3008,
-    longitude: 103.9122,
-    label: "East Coast Park Walk",
-  },
-  {
-    id: 5,
-    activityId: 5,
-    latitude: 1.3508,
-    longitude: 103.8485,
-    label: "Chess Club - Bishan CC",
-  },
-  {
-    id: 6,
-    activityId: 6,
-    latitude: 1.3343,
-    longitude: 103.8563,
-    label: "Cooking Class - Toa Payoh",
-  },
-  {
-    id: 7,
-    activityId: 7,
-    latitude: 1.4022,
-    longitude: 103.9605,
-    label: "Kelong Day Trip",
-  },
-  {
-    id: 8,
-    activityId: 8,
-    latitude: 1.2848,
-    longitude: 103.8329,
-    label: "Book Club - Tiong Bahru",
   },
 ];
 

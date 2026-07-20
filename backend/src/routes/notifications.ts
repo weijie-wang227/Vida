@@ -1,25 +1,17 @@
 import { Router } from "express";
 import { Types } from "mongoose";
-import { findAuthenticatedUser } from "../auth.js";
+import { requireAuth } from "../middleware/auth.js";
 import { NotificationModel, UserModel } from "../models/VidaData.js";
 import { serializeNotification } from "../serializers.js";
+import { getString } from "../utils/input.js";
 
 const router = Router();
 const maxNotificationTitleLength = 120;
 const maxNotificationContentLength = 500;
 
-function getString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-router.get("/", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+// Lists notifications for the signed-in user.
+router.get("/", requireAuth, async (_req, res) => {
+  const authUser = res.locals.user;
   const notifications = await NotificationModel.find({ user: authUser._id }).sort({
     dateReceived: -1,
   });
@@ -27,14 +19,8 @@ router.get("/", async (req, res) => {
   res.json(notifications.map(serializeNotification));
 });
 
-router.post("/send", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+// Sends a notification to a user and emails them when an address is available.
+router.post("/send", requireAuth, async (req, res) => {
   const userId = getString(req.body?.userId ?? req.body?.recipientId);
   const title = getString(req.body?.title);
   const content = getString(req.body?.content);
@@ -92,14 +78,9 @@ router.post("/send", async (req, res) => {
   res.status(201).json(serializeNotification(notification));
 });
 
-router.post("/:notificationId/read", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+// Marks one notification as read for the signed-in user.
+router.post("/:notificationId/read", requireAuth, async (req, res) => {
+  const authUser = res.locals.user;
   const notificationId = getString(req.params.notificationId);
 
   if (!Types.ObjectId.isValid(notificationId)) {

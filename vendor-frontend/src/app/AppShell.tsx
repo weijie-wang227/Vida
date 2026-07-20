@@ -1,265 +1,187 @@
-import { useEffect, useState } from "react";
-import {
-  createVendorActivity,
-  fetchVendorActivities,
-  updateActivityOpen,
-} from "../api/activities";
-import type { AuthMode } from "../api/auth";
-import { fetchCurrentUser, signIn, signUp } from "../api/auth";
-import { clearAuthToken, getAuthToken } from "../api/client";
-import type {
-  AuthUser,
-  CreateActivityInput,
-  Vendor,
-  VendorActivity,
-  VendorStats,
-} from "../api/types";
-import { createVendor, fetchMyVendor, updateVendorProfile } from "../api/vendors";
-import { CreateVendorPage } from "../pages/CreateVendorPage";
-import { DashboardPage } from "../pages/DashboardPage";
-import { LoginPage } from "../pages/LoginPage";
+import { lazy, Suspense } from "react";
+import { Navigate, Route, Routes } from "react-router";
+import { useVendorState } from "../state";
+import { VendorLayout } from "./VendorLayout";
 
-type AppStatus = "loading" | "auth" | "vendor-check" | "vendor-create" | "ready";
+const DashboardPage = lazy(() =>
+  import("../pages/DashboardPage").then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
+const CreateActivityPage = lazy(() =>
+  import("../pages/CreateActivityPage").then((module) => ({
+    default: module.CreateActivityPage,
+  })),
+);
+const CreateSessionPage = lazy(() =>
+  import("../pages/CreateSessionPage").then((module) => ({
+    default: module.CreateSessionPage,
+  })),
+);
+const ViewActivitiesPage = lazy(() =>
+  import("../pages/ViewActivitiesPage").then((module) => ({
+    default: module.ViewActivitiesPage,
+  })),
+);
+const SessionsCalendarPage = lazy(() =>
+  import("../pages/SessionsCalendarPage").then((module) => ({
+    default: module.SessionsCalendarPage,
+  })),
+);
+const ActivityDetailsPage = lazy(() =>
+  import("../pages/ActivityDetailsPage").then((module) => ({
+    default: module.ActivityDetailsPage,
+  })),
+);
+const SessionDetailsPage = lazy(() =>
+  import("../pages/SessionDetailsPage").then((module) => ({
+    default: module.SessionDetailsPage,
+  })),
+);
+const AttendancePage = lazy(() =>
+  import("../pages/AttendancePage").then((module) => ({
+    default: module.AttendancePage,
+  })),
+);
+const ActivityReviewsPage = lazy(() =>
+  import("../pages/ActivityReviewsPage").then((module) => ({
+    default: module.ActivityReviewsPage,
+  })),
+);
+const FinancesPage = lazy(() =>
+  import("../pages/FinancesPage").then((module) => ({
+    default: module.FinancesPage,
+  })),
+);
+const FinanceActivityPage = lazy(() =>
+  import("../pages/FinanceActivityPage").then((module) => ({
+    default: module.FinanceActivityPage,
+  })),
+);
+const UsersPage = lazy(() =>
+  import("../pages/UsersPage").then((module) => ({
+    default: module.UsersPage,
+  })),
+);
+const VolunteerManagementPage = lazy(() =>
+  import("../pages/VolunteerManagementPage").then((module) => ({
+    default: module.VolunteerManagementPage,
+  })),
+);
+const ChatsPage = lazy(() =>
+  import("../pages/ChatsPage").then((module) => ({
+    default: module.ChatsPage,
+  })),
+);
+const ChatDetailsPage = lazy(() =>
+  import("../pages/ChatDetailsPage").then((module) => ({
+    default: module.ChatDetailsPage,
+  })),
+);
 
 export function AppShell() {
-  const [status, setStatus] = useState<AppStatus>("loading");
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [activities, setActivities] = useState<VendorActivity[]>([]);
-  const [stats, setStats] = useState<VendorStats>({
-    activities: 0,
-    pastActivities: 0,
-    peopleAttended: 0,
-    attendanceRate: "0%",
-    averageRating: 0,
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [activityError, setActivityError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreatingActivity, setIsCreatingActivity] = useState(false);
-  const [updatingActivityId, setUpdatingActivityId] = useState<string | null>(null);
-
-  const loadVendor = async () => {
-    setStatus("vendor-check");
-    const response = await fetchMyVendor();
-
-    if (!response.vendor) {
-      setVendor(null);
-      setStatus("vendor-create");
-      return;
-    }
-
-    setVendor(response.vendor);
-    const activityResponse = await fetchVendorActivities();
-
-    setActivities(activityResponse.activities);
-    setStats(activityResponse.stats ?? response.stats ?? stats);
-    setStatus("ready");
-  };
-
-  useEffect(() => {
-    let active = true;
-
-    async function restoreSession() {
-      if (!getAuthToken()) {
-        setStatus("auth");
-        return;
-      }
-
-      try {
-        const response = await fetchCurrentUser();
-
-        if (!active) {
-          return;
-        }
-
-        setUser(response.user);
-        await loadVendor();
-      } catch {
-        if (!active) {
-          return;
-        }
-
-        clearAuthToken();
-        setUser(null);
-        setVendor(null);
-        setStatus("auth");
-      }
-    }
-
-    restoreSession();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleAuthSubmit = async (
-    mode: AuthMode,
-    input: {
-      name: string;
-      handle?: string;
-      email: string;
-      password: string;
-    },
-  ) => {
-    setError(null);
-    setIsSubmitting(true);
-
-    try {
-      const response =
-        mode === "signup"
-          ? await signUp(input)
-          : await signIn({ email: input.email, password: input.password });
-
-      setUser(response.user);
-      await loadVendor();
-    } catch (submissionError) {
-      setError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "Please try again.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleVendorCreate = async (input: {
-    name: string;
-    profileUrl?: string;
-    description?: string;
-  }) => {
-    setError(null);
-    setIsSubmitting(true);
-
-    try {
-      const response = await createVendor(input);
-      setVendor(response.vendor);
-      setStats(response.stats);
-      setStatus("ready");
-    } catch (submissionError) {
-      setError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "Please try again.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSignOut = () => {
-    clearAuthToken();
-    setUser(null);
-    setVendor(null);
-    setActivities([]);
-    setStatus("auth");
-  };
-
-  const handleCreateActivity = async (input: CreateActivityInput) => {
-    setActivityError(null);
-    setIsCreatingActivity(true);
-
-    try {
-      await createVendorActivity(input);
-      const response = await fetchVendorActivities();
-
-      setActivities(response.activities);
-      setStats(response.stats);
-    } catch (submissionError) {
-      setActivityError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "Unable to create activity.",
-      );
-      throw submissionError;
-    } finally {
-      setIsCreatingActivity(false);
-    }
-  };
-
-  const handleVendorProfileUpdate = async (input: {
-    profileUrl: string;
-    description: string;
-  }) => {
-    const response = await updateVendorProfile(input);
-
-    setVendor(response.vendor);
-    setStats(response.stats);
-  };
-
-  const handleToggleActivityOpen = async (
-    activityId: number | string,
-    isOpen: boolean,
-  ) => {
-    setActivityError(null);
-    setUpdatingActivityId(String(activityId));
-
-    try {
-      const response = await updateActivityOpen({ activityId, isOpen });
-
-      setActivities((current) =>
-        current.map((activity) =>
-          activity.id === response.activity.id ||
-          activity.mockId === response.activity.mockId
-            ? { ...activity, isOpen: response.activity.isOpen }
-            : activity,
-        ),
-      );
-    } catch (submissionError) {
-      setActivityError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "Unable to update activity status.",
-      );
-    } finally {
-      setUpdatingActivityId(null);
-    }
-  };
-
-  if (status === "loading" || status === "vendor-check") {
-    return (
-      <div className="loading-screen">
-        <img src="/logo.png" alt="Vida" />
-        <span>{status === "loading" ? "Opening Vida" : "Checking vendor"}</span>
-      </div>
-    );
-  }
-
-  if (status === "auth") {
-    return (
-      <LoginPage
-        error={error}
-        isSubmitting={isSubmitting}
-        onSubmit={handleAuthSubmit}
-      />
-    );
-  }
-
-  if (status === "vendor-create") {
-    return (
-      <CreateVendorPage
-        error={error}
-        isSubmitting={isSubmitting}
-        onCreate={handleVendorCreate}
-      />
-    );
-  }
+  const {
+    vendor,
+    activities,
+    sessions,
+    activityError,
+    isCreatingActivity,
+    updatingSessionId,
+    createActivity,
+    createSession,
+    toggleSessionOpen,
+  } = useVendorState();
 
   return (
-      <DashboardPage
-        user={user}
-        vendor={vendor}
-      activities={activities}
-      stats={stats}
-      activityError={activityError}
-      isCreatingActivity={isCreatingActivity}
-      updatingActivityId={updatingActivityId}
-        onCreateActivity={handleCreateActivity}
-        onUpdateVendorProfile={handleVendorProfileUpdate}
-        onToggleActivityOpen={handleToggleActivityOpen}
-        onSignOut={handleSignOut}
-      />
+    <VendorLayout>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route
+            path="/create-activity"
+            element={
+              <CreateActivityPage
+                vendor={vendor}
+                error={activityError}
+                isSubmitting={isCreatingActivity}
+                onCreateActivity={createActivity}
+              />
+            }
+          />
+          <Route
+            path="/create-session"
+            element={
+              <CreateSessionPage
+                vendor={vendor}
+                activities={activities}
+                error={activityError}
+                isSubmitting={isCreatingActivity}
+                onCreateSession={createSession}
+              />
+            }
+          />
+          <Route
+            path="/activities"
+            element={
+              <ViewActivitiesPage
+                activities={activities}
+                sessions={sessions}
+                error={activityError}
+                updatingActivityId={updatingSessionId}
+                onToggleActivityOpen={toggleSessionOpen}
+              />
+            }
+          />
+          <Route
+            path="/activities/calendar"
+            element={<SessionsCalendarPage sessions={sessions} />}
+          />
+          <Route
+            path="/activities/:activityId"
+            element={
+              <ActivityDetailsPage
+                vendor={vendor}
+                activities={activities}
+                sessions={sessions}
+                error={activityError}
+                isCreatingSession={isCreatingActivity}
+                onCreateSession={createSession}
+              />
+            }
+          />
+          <Route
+            path="/activities/:activityId/sessions/:sessionId"
+            element={
+              <SessionDetailsPage
+                activities={activities}
+                sessions={sessions}
+                updatingActivityId={updatingSessionId}
+                onToggleActivityOpen={toggleSessionOpen}
+              />
+            }
+          />
+          <Route
+            path="/sessions/:sessionId/attendance"
+            element={<AttendancePage sessions={sessions} />}
+          />
+          <Route
+            path="/activities/:activityId/reviews"
+            element={<ActivityReviewsPage />}
+          />
+          <Route path="/finances" element={<FinancesPage />} />
+          <Route
+            path="/finances/activities/:activityId"
+            element={<FinanceActivityPage />}
+          />
+          <Route path="/users" element={<UsersPage />} />
+          <Route path="/chats" element={<ChatsPage />} />
+          <Route path="/chats/:chatId" element={<ChatDetailsPage />} />
+          <Route path="/volunteers" element={<VolunteerManagementPage />} />
+          <Route path="/upcoming" element={<Navigate to="/activities" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
+    </VendorLayout>
   );
 }

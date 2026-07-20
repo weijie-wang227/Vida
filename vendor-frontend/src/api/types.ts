@@ -22,11 +22,36 @@ export type Vendor = {
 };
 
 export type VendorStats = {
-  activities: number;
-  pastActivities: number;
-  peopleAttended: number;
-  attendanceRate: string;
-  averageRating: number;
+  revenue: number;
+  newUsers: number;
+  totalUsers: number;
+};
+
+export type VendorUsersPageSessionFillRate = {
+  sessionId: string;
+  sessionMockId: string;
+  title: string;
+  startsAt: string;
+  label: string;
+  booked: number;
+  capacity: number;
+  fillRate: number;
+  status: "strong" | "warning" | "low";
+};
+
+export type VendorUsersPageStats = {
+  totalBookings: number;
+  totalBookingsTrendPercent: number;
+  averageFillRate: number;
+  sessionCount: number;
+  noShowRate: number;
+  noShowRateTrendPercent: number;
+  repeatAttendeeRate: number;
+  sessionFillRates: VendorUsersPageSessionFillRate[];
+};
+
+export type VendorUsersPageStatsResponse = {
+  stats: VendorUsersPageStats;
 };
 
 export type VendorResponse = {
@@ -36,61 +61,314 @@ export type VendorResponse = {
 
 export type VidaCategory = "physical" | "social" | "cognitive" | "creative";
 
-export type VendorActivity = {
+export type AvailableTag = {
   id: string;
-  mockId: number;
+  name: string;
+};
+
+export type BaseSession = {
+  activity?: Activity;
+  activityId?: number | string;
+  activityMockId?: number;
   title: string;
   startsAt: string;
-  location: string;
+  durationMinutes: number;
   spots: number;
-  attendance: number;
-  rating: number;
+  credits: number;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+  location: string;
+  lat: number;
+  lng: number;
+}
+
+export type Session = BaseSession &{
+  id?: string;
+  objectId?: string;
+  mockId: string;
   isOpen: boolean;
   isActive: boolean;
+  registeredCount: number;
+  attendedCount: number;
+  rating: number;
 };
+
+export type CreateSessionInput = BaseSession & {
+  vendorId: string;
+  createAsVendor: true;
+};
+
+export type BaseActivity = {
+  title: string;
+  description?: string;
+  categories: VidaCategory[];
+  cover?: string;
+  tags?: string[];
+  isVolunteer: boolean;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+}
+
+export type CreateActivityInput = Omit<BaseActivity, "tags"> & {
+  vendorId: string;
+  createAsVendor: true;
+  tagIds?: string[];
+};
+
+export type Activity = BaseActivity & {
+  id: string;
+  mockId: number;
+  rating: number;
+  isOpen: boolean;
+  sessionsNum?: number;
+  registeredCount?: number;
+  totalRevenue?: number;
+}
+
+export type FinancePeriodKey = "ytd" | "mtd";
+
+export type FinanceTrendPoint = {
+  label: string;
+  revenue: number;
+};
+
+export type FinanceActivity = {
+  id: string;
+  title: string;
+  sessionsNum: number;
+  registeredCount: number;
+  totalRevenue: number;
+  revenuePerSession: number;
+  deltaVsAveragePercent: number;
+};
+
+export type FinancePeriod = {
+  period: FinancePeriodKey;
+  label: string;
+  rangeLabel: string;
+  revenue: number;
+  revenueTrendPercent: number;
+  bookings: number;
+  bookingsTrendPercent: number;
+  sessionsNum: number;
+  averagePerSession: number;
+  trend: FinanceTrendPoint[];
+  activities: FinanceActivity[];
+};
+
+export type VendorFinanceResponse = {
+  currency: "SGD";
+  conversionRate: number;
+  periods: Record<FinancePeriodKey, FinancePeriod>;
+};
+
+export type VendorFinanceActivityResponse = {
+  currency: "SGD";
+  conversionRate: number;
+  activity: {
+    id: string;
+    title: string;
+    sessionsYtd: number;
+  };
+  summary: {
+    sessionsThisMonth: number;
+    revenueThisMonth: number;
+    averageAttendees: number;
+    averagePerSession: number;
+  };
+  recentSessions: Array<{
+    id: string;
+    mockId: string;
+    title: string;
+    startsAt: string;
+    registeredCount: number;
+    revenue: number;
+  }>;
+};
+
+export type VolunteerOpportunityStatus =
+  | "open"
+  | "full"
+  | "closed"
+  | "completed";
+
+export type VolunteerOpportunity = {
+  id: string;
+  mockId: string;
+  activityId: string;
+  activityMockId?: number;
+  title: string;
+  activityTitle: string;
+  startsAt: string;
+  location: string;
+  booked: number;
+  capacity: number;
+  status: VolunteerOpportunityStatus;
+};
+
+export type VolunteerOverviewResponse = {
+  summary: {
+    openOpportunities: number;
+    fillRate: number;
+    pendingReview: number;
+    hoursThisMonth: number;
+  };
+  opportunities: VolunteerOpportunity[];
+};
+
+export type VolunteerRosterResponse = {
+  session: {
+    id: string;
+    mockId: string;
+    title: string;
+    activityTitle: string;
+  };
+  volunteers: Array<{
+    id: string;
+    name: string;
+    handle: string;
+    avatar: string;
+    status:
+      | "registered"
+      | "approved"
+      | "rejected"
+      | "completed"
+      | "no_show";
+  }>;
+};
+
+export type UpdateVolunteerApplicationResponse = {
+  volunteer: {
+    id: string;
+    status: "approved" | "rejected";
+  };
+};
+
+export type VendorActivitiesResponse = {
+  activities: Activity[];
+  stats?: VendorStats;
+};
+
+export type VendorSessionsResponse = {
+  sessions: Session[];
+};
+
+export type VendorChat = {
+  id: string;
+  mockId: number;
+  name: string;
+  avatar: string;
+  memberCount: number;
+  lastMessage: string;
+  updatedAt: string;
+  session: {
+    id: string;
+    mockId: string;
+    title: string;
+    startsAt: string;
+    location: string;
+    registeredCount: number;
+    spots: number;
+    isOpen: boolean;
+    isActive: boolean;
+  };
+  activity: {
+    id: string;
+    mockId: number;
+    title: string;
+  };
+};
+
+export type VendorChatsResponse = {
+  chats: VendorChat[];
+};
+
+type VendorChatMessageBase = {
+  id: string;
+  groupId: number;
+  schemaVersion: number;
+  sender: {
+    id: string;
+    name: string;
+    handle: string;
+    avatar: string;
+    isAdmin: boolean;
+  };
+  time: string;
+  createdAt: string;
+};
+
+export type VendorChatMessage =
+  | (VendorChatMessageBase & {
+      type: "text";
+      payload: { text: string };
+    })
+  | (VendorChatMessageBase & {
+      type: "activity_invite";
+      payload: {
+        activity: {
+          id: number | string;
+          title: string;
+          startsAt: string;
+          location: string;
+          durationMinutes: number;
+          credits: number;
+          categories: VidaCategory[];
+        };
+        session: { id: number | string; objectId: string };
+        participatingFriends: Array<{
+          id: number | string;
+          name: string;
+          handle: string;
+          avatar: string;
+        }>;
+      };
+    })
+  | (VendorChatMessageBase & {
+      type: "poll";
+      payload: {
+        question: string;
+        options: Array<{
+          id: string;
+          label: string;
+          votes: number;
+          selected: boolean;
+        }>;
+        allowsMultiple: false;
+        totalVotes: number;
+      };
+    });
+
+export type CreateVendorChatMessageResponse = {
+  message: VendorChatMessage;
+};
+
+export type VendorChatProfileActivity = {
+  id: number | string;
+  title: string;
+  location: string;
+  startsAt?: string;
+};
+
+export type AttendanceStatus =
+  | "registered"
+  | "approved"
+  | "attended"
+  | "no_show";
 
 export type ActivityAttendee = {
   id: string;
   name: string;
   handle: string;
   avatar: string;
-  attended: boolean;
+  status: AttendanceStatus;
   signedUpAt: string;
 };
 
-export type CreateActivityInput = {
-  title: string;
-  startsAt: string;
-  location: string;
-  latitude: number;
-  longitude: number;
-  durationMinutes: number;
-  spots: number;
-  credits: number;
-  categories: VidaCategory[];
-  cover?: string;
-  vendorId: string;
-  createAsVendor: true;
-  isPremium: boolean;
-  skillsFuturePayable: boolean;
-};
-
-export type ActivityTemplate = {
-  id: number;
-  title: string;
-  location: string;
-  latitude: number;
-  longitude: number;
-  durationMinutes: number;
-  spots: number;
-  credits: number;
-  categories: VidaCategory[];
-};
-
-export type VendorActivitiesResponse = {
-  activities: VendorActivity[];
-  stats: VendorStats;
-};
+export type Onboarded = {
+  userId: string;
+  onboardedAt: string;
+}
 
 export type ActivityAttendeesResponse = {
   activity: {
@@ -99,12 +377,42 @@ export type ActivityAttendeesResponse = {
     title: string;
   };
   attendees: ActivityAttendee[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type ActivityReview = {
+  id: string;
+  rating: number;
+  review: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    name: string;
+    handle: string;
+    avatar: string;
+  } | null;
+};
+
+export type ActivityReviewsResponse = {
+  session: {
+    id: number;
+    title: string;
+    startsAt: string;
+    location: string;
+    rating: number;
+  };
+  reviews: ActivityReview[];
 };
 
 export type UpdateAttendanceResponse = {
   attendee: {
     id: string;
-    attended: boolean;
+    status: AttendanceStatus;
   };
 };
 
@@ -115,4 +423,31 @@ export type UpdateActivityOpenResponse = {
     title: string;
     isOpen: boolean;
   };
+  session?: {
+    id: string;
+    mockId: number;
+    title: string;
+    isOpen: boolean;
+  };
+};
+
+export type CreateVendorActivityResponse = {
+  activity: {
+    id: number | string;
+    mockId?: number;
+    title: string;
+  };
+  session?: null;
+};
+
+export type CreateVendorSessionResponse = {
+  activity?: Activity;
+  session?: {
+    id: string;
+    mockId?: number;
+    activityId?: string | number;
+    title?: string;
+    isOpen?: boolean;
+  };
+  sessions?: Session[];
 };

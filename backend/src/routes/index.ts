@@ -6,7 +6,9 @@ import feedRoutes from "./feed.js";
 import groupRoutes from "./groups.js";
 import notificationRoutes from "./notifications.js";
 import profileRoutes from "./profile.js";
+import sessionRoutes from "./sessions.js";
 import settingsRoutes from "./settings.js";
+import tagRoutes from "./tags.js";
 import uploadRoutes from "./uploads.js";
 import vendorRoutes from "./vendors.js";
 
@@ -18,6 +20,7 @@ function publicMongoStatus() {
   return mongo;
 }
 
+// Confirms the API process is running.
 router.get("/health", (_req, res) => {
   const mongo = publicMongoStatus();
 
@@ -50,7 +53,9 @@ router.use("/activities", activityRoutes);
 router.use("/feed", feedRoutes);
 router.use("/groups", groupRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/sessions", sessionRoutes);
 router.use("/settings", settingsRoutes);
+router.use("/tags", tagRoutes);
 router.use("/uploads", uploadRoutes);
 router.use("/vendors", vendorRoutes);
 router.use("/", profileRoutes);

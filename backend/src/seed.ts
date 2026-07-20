@@ -9,13 +9,11 @@ import {
   feedPosts,
   friends,
   groupChats,
-  mapPins,
   notifications,
   profile,
 } from "./data.js";
 import {
   AdminModel,
-  ActivityJoinModel,
   ActivityModel,
   BlacklistModel,
   ChatMessageModel,
@@ -24,19 +22,26 @@ import {
   FeedPostModel,
   FriendshipModel,
   LikeModel,
-  MapPinModel,
   NotificationModel,
+  PollVoteModel,
   RatingModel,
+  SessionParticipationModel,
+  SessionModel,
   SettingsModel,
+  TagModel,
   UserModel,
   VendorModel,
 } from "./models/VidaData.js";
 import type { ActivitySeed } from "./data.js";
+import { reconcileParticipationCounters } from "./services/participationReconciliation.js";
 
 const legacyCollections = [
   "profiles",
   "friends",
   "groupChats",
+  "activityJoins",
+  "sessionJoins",
+  "mapPins",
 ];
 
 const allActivities: ActivitySeed[] = activities;
@@ -124,15 +129,17 @@ async function seed() {
       AdminModel.deleteMany(),
       BlacklistModel.deleteMany(),
       ChatMessageModel.deleteMany(),
+      PollVoteModel.deleteMany(),
       ActivityModel.deleteMany(),
-      ActivityJoinModel.deleteMany(),
-      MapPinModel.deleteMany(),
+      SessionModel.deleteMany(),
+      SessionParticipationModel.deleteMany(),
       FeedPostModel.deleteMany(),
       CommentModel.deleteMany(),
       LikeModel.deleteMany(),
       NotificationModel.deleteMany(),
       RatingModel.deleteMany(),
       SettingsModel.deleteMany(),
+      TagModel.deleteMany(),
       VendorModel.deleteMany(),
     ]);
 
@@ -197,6 +204,27 @@ async function seed() {
       userByName.set(hostName, user._id);
       userByHandle.set(handle, user._id);
       nextSeedUserMockId += 1;
+    }
+
+    const vendorByName = new Map<string, Types.ObjectId>();
+
+    for (const hostName of new Set(
+      allActivities.map((activity) => activity.host),
+    )) {
+      const owner = requireSeedValue(
+        userByName.get(hostName),
+        `vendor owner "${hostName}"`,
+      );
+      const vendor = await VendorModel.create({
+        owner,
+        name: hostName,
+        profileUrl: "",
+        description: "",
+        numAttended: 0,
+        allActivities: [],
+      });
+
+      vendorByName.set(hostName, vendor._id);
     }
 
     const testUser = await UserModel.create({
@@ -301,6 +329,14 @@ async function seed() {
     }
 
     const activityBySeedId = new Map<number, Types.ObjectId>();
+    const tagDocuments = await TagModel.create(
+      Array.from(new Set(allActivities.flatMap((activity) => activity.tags))).map(
+        (name) => ({ name }),
+      ),
+    );
+    const tagIdByName = new Map(
+      tagDocuments.map((tag) => [tag.name, tag._id]),
+    );
 
     for (const activity of allActivities) {
       const chatMockId = requireSeedValue(
@@ -312,10 +348,10 @@ async function seed() {
         `chat ${chatMockId} for activity "${activity.title}"`,
       );
       const host = requireSeedValue(
-        userByName.get(activity.host),
-        `host "${activity.host}" for activity "${activity.title}"`,
+        vendorByName.get(activity.host),
+        `host vendor "${activity.host}" for activity "${activity.title}"`,
       );
-      const joiningFriends = activity.joiningFriends
+      const participatingFriends = activity.participatingFriends
         .map((friend) =>
           requireSeedValue(
             userByMockId.get(friend.id),
@@ -325,60 +361,75 @@ async function seed() {
       const activityJoiningUsers = testUserSeed.joinedActivitySeedIds.includes(
         activity.id,
       )
-        ? [...joiningFriends, testUser._id]
-        : joiningFriends;
+        ? [...participatingFriends, testUser._id]
+        : participatingFriends;
+      const activityJoiningUserIds = uniqueObjectIds(activityJoiningUsers);
+      const startsAt = new Date(activity.startsAt);
+      const seededStatus = startsAt.getTime() < Date.now()
+        ? "attended"
+        : "registered";
+      const attendedCount = seededStatus === "attended"
+        ? activityJoiningUserIds.length
+        : 0;
       const savedActivity = await ActivityModel.create({
         mockId: activity.id,
         title: activity.title,
+        description: activity.description ?? "",
         host,
-        startsAt: new Date(activity.startsAt),
-        location: activity.location,
-        durationMinutes: activity.durationMinutes,
-        spots: activity.spots,
-        credits: activity.credits,
         rating: activity.rating,
         categories: activity.categories,
+        cover: activity.cover,
+        tags: activity.tags.map((name) =>
+          requireSeedValue(tagIdByName.get(name), `tag "${name}"`),
+        ),
+        sessionsNum: 1,
+        registeredCount: activityJoiningUserIds.length,
+        attendedCount,
+      });
+      const savedSession = await SessionModel.create({
+        mockId: activity.id,
+        activity: savedActivity._id,
+        title: activity.title,
+        startsAt,
+        duration: activity.durationMinutes,
+        spots: activity.spots,
+        registeredCount: activityJoiningUserIds.length,
+        attendedCount,
+        credits: activity.credits,
         chat: chatId,
         isPremium: activity.isPremium,
         skillsFuturePayable: activity.skillsFuturePayable ?? false,
         isOpen: true,
         isActive: true,
-        cover: activity.cover,
-        tags: activity.tags,
+        location: activity.location,
+        lat: activity.lat,
+        lng: activity.lng,
       });
 
       activityBySeedId.set(activity.id, savedActivity._id);
+      await VendorModel.findByIdAndUpdate(host, {
+        $addToSet: { allActivities: savedActivity._id },
+      });
 
-      const activityJoinRows = uniqueObjectIds(activityJoiningUsers).map(
-        (userId) => ({
-          userId,
-          activityId: savedActivity._id,
-        }),
-      );
+      const activityJoinRows = activityJoiningUserIds.map((userId) => ({
+        userId,
+        sessionId: savedSession._id,
+        role: "participant",
+        status: seededStatus,
+        registeredAt: new Date(),
+        attendanceMarkedAt: seededStatus === "attended" ? new Date() : undefined,
+      }));
 
       if (activityJoinRows.length > 0) {
-        await ActivityJoinModel.create(activityJoinRows);
+        await SessionParticipationModel.create(activityJoinRows);
+
+        if (seededStatus === "attended") {
+          await UserModel.updateMany(
+            { _id: { $in: activityJoiningUserIds } },
+            { $inc: { attendedSessionsCount: 1 } },
+          );
+        }
       }
-    }
-
-    for (const pin of mapPins) {
-      const activity = requireSeedValue(
-        allActivities.find((item) => item.id === pin.activityId),
-        `activity ${pin.activityId} for map pin ${pin.id}`,
-      );
-      const activityId = requireSeedValue(
-        activityBySeedId.get(pin.activityId),
-        `activity ${pin.activityId} for map pin ${pin.id}`,
-      );
-
-      await MapPinModel.create({
-        mockId: pin.id,
-        activity: activityId,
-        latitude: pin.latitude,
-        longitude: pin.longitude,
-        label: pin.label,
-        premium: activity.isPremium,
-      });
     }
 
     const commentCountByPostId = new Map<number, number>();
@@ -487,7 +538,8 @@ async function seed() {
       });
     }
 
-    console.log("Seeded relational vida database.");
+    await reconcileParticipationCounters();
+    console.log("Seeded relational vida database and reconciled counters.");
   } catch (error) {
     console.error("Failed to seed database:", error);
     process.exitCode = 1;

@@ -1,6 +1,6 @@
 import { CalendarDays, Star, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchVendorActivities, fetchVendorProfile } from "../api";
+import { fetchVendorActivities, fetchVendorProfile, fetchVendorSessions } from "../api";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,12 @@ import {
   DialogTitle,
 } from "../app/components/ui/dialog";
 import { formatActivityDate, formatActivityTime } from "../lib/activityPresentation";
-import type { VendorActivity, VendorStats, VendorSummary } from "../lib/types";
+import type {
+  VendorActivity,
+  VendorSession,
+  VendorStats,
+  VendorSummary,
+} from "../lib/types";
 
 type VendorProfileDialogProps = {
   open: boolean;
@@ -60,6 +65,7 @@ export function VendorProfileDialog({
   const [profile, setProfile] = useState<VendorSummary | null>(vendor);
   const [stats, setStats] = useState<VendorStats | null>(null);
   const [activities, setActivities] = useState<VendorActivity[]>([]);
+  const [sessions, setSessions] = useState<VendorSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const vendorId = vendor?.id;
 
@@ -67,6 +73,7 @@ export function VendorProfileDialog({
     setProfile(vendor);
     setStats(null);
     setActivities([]);
+    setSessions([]);
     setError(null);
 
     if (!open || !vendorId) {
@@ -75,8 +82,12 @@ export function VendorProfileDialog({
 
     let ignore = false;
 
-    Promise.all([fetchVendorProfile(vendorId), fetchVendorActivities(vendorId)])
-      .then(([profileResponse, activitiesResponse]) => {
+    Promise.all([
+      fetchVendorProfile(vendorId),
+      fetchVendorActivities(vendorId),
+      fetchVendorSessions(vendorId),
+    ])
+      .then(([profileResponse, activitiesResponse, sessionsResponse]) => {
         if (ignore) {
           return;
         }
@@ -84,6 +95,7 @@ export function VendorProfileDialog({
         setProfile(profileResponse.vendor ?? vendor);
         setStats(activitiesResponse.stats ?? profileResponse.stats);
         setActivities(activitiesResponse.activities);
+        setSessions(sessionsResponse.sessions);
       })
       .catch((loadError) => {
         if (!ignore) {
@@ -101,11 +113,26 @@ export function VendorProfileDialog({
   }, [open, vendor, vendorId]);
 
   const currentVendor = profile ?? vendor;
-  const pastActivities = activities.filter((activity) => {
-    const startsAt = new Date(activity.startsAt).getTime();
+  const pastSessions = sessions.filter((session) => {
+    const startsAt = new Date(session.startsAt).getTime();
 
     return Number.isFinite(startsAt) && startsAt <= Date.now();
   });
+  const attendedCount = sessions.reduce(
+    (sum, session) => sum + (Number(session.attendedCount) || 0),
+    0,
+  );
+  const ratedActivities = sessions
+    .map((session) => Number(session.rating))
+    .filter((rating) => Number.isFinite(rating) && rating > 0);
+  const averageRating =
+    ratedActivities.length > 0
+      ? Math.round(
+          (ratedActivities.reduce((sum, rating) => sum + rating, 0) /
+            ratedActivities.length) *
+            10,
+        ) / 10
+      : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,9 +154,9 @@ export function VendorProfileDialog({
             <div className="max-h-[420px] overflow-y-auto px-5 py-4 scrollbar-minimal">
               {stats && (
                 <div className="mb-4 grid grid-cols-3 gap-2">
-                  <StatTile label="Activities" value={stats.activities} />
-                  <StatTile label="Attended" value={stats.peopleAttended} />
-                  <StatTile label="Rating" value={stats.averageRating || "-"} />
+                  <StatTile label="Activities" value={activities.length} />
+                  <StatTile label="Attended" value={attendedCount} />
+                  <StatTile label="Rating" value={averageRating || "-"} />
                 </div>
               )}
 
@@ -144,29 +171,29 @@ export function VendorProfileDialog({
                 <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-3 text-sm text-destructive-foreground">
                   {error}
                 </p>
-              ) : pastActivities.length > 0 ? (
+              ) : pastSessions.length > 0 ? (
                 <div className="space-y-2">
-                  {pastActivities.map((activity) => (
+                  {pastSessions.map((session) => (
                     <div
-                      key={activity.id}
+                      key={session.id}
                       className="rounded-xl border border-border bg-card px-3 py-2"
                     >
                       <p className="text-sm font-semibold text-foreground">
-                        {activity.title}
+                        {session.activity?.title ?? session.title}
                       </p>
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        {formatActivityDate(activity.startsAt)} /{" "}
-                        {formatActivityTime(activity.startsAt)} /{" "}
-                        {activity.location}
+                        {formatActivityDate(session.startsAt)} /{" "}
+                        {formatActivityTime(session.startsAt)} /{" "}
+                        {session.location}
                       </p>
                       <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Users size={11} />
-                          {activity.attendance}
+                          {session.attendedCount}
                         </span>
                         <span className="flex items-center gap-1">
                           <Star size={11} fill="currentColor" stroke="none" />
-                          {activity.rating || "-"}
+                          {session.rating || "-"}
                         </span>
                       </div>
                     </div>

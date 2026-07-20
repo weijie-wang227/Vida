@@ -2,8 +2,9 @@ import { useCallback, type Dispatch, type SetStateAction } from "react";
 import {
   fetchGroupMessages,
   joinGroup as requestJoinGroup,
-  joinActivity as requestJoinActivity,
+  joinSession as requestJoinSession,
   sendGroupMessage as requestSendGroupMessage,
+  voteInGroupPoll as requestVoteInGroupPoll,
 } from "../api";
 import type { Activity, ChatMessage, GroupChat } from "../lib/types";
 import type { AppTab } from "./types";
@@ -42,9 +43,9 @@ export function useGroupMessageActions({
   );
 
   const sendGroupMessage = useCallback(
-    async (groupId: number, body: string) => {
+    async (groupId: number, text: string) => {
       try {
-        const response = await requestSendGroupMessage(groupId, body);
+        const response = await requestSendGroupMessage(groupId, text);
 
         setChatMessages((current) => {
           const messages = current[groupId] ?? [];
@@ -72,7 +73,36 @@ export function useGroupMessageActions({
     [applyGroupUpdate, setApiError, setChatMessages],
   );
 
-  return { loadGroupMessages, sendGroupMessage };
+  const voteOnPoll = useCallback(
+    async (groupId: number, messageId: string, optionId: string) => {
+      try {
+        const response = await requestVoteInGroupPoll(
+          groupId,
+          messageId,
+          optionId,
+        );
+
+        setChatMessages((current) => ({
+          ...current,
+          [groupId]: (current[groupId] ?? []).map((message) =>
+            message.id === response.message.id ? response.message : message,
+          ),
+        }));
+        setApiError(null);
+
+        return response.message;
+      } catch (error) {
+        console.error("Unable to vote in poll", error);
+        const message =
+          error instanceof Error ? error.message : "Unable to record vote";
+        setApiError(message);
+        throw new Error(message);
+      }
+    },
+    [setApiError, setChatMessages],
+  );
+
+  return { loadGroupMessages, sendGroupMessage, voteOnPoll };
 }
 
 export function useJoinActivityAction({
@@ -97,9 +127,9 @@ export function useJoinActivityAction({
   navigateToGroup: (groupId: number) => void;
 }) {
   return useCallback(
-    async (activityId: number) => {
+    async (sessionId: number) => {
       try {
-        const response = await requestJoinActivity(activityId);
+        const response = await requestJoinSession(sessionId);
 
         applyActivityUpdate(response.activity);
         applyGroupUpdate(response.group);
@@ -108,15 +138,18 @@ export function useJoinActivityAction({
 
           for (const [groupId, messages] of Object.entries(current)) {
             nextMessagesByGroup[Number(groupId)] = messages.map((message) => {
-              if (message.activityInvite?.activity.id !== activityId) {
+              if (
+                message.type !== "activity_invite" ||
+                String(message.payload.session.id ?? "") !== String(sessionId)
+              ) {
                 return message;
               }
 
               return {
                 ...message,
-                activityInvite: {
-                  ...message.activityInvite,
-                  joiningFriends: response.activity.joiningFriends,
+                payload: {
+                  ...message.payload,
+                  participatingFriends: response.activity.participatingFriends,
                 },
               };
             });
@@ -125,7 +158,7 @@ export function useJoinActivityAction({
           return nextMessagesByGroup;
         });
         setJoinedActivityIds((current) =>
-          markRecentActivityId(current, activityId),
+          markRecentActivityId(current, sessionId),
         );
         setActiveTab("chat");
         setSelectedActivityId(null);

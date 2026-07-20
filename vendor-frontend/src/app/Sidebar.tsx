@@ -1,8 +1,15 @@
-import { ChevronDown } from "lucide-react";
 import { navSections } from "../data/dashboard";
-import { BrandLogo } from "./BrandLogo";
+import { BrandLogo } from "../components/BrandLogo";
 
-export type VendorTab = "dashboard" | "upcoming";
+export type VendorTab =
+  | "dashboard"
+  | "upcoming"
+  | "create-activity"
+  | "create-session"
+  | "volunteer-management"
+  | "finances"
+  | "users"
+  | "chats";
 
 export function Sidebar({
   activeTab,
@@ -20,10 +27,9 @@ export function Sidebar({
       <nav className="sidebar__nav" aria-label="Vendor navigation">
         {navSections.map((section) => (
           <section key={section.label} className="nav-section">
-            <button type="button" className="nav-section__header">
+            <div className="nav-section__header">
               <span>{section.label}</span>
-              <ChevronDown size={15} />
-            </button>
+            </div>
             <div className="nav-section__items">
               {section.items.map(({ id, label, active, icon: Icon }) => (
                 <button
