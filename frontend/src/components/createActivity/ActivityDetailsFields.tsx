@@ -4,29 +4,38 @@ import {
   Image,
   MapPin,
   MessageCircle,
+  Tag,
   Timer,
   Users,
 } from "lucide-react";
-import type { GroupChat, vidaCategory } from "../../lib/types";
+import type { AvailableTag, GroupChat, vidaCategory } from "../../lib/types";
 import { NumberStepper } from "./NumberStepper";
 import type { CreateActivityFormState } from "./types";
-import { vidaCategorySelector } from "./vidaCategorySelector";
+import { VitaCategorySelector } from "./VitaCategorySelector";
 
 export function ActivityDetailsFields({
   form,
   adminGroups,
+  availableTags,
+  isLoadingTags,
   onCategoryToggle,
   onCoverFileChange,
   onFieldChange,
+  onTagToggle,
+  tagLoadError,
 }: {
   form: CreateActivityFormState;
   adminGroups: GroupChat[];
+  availableTags: AvailableTag[];
+  isLoadingTags: boolean;
   onCategoryToggle: (category: vidaCategory) => void;
   onCoverFileChange: (file: File | null) => void;
   onFieldChange: <Key extends keyof CreateActivityFormState>(
     field: Key,
     value: CreateActivityFormState[Key],
   ) => void;
+  onTagToggle: (tagId: string) => void;
+  tagLoadError: string | null;
 }) {
   return (
     <div className="space-y-3">
@@ -151,10 +160,49 @@ export function ActivityDetailsFields({
         </label>
       </div>
 
-      <vidaCategorySelector
+      <VitaCategorySelector
         value={form.categories}
         onToggle={onCategoryToggle}
       />
+
+      <fieldset>
+        <legend className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          <Tag size={13} />
+          Tags
+        </legend>
+        {isLoadingTags ? (
+          <p className="text-xs text-muted-foreground">Loading available tags...</p>
+        ) : tagLoadError ? (
+          <p className="text-xs text-destructive-foreground">{tagLoadError}</p>
+        ) : availableTags.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No tags are available.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {availableTags.map((tag) => {
+              const isSelected = form.tagIds.includes(tag.id);
+
+              return (
+                <label
+                  key={tag.id}
+                  className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                    isSelected
+                      ? "border-accent bg-accent/15 text-foreground"
+                      : "border-border bg-input-background text-muted-foreground"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onTagToggle(tag.id)}
+                    className="accent-accent"
+                  />
+                  {tag.name}
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </fieldset>
 
       <div className="grid grid-cols-2 gap-2">
         <NumberStepper

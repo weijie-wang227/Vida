@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types } from "mongoose";
+import { chatMessageTypes } from "../chatMessages.js";
 
 export type UserDocument = {
   _id: Types.ObjectId;
@@ -11,7 +12,23 @@ export type UserDocument = {
   passwordSalt?: string;
   bio?: string;
   stats?: { label: string; value: string }[];
+  attendedSessionsCount: number;
 };
+
+export const sessionParticipationStatuses = [
+  "registered",
+  "approved",
+  "rejected",
+  "attended",
+  "no_show",
+  "cancelled",
+] as const;
+export type SessionParticipationStatus =
+  (typeof sessionParticipationStatuses)[number];
+
+export const sessionParticipationRoles = ["participant", "organizer"] as const;
+export type SessionParticipationRole =
+  (typeof sessionParticipationRoles)[number];
 
 export type SettingsPreferences = {
   appearance: "light" | "dark";
@@ -54,6 +71,44 @@ export type RatingDocument = {
   review?: string;
 };
 
+export type TagDocument = {
+  _id: Types.ObjectId;
+  name: string;
+};
+
+export type MembershipDocument = {
+  _id: Types.ObjectId;
+  name: string;
+  description?: string;
+  price: number;
+  credits: number;
+};
+
+export type AccountDocument = {
+  _id: Types.ObjectId;
+  membership: Types.ObjectId;
+  user: Types.ObjectId;
+  startAt: Date;
+  creditsLeft: number;
+};
+
+export type ConsolidatedUser = {
+  user: Types.ObjectId;
+  joinedAt: Date;
+};
+
+export type ConversionRateDocument = {
+  _id: Types.ObjectId;
+  key: "creditsToDollars";
+  rate: number;
+};
+
+export type ConsolidatedDocument = {
+  _id: Types.ObjectId;
+  vendor: Types.ObjectId;
+  users: ConsolidatedUser[];
+};
+
 const userSchema = new Schema<UserDocument>(
   {
     mockId: { type: Number, required: true, unique: true },
@@ -76,6 +131,7 @@ const userSchema = new Schema<UserDocument>(
         value: { type: String, required: true },
       },
     ],
+    attendedSessionsCount: { type: Number, required: true, default: 0, min: 0 },
   },
   { timestamps: true },
 );
@@ -120,6 +176,65 @@ const notificationSchema = new Schema<NotificationDocument>(
   { timestamps: true },
 );
 notificationSchema.index({ user: 1, dateReceived: -1 });
+
+const membershipSchema = new Schema<MembershipDocument>(
+  {
+    name: { type: String, required: true, trim: true },
+    description: { type: String, trim: true, default: "" },
+    price: { type: Number, required: true, min: 0 },
+    credits: { type: Number, required: true, min: 0 },
+  },
+  { timestamps: true },
+);
+membershipSchema.index({ name: 1 }, { unique: true });
+
+const accountSchema = new Schema<AccountDocument>(
+  {
+    membership: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: "Membership",
+    },
+    user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    startAt: { type: Date, required: true, default: () => new Date() },
+    creditsLeft: { type: Number, required: true, min: 0 },
+  },
+  { timestamps: true },
+);
+accountSchema.index({ user: 1 });
+accountSchema.index({ membership: 1 });
+
+const conversionRateSchema = new Schema<ConversionRateDocument>(
+  {
+    key: {
+      type: String,
+      required: true,
+      enum: ["creditsToDollars"],
+      default: "creditsToDollars",
+    },
+    rate: { type: Number, required: true, min: 0, default: 0.7 },
+  },
+  { timestamps: true },
+);
+conversionRateSchema.index({ key: 1 }, { unique: true });
+
+const consolidatedUserSchema = new Schema<ConsolidatedUser>(
+  {
+    user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    joinedAt: { type: Date, required: true, default: () => new Date() },
+  },
+  { _id: false },
+);
+
+const consolidatedSchema = new Schema<ConsolidatedDocument>(
+  {
+    vendor: { type: Schema.Types.ObjectId, required: true, ref: "Vendor" },
+    users: { type: [consolidatedUserSchema], required: true, default: [] },
+  },
+  { timestamps: true },
+);
+consolidatedSchema.index({ vendor: 1 }, { unique: true });
+consolidatedSchema.index({ "users.user": 1 });
 
 const friendshipSchema = new Schema(
   {
@@ -174,18 +289,32 @@ const chatMessageSchema = new Schema(
   {
     chat: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
     sender: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    body: { type: String, required: true, trim: true, maxlength: 1000 },
     type: {
       type: String,
-      enum: ["text", "activity_invite"],
+      enum: chatMessageTypes,
       default: "text",
     },
-    activity: { type: Schema.Types.ObjectId, ref: "Activity" },
+    schemaVersion: { type: Number, required: true, default: 1, min: 1 },
+    payload: { type: Schema.Types.Mixed, required: true },
   },
   { timestamps: true },
 );
 chatMessageSchema.index({ chat: 1, createdAt: 1 });
-chatMessageSchema.index({ activity: 1 });
+
+const pollVoteSchema = new Schema(
+  {
+    message: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: "ChatMessage",
+    },
+    user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    optionIds: [{ type: String, required: true }],
+  },
+  { timestamps: true },
+);
+pollVoteSchema.index({ message: 1, user: 1 }, { unique: true });
+pollVoteSchema.index({ message: 1 });
 
 const vendorSchema = new Schema<VendorDocument>(
   {
@@ -212,53 +341,89 @@ const ratingSchema = new Schema<RatingDocument>(
 ratingSchema.index({ activity: 1 });
 ratingSchema.index({ sender: 1 });
 
+const tagSchema = new Schema<TagDocument>(
+  {
+    name: { type: String, required: true, trim: true },
+  },
+  { timestamps: true },
+);
+tagSchema.index({ name: 1 }, { unique: true });
+
 const activitySchema = new Schema(
   {
     mockId: { type: Number, required: true, unique: true },
-    title: { type: String, required: true },
-    host: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    vendor: { type: Schema.Types.ObjectId, ref: "Vendor" },
-    startsAt: { type: Date, required: true },
-    location: { type: String, required: true },
-    durationMinutes: { type: Number, required: true },
-    spots: { type: Number, required: true },
-    credits: { type: Number, required: true, default: 0, min: 0 },
-    rating: { type: Number, required: true },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true, default: "" },
+    host: { type: Schema.Types.ObjectId, required: false, ref: "Vendor" },
+    rating: { type: Number, required: true, default: 5 },
     categories: [{ type: String, required: true }],
+    cover: { type: String },
+    tags: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+    isVolunteer: { type: Boolean, required: true, default: false },
+    sessionsNum: { type: Number, required: true, default: 0, min: 0 },
+    registeredCount: { type: Number, required: true, default: 0, min: 0 },
+    attendedCount: { type: Number, required: true, default: 0, min: 0 },
+    totalRevenue: { type: Number, required: true, default: 0, min: 0 },
+  },
+  { timestamps: true },
+);
+activitySchema.index({ host: 1 });
+
+const sessionSchema = new Schema(
+  {
+    mockId: { type: Number, required: true, unique: true },
+    activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
+    title: { type: String, required: true, trim: true },
+    startsAt: { type: Date, required: true },
+    duration: { type: Number, required: true, min: 1 },
+    spots: { type: Number, required: true, min: 1 },
+    registeredCount: { type: Number, required: true, default: 0, min: 0 },
+    attendedCount: { type: Number, required: true, default: 0, min: 0 },
+    credits: { type: Number, required: true, default: 0, min: 0 },
     chat: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
     isPremium: { type: Boolean, required: true, default: false },
     skillsFuturePayable: { type: Boolean, required: true, default: false },
     isOpen: { type: Boolean, required: true, default: true },
     isActive: { type: Boolean, required: true, default: true },
-    cover: { type: String },
-    tags: [{ type: String }],
+    location: { type: String, required: true, trim: true },
+    lat: { type: Number, required: true, min: -90, max: 90 },
+    lng: { type: Number, required: true, min: -180, max: 180 },
   },
   { timestamps: true },
 );
+sessionSchema.index({ activity: 1, startsAt: 1 });
+sessionSchema.index({ chat: 1 });
+sessionSchema.index({ isOpen: 1, isActive: 1, startsAt: 1 });
 
-const activityJoinSchema = new Schema(
+const sessionParticipationSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    activityId: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
-    sentReminder: { type: Boolean, required: true, default: false },
-    sentReview: { type: Boolean, required: true, default: false },
-    attended: { type: Boolean, required: true, default: false },
+    sessionId: { type: Schema.Types.ObjectId, required: true, ref: "Session" },
+    role: {
+      type: String,
+      enum: sessionParticipationRoles,
+      required: true,
+      default: "participant",
+    },
+    status: {
+      type: String,
+      enum: sessionParticipationStatuses,
+      required: true,
+      default: "registered",
+    },
+    registeredAt: { type: Date, required: true, default: () => new Date() },
+    attendanceMarkedAt: { type: Date },
+    reminderSentAt: { type: Date },
+    reviewPromptSentAt: { type: Date },
   },
   { timestamps: true },
 );
-activityJoinSchema.index({ userId: 1, activityId: 1 }, { unique: true });
-
-const mapPinSchema = new Schema(
-  {
-    mockId: { type: Number, required: true, unique: true },
-    activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
-    latitude: { type: Number, required: true },
-    longitude: { type: Number, required: true },
-    label: { type: String, required: true },
-    premium: { type: Boolean },
-  },
-  { timestamps: true },
+sessionParticipationSchema.index(
+  { userId: 1, sessionId: 1 },
+  { unique: true },
 );
+sessionParticipationSchema.index({ sessionId: 1, status: 1, createdAt: 1 });
+sessionParticipationSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
 const feedPostSchema = new Schema(
   {
@@ -270,8 +435,9 @@ const feedPostSchema = new Schema(
     image: { type: String },
     durationMinutes: { type: Number },
     categories: [{ type: String }],
+    comments:[{type: Schema.Types.ObjectId, ref: "Comment"}],
     likesCount: { type: Number, required: true, default: 0 },
-    comments: { type: Number, required: true, default: 0 },
+    commentsNum: { type: Number, required: true, default: 0 },
   },
   { timestamps: true },
 );
@@ -308,6 +474,26 @@ export const NotificationModel = mongoose.model<any>(
   notificationSchema,
   "notifications",
 );
+export const MembershipModel = mongoose.model<any>(
+  "Membership",
+  membershipSchema,
+  "memberships",
+);
+export const AccountModel = mongoose.model<any>(
+  "Account",
+  accountSchema,
+  "accounts",
+);
+export const ConsolidatedModel = mongoose.model<any>(
+  "Consolidated",
+  consolidatedSchema,
+  "consolidated",
+);
+export const ConversionRateModel = mongoose.model<any>(
+  "ConversionRate",
+  conversionRateSchema,
+  "conversionRates",
+);
 export const FriendshipModel = mongoose.model(
   "Friendship",
   friendshipSchema,
@@ -327,17 +513,27 @@ export const ChatMessageModel = mongoose.model<any>(
 );
 export const VendorModel = mongoose.model<any>("Vendor", vendorSchema, "vendors");
 export const RatingModel = mongoose.model<any>("Rating", ratingSchema, "ratings");
+export const TagModel = mongoose.model<TagDocument>("Tag", tagSchema, "tags");
 export const ActivityModel = mongoose.model<any>(
   "Activity",
   activitySchema,
   "activities",
 );
-export const ActivityJoinModel = mongoose.model<any>(
-  "ActivityJoin",
-  activityJoinSchema,
-  "activityJoins",
+export const SessionModel = mongoose.model<any>(
+  "Session",
+  sessionSchema,
+  "sessions",
 );
-export const MapPinModel = mongoose.model<any>("MapPin", mapPinSchema, "mapPins");
+export const SessionParticipationModel = mongoose.model<any>(
+  "SessionParticipation",
+  sessionParticipationSchema,
+  "sessionParticipations",
+);
+export const PollVoteModel = mongoose.model<any>(
+  "PollVote",
+  pollVoteSchema,
+  "pollVotes",
+);
 export const FeedPostModel = mongoose.model<any>(
   "FeedPost",
   feedPostSchema,

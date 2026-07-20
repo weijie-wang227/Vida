@@ -31,6 +31,7 @@ function createR2Client() {
   return new S3Client({
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    requestChecksumCalculation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId,
       secretAccessKey,

@@ -5,15 +5,12 @@ import {
   type FormEvent,
 } from "react";
 import {
-  BookOpen,
   ChevronDown,
   Edit3,
   FileText,
   ImagePlus,
-  Grid3X3,
   LogOut,
   Loader2,
-  MessageCircle,
   Search,
   Settings,
   X,
@@ -175,6 +172,7 @@ export function TopBar({
       </label>
 
       <div className="topbar__actions">
+        {/*
         <button type="button" className="icon-button" aria-label="Apps">
           <Grid3X3 size={19} />
         </button>
@@ -184,6 +182,7 @@ export function TopBar({
         <button type="button" className="icon-button" aria-label="Messages">
           <MessageCircle size={19} />
         </button>
+        */}
         <div className="account-menu">
           <button
             type="button"

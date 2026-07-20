@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "seed": "tsx src/seed.ts",
+    "migrate:tags": "tsx src/migrate-tags.ts",
+    "reconcile": "tsx src/reconcile.ts",
+    "test": "tsx --test src/domain/*.test.ts",
     "db:check": "tsx src/check-db.ts",
     "build": "tsc",
     "start": "node dist/server.js"

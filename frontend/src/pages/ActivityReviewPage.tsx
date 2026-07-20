@@ -142,7 +142,9 @@ export function ActivityReviewPage() {
                   Thanks for attending
                 </p>
                 <h1 className="mt-2 text-xl font-bold leading-tight text-foreground">
-                  {reviewData?.activity.title ?? "Review this activity"}
+                  {reviewData?.activity?.title ??
+                    reviewData?.session?.title ??
+                    "Review this activity"}
                 </h1>
               </div>
 

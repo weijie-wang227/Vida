@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { findAuthenticatedUser } from "../auth.js";
+import { requireAuth } from "../middleware/auth.js";
 import {
   SettingsModel,
   type SettingsPreferences,
@@ -70,28 +70,18 @@ async function findOrCreateSettings(userId: unknown) {
   );
 }
 
-router.get("/", async (req, res) => {
-  const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-  if (!authUser) {
-    res.status(401).json({ message: "Not signed in." });
-    return;
-  }
-
+// Returns settings and preferences for the signed-in user.
+router.get("/", requireAuth, async (_req, res) => {
+  const authUser = res.locals.user;
   const settings = await findOrCreateSettings(authUser._id);
 
   res.json({ preferences: serializePreferences(settings) });
 });
 
-router.put("/", async (req, res, next) => {
+// Replaces settings and preferences for the signed-in user.
+router.put("/", requireAuth, async (req, res, next) => {
   try {
-    const authUser = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!authUser) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const authUser = res.locals.user;
     const settings = await findOrCreateSettings(authUser._id);
     const currentPreferences = serializePreferences(settings);
     const body = isRecord(req.body) ? req.body : {};

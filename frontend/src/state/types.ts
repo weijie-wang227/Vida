@@ -82,7 +82,12 @@ export type AppState = {
   appointGroupAdmin: (groupId: number, memberId: string) => Promise<GroupChat>;
   blacklistGroupMember: (groupId: number, memberId: string) => Promise<GroupChat>;
   loadGroupMessages: (groupId: number) => Promise<void>;
-  sendGroupMessage: (groupId: number, body: string) => Promise<ChatMessage>;
+  sendGroupMessage: (groupId: number, text: string) => Promise<ChatMessage>;
+  voteOnPoll: (
+    groupId: number,
+    messageId: string,
+    optionId: string,
+  ) => Promise<ChatMessage>;
   signOut: () => void;
   selectTab: (tab: AppTab) => void;
   openActivity: (activityId: number) => void;

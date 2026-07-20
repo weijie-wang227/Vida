@@ -1,12 +1,10 @@
 import {
-  BarChart3,
   CalendarDays,
+  CreditCard,
   LayoutDashboard,
-  Megaphone,
+  MessageCircle,
   PackagePlus,
-  Settings,
-  Sparkles,
-  TicketPercent,
+  UserRoundCog,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -14,7 +12,15 @@ import {
 export type NavSection = {
   label: string;
   items: Array<{
-    id?: "dashboard" | "upcoming";
+    id?:
+      | "dashboard"
+      | "upcoming"
+      | "create-activity"
+      | "create-session"
+      | "volunteer-management"
+      | "finances"
+      | "users"
+      | "chats";
     label: string;
     active?: boolean;
     icon: LucideIcon;
@@ -26,24 +32,21 @@ export const navSections: NavSection[] = [
     label: "Vendor",
     items: [
       { id: "dashboard", label: "My Dashboard", active: true, icon: LayoutDashboard },
-      { id: "upcoming", label: "Upcoming", icon: CalendarDays },
+      { id: "finances", label: "Finances", icon: CreditCard },
+      { id: "users", label: "Users", icon: Users },
+      { id: "chats", label: "Chats", icon: MessageCircle },
     ],
   },
   {
     label: "Activity Tools",
     items: [
-      { label: "Create Activity", icon: PackagePlus },
-      { label: "Activity Settings", icon: Settings },
-      { label: "AI Optimiser", icon: Sparkles },
-    ],
-  },
-  {
-    label: "Marketing Centre",
-    items: [
-      { label: "Marketing Centre", icon: Megaphone },
-      { label: "Ads", icon: BarChart3 },
-      { label: "Affiliate Marketing", icon: Users },
-      { label: "Discount Toolkit", icon: TicketPercent },
+      { id: "create-activity", label: "Create Activity", icon: PackagePlus },
+      { id: "upcoming", label: "View All Activities", icon: CalendarDays },
+      {
+        id: "volunteer-management",
+        label: "Volunteer Management",
+        icon: UserRoundCog,
+      },
     ],
   },
 ];

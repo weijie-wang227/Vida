@@ -45,8 +45,8 @@ import {
 } from "./providerActions";
 import { useLoadAppData, useRestoreSession } from "./providerEffects";
 import {
+  mergeActivityUpdate,
   markRecentActivityId,
-  replaceActivity,
   upsertGroup,
 } from "./providerHelpers";
 import { useProfileActions } from "./profileActions";
@@ -176,12 +176,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   });
 
   const applyActivityUpdate = useCallback((activity: Activity) => {
-    if (activity.isPremium) {
-      setPremiumActivities((current) => replaceActivity(current, activity));
-      return;
-    }
-
-    setStandardActivities((current) => replaceActivity(current, activity));
+    setPremiumActivities((current) => mergeActivityUpdate(current, activity));
+    setStandardActivities((current) => mergeActivityUpdate(current, activity));
   }, []);
 
   const applyGroupUpdate = useCallback((group: GroupChat) => {
@@ -202,11 +198,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [navigate],
   );
 
-  const { loadGroupMessages, sendGroupMessage } = useGroupMessageActions({
-    applyGroupUpdate,
-    setApiError,
-    setChatMessages,
-  });
+  const { loadGroupMessages, sendGroupMessage, voteOnPoll } =
+    useGroupMessageActions({
+      applyGroupUpdate,
+      setApiError,
+      setChatMessages,
+    });
 
   const joinActivity = useJoinActivityAction({
     applyActivityUpdate,
@@ -718,6 +715,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
       loadGroupMessages,
       sendGroupMessage,
+      voteOnPoll,
       signOut: () => {
         clearAuthToken();
         setAuthUser(null);

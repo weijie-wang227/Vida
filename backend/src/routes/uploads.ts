@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
-import { findAuthenticatedUser } from "../auth.js";
+import { requireAuth } from "../middleware/auth.js";
 import { createPublicR2Url, createUploadUrl } from "../lib/r2.js";
+import { getString } from "../utils/input.js";
 
 const router = Router();
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -13,10 +14,6 @@ const safeFolders = new Set([
   "activities",
   "vendors",
 ]);
-
-function getString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 function getSafeFolder(folder: string) {
   if (folder === "post") {
@@ -39,15 +36,10 @@ function getImageExtension(contentType: string) {
   }
 }
 
-router.post("/presigned-url", async (req, res, next) => {
+// Creates an R2 presigned upload URL for a validated image or file key.
+router.post("/presigned-url", requireAuth, async (req, res, next) => {
   try {
-    const user = await findAuthenticatedUser(req.headers.authorization);
-
-    if (!user) {
-      res.status(401).json({ message: "Not signed in." });
-      return;
-    }
-
+    const user = res.locals.user;
     const contentType = getString(req.body?.contentType);
     const folder = getSafeFolder(getString(req.body?.folder));
 

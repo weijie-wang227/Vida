@@ -16,6 +16,7 @@ export type CreateActivityFormState = {
   coverFile: File | null;
   coverPreview: string;
   categories: vidaCategory[];
+  tagIds: string[];
   linkedGroupId: string;
 };
 
@@ -61,5 +62,6 @@ export const initialFormState: CreateActivityFormState = {
   coverFile: null,
   coverPreview: "",
   categories: ["social"],
+  tagIds: [],
   linkedGroupId: "",
 };

@@ -115,7 +115,7 @@ export function PremiumCard({ activity }: { activity: Activity }) {
             </span>
           ))}
         </div>
-        <FriendAvatars friends={activity.joiningFriends} />
+        <FriendAvatars friends={activity.participatingFriends} />
       </div>
     </div>
   );
@@ -198,7 +198,7 @@ export function StandardRow({ activity }: { activity: Activity }) {
         */}
       </div>
       <div style={{ paddingLeft: 52 }}>
-        <FriendAvatars friends={activity.joiningFriends} max={4} />
+        <FriendAvatars friends={activity.participatingFriends} max={4} />
       </div>
     </div>
   );

@@ -9,23 +9,76 @@ export type VendorSummary = {
 };
 
 export type VendorStats = {
-  activities: number;
-  pastActivities: number;
-  peopleAttended: number;
-  attendanceRate: string;
-  averageRating: number;
+  revenue: number;
+  newUsers: number;
+  totalUsers: number;
+};
+
+export type AvailableTag = {
+  id: string;
+  name: string;
 };
 
 export type VendorActivity = {
   id: string;
   mockId: number;
   title: string;
+  description: string;
+  categories: vidaCategory[];
+  cover?: string;
+  tags: string[];
+  isVolunteer: boolean;
+  rating: number;
+  isOpen: boolean;
+};
+
+export type VendorSession = {
+  id: string;
+  objectId?: string;
+  mockId: string;
+  activity?: VendorActivity;
+  activityId: string | number;
+  activityMockId?: number;
+  title: string;
   startsAt: string;
   location: string;
+  durationMinutes: number;
   spots: number;
-  attendance: number;
-  rating: number;
+  credits: number;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+  isOpen: boolean;
   isActive: boolean;
+  attendedCount: number;
+  rating: number;
+};
+
+export type ActivitySession = {
+  id: string | number;
+  objectId?: string;
+  mockId?: string | number;
+  activityId?: string | number;
+  activityMockId?: number;
+  title: string;
+  startsAt: string;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+  durationMinutes: number;
+  duration?: number;
+  spots: number;
+  registeredCount: number;
+  attendedCount: number;
+  credits: number;
+  groupId?: number;
+  chat?: string;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+  isOpen: boolean;
+  isActive: boolean;
+  participatingFriends?: Friend[];
 };
 
 export type Friend = {
@@ -44,23 +97,37 @@ export type FriendSearchResult = {
 
 export type Activity = {
   id: ActivityId;
+  objectId?: string;
+  sessionId?: ActivityId;
+  activityId?: ActivityId;
+  activityObjectId?: string;
   title: string;
+  description?: string;
   host: string;
   startsAt: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
   durationMinutes: number;
+  duration?: number;
   spots: number;
+  registeredCount: number;
+  attendedCount: number;
   credits: number;
   rating: number;
   categories: vidaCategory[];
   tags: string[];
+  isVolunteer: boolean;
   isPremium: boolean;
   skillsFuturePayable: boolean;
   isOpen: boolean;
   isActive: boolean;
   cover?: string;
   vendor?: VendorSummary;
-  joiningFriends: Friend[];
+  sessions?: ActivitySession[];
+  participatingFriends: Friend[];
   joinDisabledReason?: string;
 };
 
@@ -74,6 +141,7 @@ export type CreateActivityInput = {
   spots: number;
   credits: number;
   categories: vidaCategory[];
+  tagIds?: string[];
   cover?: string;
   groupId?: number;
 };
@@ -112,9 +180,15 @@ export type ActivityReview = {
 };
 
 export type ActivityReviewResponse = {
-  activity: {
+  activity?: {
     id: ActivityId;
     title: string;
+    startsAt: string;
+  };
+  session?: {
+    id: ActivityId;
+    title: string;
+    sessionTitle?: string;
     startsAt: string;
   };
   review: ActivityReview | null;
@@ -230,13 +304,17 @@ export type ChatActivityInvite = {
     credits: number;
     categories: vidaCategory[];
   };
-  joiningFriends: Friend[];
+  session: {
+    id: ActivityId;
+    objectId: string;
+  };
+  participatingFriends: Friend[];
 };
 
-export type ChatMessage = {
+type ChatMessageBase = {
   id: string;
   groupId: number;
-  type: "text" | "activity_invite";
+  schemaVersion: number;
   sender: {
     id: string;
     name: string;
@@ -244,14 +322,39 @@ export type ChatMessage = {
     avatar: string;
     isAdmin: boolean;
   };
-  body: string;
   time: string;
   createdAt: string;
-  activityInvite?: ChatActivityInvite;
 };
+
+export type ChatPoll = {
+  question: string;
+  options: Array<{
+    id: string;
+    label: string;
+    votes: number;
+    selected: boolean;
+  }>;
+  allowsMultiple: false;
+  totalVotes: number;
+};
+
+export type ChatMessage =
+  | (ChatMessageBase & {
+      type: "text";
+      payload: { text: string };
+    })
+  | (ChatMessageBase & {
+      type: "activity_invite";
+      payload: ChatActivityInvite;
+    })
+  | (ChatMessageBase & {
+      type: "poll";
+      payload: ChatPoll;
+    });
 
 export type JoinActivityResponse = {
   activity: Activity;
+  session?: ActivitySession;
   group: GroupChat;
 };
 
@@ -271,6 +374,8 @@ export type GroupMutationResponse = {
 export type MapPin = {
   id: number;
   activityId: ActivityId;
+  sessionId?: ActivityId;
+  registeredCount: number;
   latitude: number;
   longitude: number;
   x: number;
@@ -285,12 +390,22 @@ export type ProfileStat = {
   value: string;
 };
 
+export type PollVoteResponse = {
+  message: ChatMessage;
+};
+
+export type ProfileAccount = {
+  membershipName: string;
+  creditsLeft: number;
+};
+
 export type Profile = {
   name: string;
   handle: string;
   avatar: string;
   bio: string;
   stats: ProfileStat[];
+  account?: ProfileAccount | null;
 };
 
 export type UpdateProfileInput = {

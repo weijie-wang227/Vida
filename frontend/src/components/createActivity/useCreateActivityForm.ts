@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { fetchCreatedActivityTemplates } from "../../api/activities";
+import {
+  fetchAvailableTags,
+  fetchCreatedActivityTemplates,
+} from "../../api/activities";
 import { uploadImageToR2 } from "../../api/uploads";
 import type {
   ActivityTemplate,
+  AvailableTag,
   CreateActivityInput,
   vidaCategory,
 } from "../../lib/types";
@@ -17,9 +21,10 @@ import {
 } from "./types";
 
 export function useCreateActivityForm({
+  enableActivityTemplates = false,
   open,
   onClose,
-}: CreateActivityModalProps) {
+}: CreateActivityModalProps & { enableActivityTemplates?: boolean }) {
   const { createActivity, groupChats, openActivity } = useAppState();
   const adminGroups = groupChats.filter((group) => group.isAdmin);
   const [form, setForm] = useState<CreateActivityFormState>(initialFormState);
@@ -43,9 +48,44 @@ export function useCreateActivityForm({
   const [activityTemplateError, setActivityTemplateError] = useState<string | null>(
     null,
   );
+  const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const [tagLoadError, setTagLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
+      return;
+    }
+
+    let isActive = true;
+    setIsLoadingTags(true);
+    setTagLoadError(null);
+
+    fetchAvailableTags()
+      .then((tags) => {
+        if (isActive) {
+          setAvailableTags(tags);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setAvailableTags([]);
+          setTagLoadError("Unable to load available tags.");
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoadingTags(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !enableActivityTemplates) {
       return;
     }
 
@@ -74,7 +114,7 @@ export function useCreateActivityForm({
     return () => {
       isActive = false;
     };
-  }, [open]);
+  }, [enableActivityTemplates, open]);
 
   const selectMapPosition = useCallback((position: [number, number]) => {
     setSelectedPosition(position);
@@ -201,6 +241,15 @@ export function useCreateActivityForm({
     });
   };
 
+  const toggleTag = (tagId: string) => {
+    setForm((current) => ({
+      ...current,
+      tagIds: current.tagIds.includes(tagId)
+        ? current.tagIds.filter((id) => id !== tagId)
+        : [...current.tagIds, tagId],
+    }));
+  };
+
   const clearLocationQuery = () => {
     setLocationQuery("");
     setDebouncedLocationQuery("");
@@ -281,6 +330,7 @@ export function useCreateActivityForm({
       spots,
       credits,
       categories: form.categories,
+      tagIds: form.tagIds,
       groupId: form.linkedGroupId ? Number(form.linkedGroupId) : undefined,
     };
 
@@ -315,6 +365,7 @@ export function useCreateActivityForm({
   return {
     activityTemplateError,
     activityTemplateQuery,
+    availableTags,
     clearLocationQuery,
     error,
     form,
@@ -322,6 +373,7 @@ export function useCreateActivityForm({
     handleClose,
     handleSubmit,
     isLoadingActivityTemplates,
+    isLoadingTags,
     isSaving,
     isSearchingLocation,
     locationQuery,
@@ -335,7 +387,9 @@ export function useCreateActivityForm({
     setActivityTemplateQuery,
     setDebouncedLocationQuery,
     setLocationQuery,
+    tagLoadError,
     toggleCategory,
+    toggleTag,
     updateCoverFile,
     updateField,
   };
