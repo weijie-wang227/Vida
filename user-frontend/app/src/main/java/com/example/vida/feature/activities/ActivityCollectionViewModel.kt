@@ -12,44 +12,60 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+data class ActivityCollectionUiState(
+    val activities: List<ActivitySummary> = emptyList(),
+    val favoriteActivityIds: Set<Long> = emptySet(),
+    val favoriteMutationIds: Set<Long> = emptySet(),
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null,
+)
+
 @HiltViewModel
-class ActivitiesViewModel @Inject constructor(
+class ActivityCollectionViewModel @Inject constructor(
     private val repository: ActivitiesRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(ActivitiesUiState())
-    val uiState: StateFlow<ActivitiesUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(ActivityCollectionUiState())
+    val uiState: StateFlow<ActivityCollectionUiState> = _uiState.asStateFlow()
+    private var collection: ActivityCollection? = null
 
     init {
-        observeCachedActivities()
-        observeFavoriteActivityIds()
+        viewModelScope.launch {
+            repository.observeFavoriteActivityIds().collect { activityIds ->
+                _uiState.update { it.copy(favoriteActivityIds = activityIds) }
+            }
+        }
+    }
+
+    fun load(selectedCollection: ActivityCollection) {
+        if (collection == selectedCollection) {
+            return
+        }
+
+        collection = selectedCollection
         refresh()
     }
 
     fun refresh() {
+        val selectedCollection = collection ?: return
+
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null,
-                    tagsErrorMessage = null,
-                    favoritesErrorMessage = null,
-                )
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val activitiesResult = runCatching {
+                repository.fetchActivityCollection(selectedCollection.routeValue)
+            }
+            val favoritesResult = runCatching {
+                repository.fetchFavoriteActivities()
             }
 
-            val tagsResult = runCatching { repository.fetchAvailableTags() }
-            val activitiesResult = runCatching { repository.refreshActivities() }
-            val favoritesResult = runCatching { repository.fetchFavoriteActivities() }
-
-            _uiState.update { current ->
-                current.copy(
-                    availableTags = tagsResult.getOrDefault(current.availableTags),
+            _uiState.update {
+                it.copy(
+                    activities = activitiesResult.getOrDefault(it.activities),
                     isLoading = false,
                     errorMessage = activitiesResult.exceptionOrNull()?.message
-                        ?: if (activitiesResult.isFailure) "Unable to load activities" else null,
-                    tagsErrorMessage = tagsResult.exceptionOrNull()?.message
-                        ?: if (tagsResult.isFailure) "Unable to load activity tags" else null,
-                    favoritesErrorMessage = favoritesResult.exceptionOrNull()?.message
-                        ?: if (favoritesResult.isFailure) {
+                        ?: favoritesResult.exceptionOrNull()?.message
+                        ?: if (activitiesResult.isFailure) {
+                            "Unable to load ${selectedCollection.title.lowercase()}"
+                        } else if (favoritesResult.isFailure) {
                             "Unable to load favorited activities"
                         } else {
                             null
@@ -76,7 +92,7 @@ class ActivitiesViewModel @Inject constructor(
                     it.favoriteActivityIds + activityId
                 },
                 favoriteMutationIds = it.favoriteMutationIds + activityId,
-                favoritesErrorMessage = null,
+                errorMessage = null,
             )
         }
 
@@ -101,34 +117,13 @@ class ActivitiesViewModel @Inject constructor(
                         it.favoriteActivityIds
                     },
                     favoriteMutationIds = it.favoriteMutationIds - activityId,
-                    favoritesErrorMessage = result.exceptionOrNull()?.message
+                    errorMessage = result.exceptionOrNull()?.message
                         ?: if (result.isFailure) {
                             "Unable to update favorited activities"
                         } else {
                             null
                         },
                 )
-            }
-        }
-    }
-
-    private fun observeCachedActivities() {
-        viewModelScope.launch {
-            repository.observeActivities().collect { activities ->
-                _uiState.update {
-                    it.copy(
-                        activities = activities,
-                        isLoading = false,
-                    )
-                }
-            }
-        }
-    }
-
-    private fun observeFavoriteActivityIds() {
-        viewModelScope.launch {
-            repository.observeFavoriteActivityIds().collect { activityIds ->
-                _uiState.update { it.copy(favoriteActivityIds = activityIds) }
             }
         }
     }

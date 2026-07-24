@@ -7,7 +7,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.example.vida.domain.model.AuthUser
+import com.example.vida.feature.activities.ActivityCollection
+import com.example.vida.feature.activities.ActivityCollectionScreen
 import com.example.vida.feature.activities.ActivitiesScreen
+import com.example.vida.feature.activities.FavoritedActivitiesScreen
 import com.example.vida.feature.common.FeaturePlaceholderScreen
 import com.example.vida.feature.feed.FeedScreen
 import com.example.vida.feature.groups.GroupDetailScreen
@@ -28,6 +31,41 @@ fun VidaNavHost(
     ) {
         composable<ActivitiesDestination> {
             ActivitiesScreen(
+                onActivityClick = { activityId ->
+                    navController.navigate(ActivityDetailDestination(activityId))
+                },
+                onFavoritedActivitiesClick = {
+                    navController.navigate(FavoritedActivitiesDestination)
+                },
+                onCalendarClick = {
+                    navController.navigate(ActivityCalendarDestination)
+                },
+                onCollectionClick = { collection ->
+                    navController.navigate(
+                        ActivityCollectionDestination(collection.routeValue),
+                    )
+                },
+            )
+        }
+        composable<ActivityCollectionDestination> { backStackEntry ->
+            val destination = backStackEntry.toRoute<ActivityCollectionDestination>()
+            val collection = ActivityCollection.fromRoute(destination.collection)
+
+            if (collection == null) {
+                FeaturePlaceholderScreen("Unknown activity collection")
+            } else {
+                ActivityCollectionScreen(
+                    collection = collection,
+                    onBack = navController::navigateUp,
+                    onActivityClick = { activityId ->
+                        navController.navigate(ActivityDetailDestination(activityId))
+                    },
+                )
+            }
+        }
+        composable<FavoritedActivitiesDestination> {
+            FavoritedActivitiesScreen(
+                onBack = navController::navigateUp,
                 onActivityClick = { activityId ->
                     navController.navigate(ActivityDetailDestination(activityId))
                 },

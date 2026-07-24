@@ -13,3 +13,9 @@ data class ActivityDto(
     val isPremium: Boolean = false,
     val tags: List<String> = emptyList(),
 )
+
+@Serializable
+data class FavoriteActivityResponseDto(
+    val activityId: Long,
+    val favourited: Boolean,
+)

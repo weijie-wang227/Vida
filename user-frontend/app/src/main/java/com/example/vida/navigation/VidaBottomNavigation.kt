@@ -98,6 +98,8 @@ private fun NavDestination?.isSelected(destination: TopLevelDestination): Boolea
         when (destination) {
             TopLevelDestination.Activities ->
                 entry.hasRoute<ActivitiesDestination>() ||
+                    entry.hasRoute<ActivityCollectionDestination>() ||
+                    entry.hasRoute<FavoritedActivitiesDestination>() ||
                     entry.hasRoute<ActivityCalendarDestination>() ||
                     entry.hasRoute<ActivityDetailDestination>() ||
                     entry.hasRoute<ActivityReviewDestination>()

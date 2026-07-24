@@ -380,6 +380,7 @@ const activitySchema = new Schema(
     cover: { type: String },
     tags: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
     isVolunteer: { type: Boolean, required: true, default: false },
+    isAAC: { type: Boolean, required: true, default: false },
     sessionsNum: { type: Number, required: true, default: 0, min: 0 },
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
@@ -388,6 +389,7 @@ const activitySchema = new Schema(
   { timestamps: true },
 );
 activitySchema.index({ host: 1 });
+activitySchema.index({ isAAC: 1 });
 
 const sessionSchema = new Schema(
   {

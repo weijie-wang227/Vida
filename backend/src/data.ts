@@ -23,6 +23,7 @@ export type ActivitySeed = {
   categories: vidaCategory[];
   isPremium: boolean;
   skillsFuturePayable?: boolean;
+  isAAC?: boolean;
   cover?: string;
   tags: string[];
   participatingFriends: FriendSeed[];

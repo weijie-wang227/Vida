@@ -25,6 +25,10 @@ import {
   getActivitySelector,
 } from "../utils/routeSelectors.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
+import {
+  getActivityCollectionFilters,
+  isActivityCollectionType,
+} from "../domain/activityCollections.js";
 
 const router = Router();
 const vidaCategories = new Set([
@@ -122,6 +126,56 @@ async function getParticipatingUsersBySessionId(sessions: Record<string, any>[])
   }
 
   return usersBySessionId;
+}
+
+async function getSerializedOpenActivities(
+  sessionFilter: Record<string, any> = {},
+  activityFilter: Record<string, any> = {},
+) {
+  const openSessions = await SessionModel.find({
+    ...sessionFilter,
+    ...openSessionFilter,
+  })
+    .populate({
+      path: "activity",
+      match: activityFilter,
+      populate: [{ path: "host" }, { path: "tags" }],
+    })
+    .populate("chat")
+    .sort({ startsAt: 1, mockId: 1 });
+  const activitiesById = new Map<string, Record<string, any>>();
+  const sessionsByActivityId = new Map<string, Record<string, any>[]>();
+  const matchingSessions: Record<string, any>[] = [];
+
+  for (const session of openSessions) {
+    const item = asObject(session);
+    const activity = item.activity ? asObject(item.activity) : null;
+
+    if (!activity?._id) {
+      continue;
+    }
+
+    matchingSessions.push(session);
+    const activityId = String(activity._id);
+    const activitySessions = sessionsByActivityId.get(activityId) ?? [];
+
+    activitiesById.set(activityId, item.activity);
+    activitySessions.push(session);
+    sessionsByActivityId.set(activityId, activitySessions);
+  }
+
+  const participatingUsersBySessionId =
+    await getParticipatingUsersBySessionId(matchingSessions);
+
+  return Array.from(activitiesById.entries()).map(([activityId, activity]) =>
+    serializeActivityWithSessionParticipations(
+      attachSessionsToActivity(
+        activity,
+        sessionsByActivityId.get(activityId) ?? [],
+      ),
+      participatingUsersBySessionId,
+    ),
+  );
 }
 
 async function findUserByRouteId(userId: string) {
@@ -321,43 +375,24 @@ async function getFavouriteActivities(userId: Types.ObjectId | string) {
 
 // Lists currently open public activities with their open sessions grouped beneath them.
 router.get("/", optionalAuth, async (_req, res) => {
-  const openSessions = await SessionModel.find(openSessionFilter)
-    .populate({
-      path: "activity",
-      populate: [{ path: "host" }, { path: "tags" }],
-    })
-    .populate("chat")
-    .sort({ startsAt: 1, mockId: 1 });
-  const activitiesById = new Map<string, Record<string, any>>();
-  const sessionsByActivityId = new Map<string, Record<string, any>[]>();
-  const participatingUsersBySessionId =
-    await getParticipatingUsersBySessionId(openSessions);
+  res.json(await getSerializedOpenActivities());
+});
 
-  for (const session of openSessions) {
-    const item = asObject(session);
-    const activity = item.activity ? asObject(item.activity) : null;
+// Lists open activities for the selected discovery collection.
+router.get("/collections/:collection", optionalAuth, async (req, res) => {
+  const collection = getString(req.params.collection).toLowerCase();
 
-    if (!activity?._id) {
-      continue;
-    }
-
-    const activityId = String(activity._id);
-    const activitySessions = sessionsByActivityId.get(activityId) ?? [];
-
-    activitiesById.set(activityId, item.activity);
-    activitySessions.push(session);
-    sessionsByActivityId.set(activityId, activitySessions);
+  if (!isActivityCollectionType(collection)) {
+    res.status(400).json({ message: "Unknown activity collection." });
+    return;
   }
 
+  const filters = getActivityCollectionFilters(collection);
+
   res.json(
-    Array.from(activitiesById.entries()).map(([activityId, activity]) =>
-      serializeActivityWithSessionParticipations(
-        attachSessionsToActivity(
-          activity,
-          sessionsByActivityId.get(activityId) ?? [],
-        ),
-        participatingUsersBySessionId,
-      ),
+    await getSerializedOpenActivities(
+      filters.sessionFilter,
+      filters.activityFilter,
     ),
   );
 });
@@ -543,6 +578,7 @@ router.post("/", requireAuth, async (req, res, next) => {
     const categories = getCategories(req.body?.categories);
     const requestedTagIds = getTagIds(req.body?.tagIds);
     const isVolunteer = req.body?.isVolunteer === true;
+    const isAAC = req.body?.isAAC === true;
 
     if (!title) {
       res.status(400).json({ message: "Activity title is required." });
@@ -580,6 +616,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       cover: cover || undefined,
       tags: await resolveTagIds(requestedTagIds),
       isVolunteer,
+      isAAC,
     });
 
     await VendorModel.findByIdAndUpdate(vendor._id, {

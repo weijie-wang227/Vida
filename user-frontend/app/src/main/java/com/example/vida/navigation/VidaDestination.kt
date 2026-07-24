@@ -6,6 +6,12 @@ import kotlinx.serialization.Serializable
 data object ActivitiesDestination
 
 @Serializable
+data object FavoritedActivitiesDestination
+
+@Serializable
+data class ActivityCollectionDestination(val collection: String)
+
+@Serializable
 data object ActivityCalendarDestination
 
 @Serializable
