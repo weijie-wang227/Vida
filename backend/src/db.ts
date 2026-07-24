@@ -515,6 +515,10 @@ async function migrateActivityDefaultFields() {
     { isVolunteer: { $exists: false } },
     { $set: { isVolunteer: false } },
   );
+  await activities.updateMany(
+    { isAAC: { $exists: false } },
+    { $set: { isAAC: false } },
+  );
 }
 
 async function removeLegacyParticipationFields() {

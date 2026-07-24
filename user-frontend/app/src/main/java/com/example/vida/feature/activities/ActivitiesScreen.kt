@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -89,6 +90,9 @@ private enum class ActivitySort {
 @Composable
 fun ActivitiesScreen(
     onActivityClick: (Long) -> Unit,
+    onFavoritedActivitiesClick: () -> Unit,
+    onCalendarClick: () -> Unit,
+    onCollectionClick: (ActivityCollection) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ActivitiesViewModel = hiltViewModel(),
 ) {
@@ -141,7 +145,13 @@ fun ActivitiesScreen(
         PinnedDiscoveryHeader(
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            onFavoritedActivitiesClick = onFavoritedActivitiesClick,
+            onCalendarClick = onCalendarClick,
         )
+
+        uiState.favoritesErrorMessage?.let { message ->
+            FavoriteErrorBanner(message)
+        }
 
         when {
             uiState.isLoading && uiState.activities.isEmpty() -> LoadingState()
@@ -157,12 +167,16 @@ fun ActivitiesScreen(
                 tagsErrorMessage = uiState.tagsErrorMessage,
                 selectedTag = selectedTag,
                 sortBy = sortBy,
+                favoriteActivityIds = uiState.favoriteActivityIds,
+                favoriteMutationIds = uiState.favoriteMutationIds,
                 hasActiveQuery = searchQuery.isNotBlank() || selectedTag != null,
                 onTagSelected = { tag ->
                     selectedTag = if (selectedTag == tag) null else tag
                 },
                 onSortSelected = { sortBy = it },
+                onCollectionClick = onCollectionClick,
                 onActivityClick = onActivityClick,
+                onFavoriteClick = viewModel::toggleFavorite,
             )
         }
     }
@@ -172,6 +186,8 @@ fun ActivitiesScreen(
 private fun PinnedDiscoveryHeader(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
+    onFavoritedActivitiesClick: () -> Unit,
+    onCalendarClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -208,12 +224,14 @@ private fun PinnedDiscoveryHeader(
             }
             HeaderAction(
                 icon = Icons.Rounded.FavoriteBorder,
-                contentDescription = "Saved activities",
+                contentDescription = "View favorited activities",
+                onClick = onFavoritedActivitiesClick,
             )
             Spacer(Modifier.width(8.dp))
             HeaderAction(
                 icon = Icons.Rounded.CalendarMonth,
                 contentDescription = "Activity calendar",
+                onClick = onCalendarClick,
             )
         }
 
@@ -256,9 +274,10 @@ private fun PinnedDiscoveryHeader(
 private fun HeaderAction(
     icon: ImageVector,
     contentDescription: String,
+    onClick: () -> Unit,
 ) {
     IconButton(
-        onClick = {},
+        onClick = onClick,
         modifier = Modifier
             .size(42.dp)
             .background(Color.White.copy(alpha = 0.18f), CircleShape),
@@ -267,6 +286,21 @@ private fun HeaderAction(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = Color.White,
+        )
+    }
+}
+
+@Composable
+private fun FavoriteErrorBanner(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFFF1F0),
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 9.dp),
+            color = Color(0xFFB42318),
+            fontSize = 12.sp,
         )
     }
 }
@@ -280,10 +314,14 @@ private fun ActivitiesContent(
     tagsErrorMessage: String?,
     selectedTag: String?,
     sortBy: ActivitySort,
+    favoriteActivityIds: Set<Long>,
+    favoriteMutationIds: Set<Long>,
     hasActiveQuery: Boolean,
     onTagSelected: (String) -> Unit,
     onSortSelected: (ActivitySort) -> Unit,
+    onCollectionClick: (ActivityCollection) -> Unit,
     onActivityClick: (Long) -> Unit,
+    onFavoriteClick: (ActivitySummary) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -309,6 +347,12 @@ private fun ActivitiesContent(
             )
         }
 
+        item {
+            ActivityCollectionCarousel(
+                onCollectionClick = onCollectionClick,
+            )
+        }
+
         if (premiumActivities.isNotEmpty()) {
             item {
                 SectionHeading(
@@ -329,7 +373,10 @@ private fun ActivitiesContent(
                     ) { activity ->
                         PremiumActivityCard(
                             activity = activity,
+                            isFavorited = activity.id in favoriteActivityIds,
+                            isFavoriteUpdating = activity.id in favoriteMutationIds,
                             onClick = { onActivityClick(activity.id) },
+                            onFavoriteClick = { onFavoriteClick(activity) },
                         )
                     }
                 }
@@ -354,9 +401,12 @@ private fun ActivitiesContent(
                 items = upcomingActivities,
                 key = ActivitySummary::id,
             ) { activity ->
-                UpcomingActivityCard(
+                ActivityListCard(
                     activity = activity,
+                    isFavorited = activity.id in favoriteActivityIds,
+                    isFavoriteUpdating = activity.id in favoriteMutationIds,
                     onClick = { onActivityClick(activity.id) },
+                    onFavoriteClick = { onFavoriteClick(activity) },
                 )
             }
         }
@@ -563,6 +613,85 @@ private fun TagSelector(
 }
 
 @Composable
+private fun ActivityCollectionCarousel(
+    onCollectionClick: (ActivityCollection) -> Unit,
+) {
+    val palette = listOf(
+        Color(0xFFE8F4EA) to Color(0xFF287A3E),
+        Color(0xFFFFF0D5) to Color(0xFF9A6500),
+        Color(0xFFE5F3F8) to Color(0xFF15647E),
+        Color(0xFFF8E7EE) to Color(0xFFA62B5C),
+        Color(0xFFECE9FB) to Color(0xFF5542A8),
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+    ) {
+        Text(
+            text = "Explore activities",
+            modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 10.dp),
+            color = VidaText,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(
+                items = ActivityCollection.entries,
+                key = ActivityCollection::routeValue,
+            ) { collection ->
+                val index = ActivityCollection.entries.indexOf(collection)
+                val (background, foreground) = palette[index % palette.size]
+
+                Surface(
+                    modifier = Modifier
+                        .width(146.dp)
+                        .height(132.dp)
+                        .clickable { onCollectionClick(collection) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFF3F3F3),
+                    border = BorderStroke(1.dp, Color(0xFFE8E8E8)),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(58.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = background,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = collection.mark,
+                                    color = foreground,
+                                    fontSize = if (collection.mark.length > 3) 12.sp else 17.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            }
+                        }
+                        Text(
+                            text = collection.title,
+                            modifier = Modifier.padding(top = 9.dp),
+                            color = VidaText,
+                            fontSize = 13.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TagItem(
     tag: String,
     index: Int,
@@ -673,7 +802,10 @@ private fun SectionHeading(
 @Composable
 private fun PremiumActivityCard(
     activity: ActivitySummary,
+    isFavorited: Boolean,
+    isFavoriteUpdating: Boolean,
     onClick: () -> Unit,
+    onFavoriteClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier
@@ -729,81 +861,25 @@ private fun PremiumActivityCard(
                     )
                 }
                 Spacer(Modifier.weight(1f))
-                Icon(
-                    imageVector = Icons.Rounded.FavoriteBorder,
-                    contentDescription = "Save ${activity.title}",
-                    tint = VidaBlue,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun UpcomingActivityCard(
-    activity: ActivitySummary,
-    onClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 6.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE6E8EC)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ActivityImage(
-                activity = activity,
-                modifier = Modifier
-                    .size(94.dp)
-                    .clip(RoundedCornerShape(14.dp)),
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp),
-            ) {
-                Text(
-                    text = activity.title,
-                    color = VidaText,
-                    fontSize = 16.sp,
-                    lineHeight = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                ActivityMeta(
-                    icon = Icons.Rounded.LocationOn,
-                    text = activity.location.ifBlank { "Location to be confirmed" },
-                )
-                ActivityMeta(
-                    icon = Icons.Rounded.AccessTime,
-                    text = formatActivityTime(activity.startsAt),
-                )
-                val activityTag = activity.tags.firstOrNull()
-                if (activityTag != null) {
-                    Surface(
-                        modifier = Modifier.padding(top = 6.dp),
-                        shape = RoundedCornerShape(7.dp),
-                        color = Color(0xFFEAF0FF),
-                    ) {
-                        Text(
-                            text = activityTag,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                            color = VidaBlue,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
+                IconButton(
+                    onClick = onFavoriteClick,
+                    enabled = !isFavoriteUpdating,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = if (isFavorited) {
+                            Icons.Filled.Favorite
+                        } else {
+                            Icons.Rounded.FavoriteBorder
+                        },
+                        contentDescription = if (isFavorited) {
+                            "Remove ${activity.title} from favorites"
+                        } else {
+                            "Add ${activity.title} to favorites"
+                        },
+                        tint = if (isFavorited) Color(0xFFE24D6A) else VidaBlue,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             }
         }

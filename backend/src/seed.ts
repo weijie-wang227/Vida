@@ -384,6 +384,7 @@ async function seed() {
         tags: activity.tags.map((name) =>
           requireSeedValue(tagIdByName.get(name), `tag "${name}"`),
         ),
+        isAAC: activity.isAAC ?? false,
         sessionsNum: 1,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,

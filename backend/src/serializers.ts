@@ -339,6 +339,7 @@ export function serializeActivity(
     categories: (item.categories ?? []) as vidaCategory[],
     tags: serializeTagNames(item.tags),
     isVolunteer: Boolean(item.isVolunteer),
+    isAAC: Boolean(item.isAAC),
     isPremium: Boolean(primarySession.isPremium),
     skillsFuturePayable: Boolean(primarySession.skillsFuturePayable),
     isOpen: primarySession.isOpen !== false,
