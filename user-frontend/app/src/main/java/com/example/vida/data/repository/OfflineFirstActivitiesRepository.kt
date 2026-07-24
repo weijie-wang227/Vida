@@ -32,6 +32,7 @@ class OfflineFirstActivitiesRepository @Inject constructor(
                 location = activity.location,
                 coverUrl = activity.cover,
                 isPremium = activity.isPremium,
+                tags = activity.tags,
             )
         }
 
@@ -40,4 +41,9 @@ class OfflineFirstActivitiesRepository @Inject constructor(
             database.activityDao().upsertAll(activities)
         }
     }
+
+    override suspend fun fetchAvailableTags(): List<String> =
+        api.getAvailableTags()
+            .map { it.name.trim() }
+            .filter { it.isNotEmpty() }
 }

@@ -1,7 +1,9 @@
 import { Router } from "express";
+import type { Types } from "mongoose";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import {
   ActivityModel,
+  FavouriteModel,
   SessionParticipationModel,
   SessionModel,
   SettingsModel,
@@ -270,6 +272,53 @@ async function findActivityWithSessions(activityId: string) {
   return { activity, sessions };
 }
 
+async function getFavouriteActivities(userId: Types.ObjectId | string) {
+  const favourites = await FavouriteModel.findOne({ user: userId }).populate({
+    path: "activities",
+    populate: [{ path: "host" }, { path: "tags" }],
+  });
+  const activities = (favourites?.activities ?? []).filter(Boolean);
+
+  if (activities.length === 0) {
+    return [];
+  }
+
+  const activityIds = activities.map(
+    (activity: Record<string, any>) => asObject(activity)._id,
+  );
+  const sessions = await SessionModel.find({
+    activity: { $in: activityIds },
+    ...openSessionFilter,
+  })
+    .populate("activity")
+    .populate("chat")
+    .sort({ startsAt: 1, mockId: 1 });
+  const sessionsByActivityId = new Map<string, Record<string, any>[]>();
+
+  for (const session of sessions) {
+    const activityId = String(asObject(session).activity?._id ?? "");
+    const activitySessions = sessionsByActivityId.get(activityId) ?? [];
+
+    activitySessions.push(session);
+    sessionsByActivityId.set(activityId, activitySessions);
+  }
+
+  const participatingUsersBySessionId =
+    await getParticipatingUsersBySessionId(sessions);
+
+  return activities.map((activity: Record<string, any>) => {
+    const activityId = String(asObject(activity)._id);
+
+    return serializeActivityWithSessionParticipations(
+      attachSessionsToActivity(
+        activity,
+        sessionsByActivityId.get(activityId) ?? [],
+      ),
+      participatingUsersBySessionId,
+    );
+  });
+}
+
 // Lists currently open public activities with their open sessions grouped beneath them.
 router.get("/", optionalAuth, async (_req, res) => {
   const openSessions = await SessionModel.find(openSessionFilter)
@@ -312,6 +361,69 @@ router.get("/", optionalAuth, async (_req, res) => {
     ),
   );
 });
+
+// Lists the signed-in user's favourite activities.
+router.get("/favourites", requireAuth, async (_req, res) => {
+  res.json(await getFavouriteActivities(res.locals.user._id));
+});
+
+// Adds an activity to the signed-in user's favourites.
+router.post("/favourites/add/:activityId", requireAuth, async (req, res) => {
+  const activityId = String(req.params.activityId ?? "").trim();
+  const activitySelector = getActivitySelector(activityId);
+  const activity =
+    activitySelector.length > 0
+      ? await ActivityModel.findOne({ $or: activitySelector }).select("_id mockId")
+      : null;
+
+  if (!activity) {
+    res.status(404).json({ message: "Activity not found." });
+    return;
+  }
+
+  await FavouriteModel.updateOne(
+    { user: res.locals.user._id },
+    {
+      $setOnInsert: { user: res.locals.user._id },
+      $addToSet: { activities: activity._id },
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+
+  res.status(201).json({
+    activityId: activity.mockId ?? String(activity._id),
+    favourited: true,
+  });
+});
+
+// Removes an activity from the signed-in user's favourites.
+router.delete(
+  "/favourites/delete/:activityId",
+  requireAuth,
+  async (req, res) => {
+    const activityId = String(req.params.activityId ?? "").trim();
+    const activitySelector = getActivitySelector(activityId);
+    const activity =
+      activitySelector.length > 0
+        ? await ActivityModel.findOne({ $or: activitySelector }).select("_id mockId")
+        : null;
+
+    if (!activity) {
+      res.status(404).json({ message: "Activity not found." });
+      return;
+    }
+
+    await FavouriteModel.updateOne(
+      { user: res.locals.user._id },
+      { $pull: { activities: activity._id } },
+    );
+
+    res.json({
+      activityId: activity.mockId ?? String(activity._id),
+      favourited: false,
+    });
+  },
+);
 
 // Returns map-ready pins for all currently open sessions.
 router.get("/map-pins", async (_req, res) => {

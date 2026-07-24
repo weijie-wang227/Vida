@@ -1,8 +1,8 @@
 package com.example.vida.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Landscape
+import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material3.Icon
@@ -25,7 +25,7 @@ enum class TopLevelDestination(
 ) {
     Activities("Activities", Icons.Rounded.Landscape),
     Feed("Feed", Icons.Rounded.PhotoCamera),
-    Groups("Groups", Icons.Rounded.Groups),
+    Groups("Groups", Icons.Rounded.Message),
     Profile("Profile", Icons.Rounded.Person),
 }
 

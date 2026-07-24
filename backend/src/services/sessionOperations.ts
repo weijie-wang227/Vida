@@ -63,6 +63,11 @@ type RegistrationResult = {
   groupId: unknown;
 };
 
+type DeleteScheduledSessionInput = {
+  sessionId: unknown;
+  activityId: unknown;
+};
+
 async function nextMockId(
   model: typeof ChatModel | typeof SessionModel,
   dbSession: ClientSession,
@@ -234,6 +239,145 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
     );
 
     return { session: scheduledSession, chatId: chat._id };
+  });
+}
+
+export async function deleteScheduledSession(
+  input: DeleteScheduledSessionInput,
+) {
+  const conversionRate = await getCreditsToDollarsRate();
+
+  return mongoose.connection.transaction(async (dbSession) => {
+    const scheduledSession = await SessionModel.findOne({
+      _id: input.sessionId,
+      activity: input.activityId,
+    }).session(dbSession);
+
+    if (!scheduledSession) {
+      throw new SessionOperationError("Session not found.", 404);
+    }
+
+    const registeredCount = Math.max(
+      0,
+      Number(scheduledSession.registeredCount) || 0,
+    );
+    const attendedCount = Math.max(
+      0,
+      Number(scheduledSession.attendedCount) || 0,
+    );
+    const sessionRevenue =
+      convertCreditsToDollars(
+        Number(scheduledSession.credits),
+        conversionRate,
+      ) * registeredCount;
+    const attendedParticipations = await SessionParticipationModel.find({
+      sessionId: scheduledSession._id,
+      role: "participant",
+      status: "attended",
+    })
+      .select("userId")
+      .session(dbSession)
+      .lean();
+    const attendedUserIds = attendedParticipations.map(
+      (participation: Record<string, any>) => participation.userId,
+    );
+
+    if (attendedUserIds.length > 0) {
+      await UserModel.updateMany(
+        { _id: { $in: attendedUserIds } },
+        [
+          {
+            $set: {
+              attendedSessionsCount: {
+                $max: [
+                  0,
+                  {
+                    $subtract: [
+                      { $ifNull: ["$attendedSessionsCount", 0] },
+                      1,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        { session: dbSession },
+      );
+    }
+
+    const participationResult = await SessionParticipationModel.deleteMany({
+      sessionId: scheduledSession._id,
+    }).session(dbSession);
+    const sessionResult = await SessionModel.deleteOne({
+      _id: scheduledSession._id,
+    }).session(dbSession);
+
+    if (sessionResult.deletedCount !== 1) {
+      throw new SessionOperationError("Session not found.", 404);
+    }
+
+    const activity = await ActivityModel.findByIdAndUpdate(
+      input.activityId,
+      [
+        {
+          $set: {
+            sessionsNum: {
+              $max: [
+                0,
+                {
+                  $subtract: [{ $ifNull: ["$sessionsNum", 0] }, 1],
+                },
+              ],
+            },
+            registeredCount: {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    { $ifNull: ["$registeredCount", 0] },
+                    registeredCount,
+                  ],
+                },
+              ],
+            },
+            attendedCount: {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    { $ifNull: ["$attendedCount", 0] },
+                    attendedCount,
+                  ],
+                },
+              ],
+            },
+            totalRevenue: {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    { $ifNull: ["$totalRevenue", 0] },
+                    sessionRevenue,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ],
+      { returnDocument: "after", session: dbSession },
+    );
+
+    if (!activity) {
+      throw new SessionOperationError("Activity not found.", 404);
+    }
+
+    return {
+      activity,
+      session: scheduledSession,
+      deletedParticipationCount: participationResult.deletedCount,
+    };
   });
 }
 

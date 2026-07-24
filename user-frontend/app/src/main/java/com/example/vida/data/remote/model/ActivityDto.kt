@@ -11,4 +11,5 @@ data class ActivityDto(
     val location: String = "",
     val cover: String? = null,
     val isPremium: Boolean = false,
+    val tags: List<String> = emptyList(),
 )

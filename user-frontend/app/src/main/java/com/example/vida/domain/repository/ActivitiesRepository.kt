@@ -6,4 +6,5 @@ import kotlinx.coroutines.flow.Flow
 interface ActivitiesRepository {
     fun observeActivities(): Flow<List<ActivitySummary>>
     suspend fun refreshActivities()
+    suspend fun fetchAvailableTags(): List<String>
 }

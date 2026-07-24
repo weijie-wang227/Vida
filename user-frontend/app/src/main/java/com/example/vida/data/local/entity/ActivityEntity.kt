@@ -13,6 +13,7 @@ data class ActivityEntity(
     val location: String,
     val coverUrl: String?,
     val isPremium: Boolean,
+    val tags: List<String>,
 )
 
 fun ActivityEntity.asDomainModel() = ActivitySummary(
@@ -23,4 +24,5 @@ fun ActivityEntity.asDomainModel() = ActivitySummary(
     location = location,
     coverUrl = coverUrl,
     isPremium = isPremium,
+    tags = tags,
 )

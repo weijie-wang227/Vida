@@ -650,6 +650,38 @@
   line-height: 1.2;
 }
 
+.confirmation-dialog {
+  width: min(460px, 100%);
+}
+
+.confirmation-dialog__body {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.confirmation-dialog__body p {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.confirmation-dialog__warning {
+  border: 1px solid rgba(200, 43, 70, 0.18);
+  border-radius: 8px;
+  background: rgba(200, 43, 70, 0.06);
+  padding: 11px 12px;
+  color: #7f2738 !important;
+  font-size: 0.82rem;
+}
+
+.confirmation-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .vendor-profile-form {
   display: grid;
   gap: 14px;
@@ -835,6 +867,12 @@
   background: #d9e2e5;
   color: #34454a;
   box-shadow: none;
+}
+
+.primary-action--danger {
+  background: #a8243d;
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(168, 36, 61, 0.2);
 }
 
 .dashboard-create-action {

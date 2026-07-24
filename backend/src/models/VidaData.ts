@@ -92,6 +92,12 @@ export type AccountDocument = {
   creditsLeft: number;
 };
 
+export type FavouriteDocument = {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  activities: Types.ObjectId[];
+};
+
 export type ConsolidatedUser = {
   user: Types.ObjectId;
   joinedAt: Date;
@@ -203,6 +209,20 @@ const accountSchema = new Schema<AccountDocument>(
 );
 accountSchema.index({ user: 1 });
 accountSchema.index({ membership: 1 });
+
+const favouriteSchema = new Schema<FavouriteDocument>(
+  {
+    user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    activities: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Activity" }],
+      required: true,
+      default: [],
+    },
+  },
+  { timestamps: true },
+);
+favouriteSchema.index({ user: 1 }, { unique: true });
+favouriteSchema.index({ activities: 1 });
 
 const conversionRateSchema = new Schema<ConversionRateDocument>(
   {
@@ -483,6 +503,11 @@ export const AccountModel = mongoose.model<any>(
   "Account",
   accountSchema,
   "accounts",
+);
+export const FavouriteModel = mongoose.model<FavouriteDocument>(
+  "Favourite",
+  favouriteSchema,
+  "favourites",
 );
 export const ConsolidatedModel = mongoose.model<any>(
   "Consolidated",
