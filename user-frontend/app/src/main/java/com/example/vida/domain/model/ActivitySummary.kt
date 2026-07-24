@@ -8,4 +8,5 @@ data class ActivitySummary(
     val location: String,
     val coverUrl: String?,
     val isPremium: Boolean,
+    val tags: List<String>,
 )

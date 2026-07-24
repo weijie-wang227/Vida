@@ -6,12 +6,19 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.example.vida.domain.model.AuthUser
 import com.example.vida.feature.activities.ActivitiesScreen
 import com.example.vida.feature.common.FeaturePlaceholderScreen
+import com.example.vida.feature.feed.FeedScreen
+import com.example.vida.feature.groups.GroupDetailScreen
+import com.example.vida.feature.groups.GroupsScreen
+import com.example.vida.feature.profile.ProfileScreen
 
 @Composable
 fun VidaNavHost(
     navController: NavHostController,
+    currentUser: AuthUser,
+    onSignOut: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -38,17 +45,29 @@ fun VidaNavHost(
             FeaturePlaceholderScreen("Review activity ${destination.activityId}")
         }
         composable<FeedDestination> {
-            FeaturePlaceholderScreen("Feed")
+            FeedScreen(
+                currentUser = currentUser,
+                onOpenGroup = { groupId -> navController.navigate(GroupDetailDestination(groupId)) },
+            )
         }
         composable<GroupsDestination> {
-            FeaturePlaceholderScreen("Groups")
+            GroupsScreen(
+                onOpenGroup = { groupId -> navController.navigate(GroupDetailDestination(groupId)) },
+            )
         }
         composable<GroupDetailDestination> { backStackEntry ->
             val destination = backStackEntry.toRoute<GroupDetailDestination>()
-            FeaturePlaceholderScreen("Group ${destination.groupId}")
+            GroupDetailScreen(
+                groupId = destination.groupId,
+                currentUser = currentUser,
+                onBack = navController::navigateUp,
+            )
         }
         composable<ProfileDestination> {
-            FeaturePlaceholderScreen("Profile")
+            ProfileScreen(
+                user = currentUser,
+                onSignOut = onSignOut,
+            )
         }
         composable<SettingsDestination> {
             FeaturePlaceholderScreen("Settings")

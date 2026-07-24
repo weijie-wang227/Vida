@@ -58,8 +58,8 @@ export function ViewActivitiesPage({
   ) => Promise<void>;
 }) {
   const navigate = useNavigate();
-  const upcomingSessions = sessions.filter((session) => session.isOpen);
-  const pastSessions = sessions.filter((session) => !session.isOpen);
+  const upcomingSessions = sessions.filter((session) => session.isActive);
+  const pastSessions = sessions.filter((session) => !session.isActive);
 
   return (
     <div className="dashboard__main dashboard__main--full">
@@ -186,46 +186,32 @@ export function ViewActivitiesPage({
                           </span>
                         </td>
                         <td>
-                          <span
-                            className={`activity-status ${
-                              session.isOpen ? "" : "activity-status--closed"
+                          <button
+                            type="button"
+                            className={`table-action ${
+                              session.isOpen ? "table-action--danger" : ""
                             }`}
+                            disabled={isUpdating}
+                            onClick={() =>
+                              onToggleActivityOpen(
+                                session.mockId,
+                                !session.isOpen,
+                              )
+                            }
                           >
-                            {session.isOpen ? (
-                              <Unlock size={14} />
-                            ) : (
-                              <Lock size={14} />
-                            )}
-                            {session.isOpen ? "Open" : "Closed"}
-                          </span>
+                            {session.isOpen ? "Close Session" : "Open Session"}
+                          </button>
                         </td>
                         <td>
-                          <div className="table-actions">
-                            <button
-                              type="button"
-                              className="table-action"
-                              onClick={() =>
-                                navigate(getSessionAttendancePath(session))
-                              }
-                            >
-                              Attendance
-                            </button>
-                            <button
-                              type="button"
-                              className={`table-action ${
-                                session.isOpen ? "table-action--danger" : ""
-                              }`}
-                              disabled={isUpdating}
-                              onClick={() =>
-                                onToggleActivityOpen(
-                                  session.mockId,
-                                  !session.isOpen,
-                                )
-                              }
-                            >
-                              {session.isOpen ? "Close" : "Open"}
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() =>
+                              navigate(getSessionAttendancePath(session))
+                            }
+                          >
+                            Attendance
+                          </button>
                         </td>
                       </tr>
                     );

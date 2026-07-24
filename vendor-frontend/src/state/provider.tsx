@@ -8,6 +8,7 @@ import {
 import {
   createVendorActivity,
   createVendorSession,
+  deleteVendorSession,
   fetchVendorActivities,
   fetchVendorSessions,
   updateSessionOpen,
@@ -54,6 +55,7 @@ export function VendorStateProvider({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingActivity, setIsCreatingActivity] = useState(false);
   const [updatingSessionId, setUpdatingSessionId] = useState<string | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const loadVendor = useCallback(async () => {
     setStatus("vendor-check");
@@ -272,6 +274,51 @@ export function VendorStateProvider({
     }
   };
 
+  const deleteSession = async (sessionId: number | string) => {
+    setActivityError(null);
+    setDeletingSessionId(String(sessionId));
+
+    try {
+      const response = await deleteVendorSession(sessionId);
+      const deletedIds = new Set([
+        String(response.session.id),
+        String(response.session.mockId),
+        String(sessionId),
+      ]);
+
+      setSessions((current) =>
+        current.filter(
+          (row) =>
+            ![row.id, row.objectId, row.mockId].some(
+              (value) => value !== undefined && deletedIds.has(String(value)),
+            ),
+        ),
+      );
+      setActivities((current) =>
+        current.map((activity) =>
+          activity.id === response.activity.id ||
+          activity.mockId === response.activity.mockId
+            ? {
+                ...activity,
+                sessionsNum: response.activity.sessionsNum,
+                registeredCount: response.activity.registeredCount,
+                totalRevenue: response.activity.totalRevenue,
+              }
+            : activity,
+        ),
+      );
+    } catch (submissionError) {
+      setActivityError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to delete session.",
+      );
+      throw submissionError;
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
+
   const value = useMemo(
     () => ({
       status,
@@ -286,6 +333,7 @@ export function VendorStateProvider({
       isSubmitting,
       isCreatingActivity,
       updatingSessionId,
+      deletingSessionId,
       submitAuth,
       createVendorProfile,
       signOut,
@@ -293,6 +341,7 @@ export function VendorStateProvider({
       createSession,
       updateVendorProfile: saveVendorProfile,
       toggleSessionOpen,
+      deleteSession,
     }),
     [
       status,
@@ -307,6 +356,7 @@ export function VendorStateProvider({
       isSubmitting,
       isCreatingActivity,
       updatingSessionId,
+      deletingSessionId,
     ],
   );
 

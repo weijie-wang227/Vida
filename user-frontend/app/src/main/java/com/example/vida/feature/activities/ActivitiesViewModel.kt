@@ -25,17 +25,27 @@ class ActivitiesViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    errorMessage = null,
+                    tagsErrorMessage = null,
+                )
+            }
 
-            runCatching { repository.refreshActivities() }
-                .onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Unable to load activities",
-                        )
-                    }
-                }
+            val tagsResult = runCatching { repository.fetchAvailableTags() }
+            val activitiesResult = runCatching { repository.refreshActivities() }
+
+            _uiState.update { current ->
+                current.copy(
+                    availableTags = tagsResult.getOrDefault(current.availableTags),
+                    isLoading = false,
+                    errorMessage = activitiesResult.exceptionOrNull()?.message
+                        ?: if (activitiesResult.isFailure) "Unable to load activities" else null,
+                    tagsErrorMessage = tagsResult.exceptionOrNull()?.message
+                        ?: if (tagsResult.isFailure) "Unable to load activity tags" else null,
+                )
+            }
         }
     }
 

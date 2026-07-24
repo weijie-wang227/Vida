@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   CalendarDays,
   ClipboardList,
   Copy,
+  Loader2,
   Lock,
   MapPin,
+  Trash2,
   Unlock,
   Users,
+  X,
 } from "lucide-react";
 import { Card } from "../components/Card";
 import type { Activity, Session } from "../api/types";
@@ -66,23 +70,63 @@ export function SessionDetailsPage({
   activities,
   sessions,
   updatingActivityId,
+  deletingSessionId,
   onToggleActivityOpen,
+  onDeleteSession,
 }: {
   activities: Activity[];
   sessions: Session[];
   updatingActivityId: string | null;
+  deletingSessionId: string | null;
   onToggleActivityOpen: (
     activityId: number | string,
     isOpen: boolean,
   ) => Promise<void>;
+  onDeleteSession: (sessionId: number | string) => Promise<void>;
 }) {
   const navigate = useNavigate();
   const { activityId, sessionId } = useParams();
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const activity = getActivityRows(activities, activityId)[0] ?? null;
   const session = getSessionByRouteId(sessions, activityId, sessionId);
   const isUpdating = session ? updatingActivityId === String(session.mockId) : false;
   const activityRouteId = activity?.mockId ?? session?.activity?.mockId ?? activityId ?? "";
   const sessionRouteId = session?.mockId ?? session?.id ?? session?.objectId;
+  const isDeleting =
+    sessionRouteId !== undefined &&
+    deletingSessionId === String(sessionRouteId);
+
+  const openDeleteConfirmation = () => {
+    setDeleteError(null);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (!isDeleting) {
+      setIsDeleteConfirmOpen(false);
+      setDeleteError(null);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (sessionRouteId === undefined) {
+      return;
+    }
+
+    setDeleteError(null);
+
+    try {
+      await onDeleteSession(sessionRouteId);
+      navigate(`/activities/${activityRouteId}`, { replace: true });
+    } catch (submissionError) {
+      setDeleteError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to delete session.",
+      );
+    }
+  };
 
   if (!session) {
     return (
@@ -199,9 +243,77 @@ export function SessionDetailsPage({
             >
               {session.isOpen ? "Close Session" : "Open Session"}
             </button>
+            <button
+              type="button"
+              className="table-action table-action--danger"
+              onClick={openDeleteConfirmation}
+            >
+              <Trash2 size={14} />
+              Delete Session
+            </button>
           </div>
         </div>
       </Card>
+
+      {isDeleteConfirmOpen && (
+        <div
+          className="vendor-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-session-title"
+          aria-describedby="delete-session-description"
+        >
+          <div className="vendor-modal__panel confirmation-dialog">
+            <div className="vendor-modal__header">
+              <div>
+                <span>Delete session</span>
+                <h2 id="delete-session-title">Delete {session.title}?</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={closeDeleteConfirmation}
+                disabled={isDeleting}
+                aria-label="Close delete session confirmation"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="confirmation-dialog__body">
+              <p id="delete-session-description">
+                Are you sure you want to delete this session?
+              </p>
+              <p className="confirmation-dialog__warning">
+                The session and all of its participation records will be
+                permanently deleted. This action cannot be undone.
+              </p>
+
+              {deleteError && <p className="form-error">{deleteError}</p>}
+
+              <div className="confirmation-dialog__actions">
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={closeDeleteConfirmation}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="primary-action primary-action--danger"
+                  onClick={handleDeleteSession}
+                  disabled={isDeleting}
+                >
+                  {isDeleting && <Loader2 size={16} className="spin" />}
+                  Delete Session
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

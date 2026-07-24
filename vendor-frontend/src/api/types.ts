@@ -253,6 +253,23 @@ export type VendorSessionsResponse = {
   sessions: Session[];
 };
 
+export type DeleteVendorSessionResponse = {
+  session: {
+    id: string;
+    mockId: number | string;
+    title: string;
+  };
+  activity: {
+    id: string;
+    mockId: number;
+    sessionsNum: number;
+    registeredCount: number;
+    attendedCount: number;
+    totalRevenue: number;
+  };
+  deletedParticipationCount: number;
+};
+
 export type VendorChat = {
   id: string;
   mockId: number;

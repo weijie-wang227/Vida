@@ -6,6 +6,7 @@ import type {
   CreateVendorActivityResponse,
   CreateSessionInput,
   CreateVendorSessionResponse,
+  DeleteVendorSessionResponse,
   UpdateActivityOpenResponse,
   UpdateAttendanceResponse,
   AttendanceStatus,
@@ -37,6 +38,13 @@ export function createVendorSession(input: CreateSessionInput) {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function deleteVendorSession(sessionId: number | string) {
+  return apiRequest<DeleteVendorSessionResponse>(
+    `/vendors/me/sessions/${sessionId}`,
+    { method: "DELETE" },
+  );
 }
 
 export function fetchActivityAttendees(

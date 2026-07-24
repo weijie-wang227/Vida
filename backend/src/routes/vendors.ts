@@ -30,6 +30,7 @@ import {
   resolveAttendanceStatus,
 } from "../domain/sessionParticipation.js";
 import {
+  deleteScheduledSession,
   markSessionAttendance,
   reviewVolunteerParticipation,
   SessionOperationError,
@@ -623,6 +624,63 @@ router.get("/me/sessions", requireVendorAuth, async (_req, res, next) => {
     next(error);
   }
 });
+
+// Deletes one managed session and all participation records attached to it.
+router.delete(
+  "/me/sessions/:sessionId",
+  requireVendorAuth,
+  async (req, res, next) => {
+    try {
+      const sessionId = String(req.params.sessionId ?? "");
+      const vendor = res.locals.vendor;
+      const session = await findVendorSession(vendor, sessionId);
+
+      if (!session) {
+        const hasValidSelector = getSessionSelector(sessionId).length > 0;
+
+        if (!hasValidSelector) {
+          res.status(400).json({ message: "Choose a valid session." });
+          return;
+        }
+
+        res.status(404).json({ message: "Session not found." });
+        return;
+      }
+
+      const sessionItem = asObject(session);
+      const activity = asObject(sessionItem.activity ?? {});
+      const operation = await deleteScheduledSession({
+        sessionId: sessionItem._id,
+        activityId: activity._id,
+      });
+      const updatedActivity = asObject(operation.activity);
+      const deletedSession = asObject(operation.session);
+
+      res.json({
+        session: {
+          id: String(deletedSession._id),
+          mockId: deletedSession.mockId,
+          title: deletedSession.title,
+        },
+        activity: {
+          id: String(updatedActivity._id),
+          mockId: updatedActivity.mockId,
+          sessionsNum: Number(updatedActivity.sessionsNum) || 0,
+          registeredCount: Number(updatedActivity.registeredCount) || 0,
+          attendedCount: Number(updatedActivity.attendedCount) || 0,
+          totalRevenue: Number(updatedActivity.totalRevenue) || 0,
+        },
+        deletedParticipationCount: operation.deletedParticipationCount,
+      });
+    } catch (error) {
+      if (sendSessionOperationError(res, error)) {
+        return;
+      }
+
+      next(error);
+    }
+  },
+);
 
 // Lists the chats attached to sessions managed by the signed-in vendor.
 router.get("/me/chats", requireVendorAuth, async (_req, res, next) => {
