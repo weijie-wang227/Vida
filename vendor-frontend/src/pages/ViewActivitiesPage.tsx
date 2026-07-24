@@ -155,7 +155,7 @@ export function ViewActivitiesPage({
                     <th>Date</th>
                     <th>Location</th>
                     <th>Attendance</th>
-                    <th>Status</th>
+                    <th>Signups</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -186,21 +186,31 @@ export function ViewActivitiesPage({
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className={`table-action ${
-                              session.isOpen ? "table-action--danger" : ""
-                            }`}
-                            disabled={isUpdating}
-                            onClick={() =>
-                              onToggleActivityOpen(
-                                session.mockId,
-                                !session.isOpen,
-                              )
-                            }
-                          >
-                            {session.isOpen ? "Close Session" : "Open Session"}
-                          </button>
+                          <div className="session-signup-control">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={session.isOpen}
+                              aria-label={`${
+                                session.isOpen ? "Close" : "Open"
+                              } signups for ${session.title}`}
+                              className={`session-signup-switch ${
+                                session.isOpen
+                                  ? "session-signup-switch--open"
+                                  : ""
+                              }`}
+                              disabled={isUpdating}
+                              onClick={() =>
+                                onToggleActivityOpen(
+                                  session.mockId,
+                                  !session.isOpen,
+                                )
+                              }
+                            >
+                              <span className="session-signup-switch__thumb" />
+                            </button>
+                            <span>{session.isOpen ? "Open" : "Closed"}</span>
+                          </div>
                         </td>
                         <td>
                           <button
