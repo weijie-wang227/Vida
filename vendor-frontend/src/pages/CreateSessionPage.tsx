@@ -2,11 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   CalendarPlus,
-  CircleDollarSign,
-  GraduationCap,
-  HandHeart,
   Loader2,
-  Star,
 } from "lucide-react";
 import {
   searchLocations,
@@ -15,22 +11,17 @@ import {
 import type {
   CreateSessionInput,
   CreateVendorSessionResponse,
-  Activity,
   Vendor,
 } from "../api/types";
 import { Card } from "../components/Card";
 
-type PaymentMode = "free" | "premium" | "skillsfuture";
-
 export function CreateSessionPage({
   vendor,
-  activities,
   error,
   isSubmitting,
   onCreateSession,
 }: {
   vendor: Vendor | null;
-  activities: Activity[];
   error: string | null;
   isSubmitting: boolean;
   onCreateSession: (
@@ -41,11 +32,6 @@ export function CreateSessionPage({
   const [searchParams] = useSearchParams();
   const selectedDate = searchParams.get("date") ?? "";
   const activityId = searchParams.get("activityId") ?? undefined;
-  const isVolunteer = activities.some(
-    (activity) =>
-      activity.isVolunteer &&
-      (activity.id === activityId || String(activity.mockId) === activityId),
-  );
   const [title, setTitle] = useState("");
   const [sessionDate, setSessionDate] = useState(selectedDate);
   const [sessionTime, setSessionTime] = useState("09:00");
@@ -54,8 +40,6 @@ export function CreateSessionPage({
   const [longitude, setLongitude] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("60");
   const [spots, setSpots] = useState("10");
-  const [credits, setCredits] = useState("0");
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>("free");
   const [localError, setLocalError] = useState<string | null>(null);
   const [locationSuggestions, setLocationSuggestions] = useState<
     LocationSearchResult[]
@@ -70,12 +54,6 @@ export function CreateSessionPage({
       setSessionDate(selectedDate);
     }
   }, [selectedDate]);
-
-  useEffect(() => {
-    if (paymentMode === "free") {
-      setCredits("0");
-    }
-  }, [paymentMode]);
 
   useEffect(() => {
     const query = location.trim();
@@ -138,7 +116,6 @@ export function CreateSessionPage({
     const longitudeValue = Number(longitude);
     const durationValue = Number(durationMinutes);
     const spotsValue = Number(spots);
-    const creditsValue = isVolunteer || paymentMode === "free" ? 0 : Number(credits);
 
     if (!startsAtIso || Number.isNaN(new Date(startsAtIso).getTime())) {
       setLocalError("Choose a valid date and time.");
@@ -160,11 +137,6 @@ export function CreateSessionPage({
       return;
     }
 
-    if (!Number.isFinite(creditsValue) || creditsValue < 0) {
-      setLocalError("Credits cannot be negative.");
-      return;
-    }
-
     const payload: CreateSessionInput = {
       activityId,
       title: title.trim(),
@@ -174,11 +146,8 @@ export function CreateSessionPage({
       lng: longitudeValue,
       durationMinutes: durationValue,
       spots: spotsValue,
-      credits: creditsValue,
       vendorId: vendor.id,
       createAsVendor: true,
-      isPremium: !isVolunteer && paymentMode === "premium",
-      skillsFuturePayable: !isVolunteer && paymentMode === "skillsfuture",
     };
 
     try {
@@ -201,8 +170,6 @@ export function CreateSessionPage({
       setLongitude("");
       setDurationMinutes("60");
       setSpots("10");
-      setCredits("0");
-      setPaymentMode("free");
     } catch (submissionError) {
       setLocalError(
         submissionError instanceof Error
@@ -305,85 +272,6 @@ export function CreateSessionPage({
               required
             />
           </label>
-
-          {isVolunteer ? (
-            <div className="activity-form__wide volunteer-session-payment-note">
-              <HandHeart size={18} />
-              <div>
-                <strong>Volunteer session</strong>
-                <span>Payment is disabled and this session will be free.</span>
-              </div>
-            </div>
-          ) : (
-          <fieldset className="activity-form__wide activity-toggle-fieldset">
-            <legend>Payment options</legend>
-            <div>
-              <label
-                className={`activity-toggle-card ${
-                  paymentMode === "free" ? "activity-toggle-card--active" : ""
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="session-payment-mode"
-                  checked={paymentMode === "free"}
-                  onChange={() => setPaymentMode("free")}
-                />
-                <span>
-                  <CircleDollarSign size={15} />
-                  Free
-                </span>
-              </label>
-              <label
-                className={`activity-toggle-card ${
-                  paymentMode === "premium"
-                    ? "activity-toggle-card--active"
-                    : ""
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="session-payment-mode"
-                  checked={paymentMode === "premium"}
-                  onChange={() => setPaymentMode("premium")}
-                />
-                <span>
-                  <Star size={15} />
-                  Premium
-                </span>
-              </label>
-              <label
-                className={`activity-toggle-card ${
-                  paymentMode === "skillsfuture"
-                    ? "activity-toggle-card--active"
-                    : ""
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="session-payment-mode"
-                  checked={paymentMode === "skillsfuture"}
-                  onChange={() => setPaymentMode("skillsfuture")}
-                />
-                <span>
-                  <GraduationCap size={15} />
-                  SkillsFuture Payable
-                </span>
-              </label>
-            </div>
-            <label className="activity-form__wide activity-credits-field">
-              <span>Credits</span>
-              <input
-                type="number"
-                min={0}
-                value={credits}
-                onChange={(event) => setCredits(event.target.value)}
-                disabled={paymentMode === "free"}
-                required
-              />
-            </label>
-          </fieldset>
-          )}
 
           {(localError || error) && (
             <p className="form-error activity-form__wide">

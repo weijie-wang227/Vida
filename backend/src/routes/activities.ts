@@ -129,11 +129,9 @@ async function getParticipatingUsersBySessionId(sessions: Record<string, any>[])
 }
 
 async function getSerializedOpenActivities(
-  sessionFilter: Record<string, any> = {},
   activityFilter: Record<string, any> = {},
 ) {
   const openSessions = await SessionModel.find({
-    ...sessionFilter,
     ...openSessionFilter,
   })
     .populate({
@@ -250,7 +248,6 @@ function serializeCreatedActivityTemplate(sessionValue: unknown) {
     duration: session.duration,
     durationMinutes: session.duration,
     spots: session.spots,
-    credits: session.credits,
     categories: Array.isArray(activity.categories) ? activity.categories : [],
     groupId: chat?.mockId,
   };
@@ -387,13 +384,8 @@ router.get("/collections/:collection", optionalAuth, async (req, res) => {
     return;
   }
 
-  const filters = getActivityCollectionFilters(collection);
-
   res.json(
-    await getSerializedOpenActivities(
-      filters.sessionFilter,
-      filters.activityFilter,
-    ),
+    await getSerializedOpenActivities(getActivityCollectionFilters(collection)),
   );
 });
 
@@ -579,9 +571,20 @@ router.post("/", requireAuth, async (req, res, next) => {
     const requestedTagIds = getTagIds(req.body?.tagIds);
     const isVolunteer = req.body?.isVolunteer === true;
     const isAAC = req.body?.isAAC === true;
+    const requestedCredits = Number(req.body?.credits ?? 0);
+    const credits = isVolunteer ? 0 : requestedCredits;
+    const isPremium = isVolunteer ? false : req.body?.isPremium === true;
+    const skillsFuturePayable = isVolunteer
+      ? false
+      : req.body?.skillsFuturePayable === true;
 
     if (!title) {
       res.status(400).json({ message: "Activity title is required." });
+      return;
+    }
+
+    if (!Number.isFinite(credits) || credits < 0) {
+      res.status(400).json({ message: "Activity credits cannot be negative." });
       return;
     }
 
@@ -617,6 +620,9 @@ router.post("/", requireAuth, async (req, res, next) => {
       tags: await resolveTagIds(requestedTagIds),
       isVolunteer,
       isAAC,
+      credits,
+      isPremium,
+      skillsFuturePayable,
     });
 
     await VendorModel.findByIdAndUpdate(vendor._id, {

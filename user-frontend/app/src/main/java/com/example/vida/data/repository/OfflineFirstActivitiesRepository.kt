@@ -7,6 +7,11 @@ import com.example.vida.data.local.entity.asDomainModel
 import com.example.vida.data.remote.VidaApi
 import com.example.vida.data.remote.model.ActivityDto
 import com.example.vida.domain.model.ActivitySummary
+import com.example.vida.domain.model.ActivityDetails
+import com.example.vida.domain.model.ActivityFriend
+import com.example.vida.domain.model.ActivitySession
+import com.example.vida.domain.model.ActivityVendor
+import com.example.vida.domain.model.JoinedActivitySession
 import com.example.vida.domain.repository.ActivitiesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,6 +43,17 @@ class OfflineFirstActivitiesRepository @Inject constructor(
             database.activityDao().upsertAll(activities)
         }
     }
+
+    override suspend fun fetchActivity(activityId: Long): ActivityDetails =
+        api.getActivity(activityId).asDetails()
+
+    override suspend fun joinSession(sessionId: Long): JoinedActivitySession =
+        api.joinSession(sessionId).let { response ->
+            JoinedActivitySession(
+                groupId = response.group.id,
+                activity = response.activity.asDetails(),
+            )
+        }
 
     override suspend fun fetchActivityCollection(
         collection: String,
@@ -76,4 +92,57 @@ private fun ActivityDto.asEntity() = ActivityEntity(
     coverUrl = cover,
     isPremium = isPremium,
     tags = tags,
+)
+
+private fun ActivityDto.asDetails() = ActivityDetails(
+    id = id,
+    title = title,
+    description = description,
+    host = host,
+    durationMinutes = durationMinutes,
+    categories = categories,
+    tags = tags,
+    credits = credits,
+    isPremium = isPremium,
+    skillsFuturePayable = skillsFuturePayable,
+    coverUrl = cover,
+    vendor = vendor?.let {
+        ActivityVendor(
+            id = it.id,
+            name = it.name,
+            profileUrl = it.profileUrl,
+            description = it.description,
+        )
+    },
+    sessions = sessions.map { session ->
+        ActivitySession(
+            id = session.id,
+            title = session.title,
+            startsAt = session.startsAt,
+            location = session.location,
+            durationMinutes = session.durationMinutes,
+            spots = session.spots,
+            registeredCount = session.registeredCount,
+            groupId = session.groupId,
+            isOpen = session.isOpen,
+            isActive = session.isActive,
+            participatingFriends = session.participatingFriends.map { friend ->
+                ActivityFriend(
+                    id = friend.id,
+                    name = friend.name,
+                    handle = friend.handle,
+                    avatarUrl = friend.avatar,
+                )
+            },
+        )
+    },
+    participatingFriends = participatingFriends.map {
+        ActivityFriend(
+            id = it.id,
+            name = it.name,
+            handle = it.handle,
+            avatarUrl = it.avatar,
+        )
+    },
+    joinDisabledReason = joinDisabledReason,
 )

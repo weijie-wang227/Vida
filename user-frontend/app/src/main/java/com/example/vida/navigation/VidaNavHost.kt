@@ -1,6 +1,8 @@
 package com.example.vida.navigation
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -9,6 +11,7 @@ import androidx.navigation.toRoute
 import com.example.vida.domain.model.AuthUser
 import com.example.vida.feature.activities.ActivityCollection
 import com.example.vida.feature.activities.ActivityCollectionScreen
+import com.example.vida.feature.activities.ActivityDetailScreen
 import com.example.vida.feature.activities.ActivitiesScreen
 import com.example.vida.feature.activities.FavoritedActivitiesScreen
 import com.example.vida.feature.common.FeaturePlaceholderScreen
@@ -24,6 +27,8 @@ fun VidaNavHost(
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+
     NavHost(
         navController = navController,
         startDestination = ActivitiesDestination,
@@ -76,7 +81,30 @@ fun VidaNavHost(
         }
         composable<ActivityDetailDestination> { backStackEntry ->
             val destination = backStackEntry.toRoute<ActivityDetailDestination>()
-            FeaturePlaceholderScreen("Activity ${destination.activityId}")
+            ActivityDetailScreen(
+                activityId = destination.activityId,
+                currentUserHandle = currentUser.handle,
+                onBack = navController::navigateUp,
+                onShare = { activity ->
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            buildString {
+                                append(activity.title)
+                                append("\nHosted by ")
+                                append(activity.vendor?.name ?: activity.host)
+                            },
+                        )
+                    }
+                    context.startActivity(
+                        Intent.createChooser(shareIntent, "Share activity"),
+                    )
+                },
+                onOpenGroup = { groupId ->
+                    navController.navigate(GroupDetailDestination(groupId))
+                },
+            )
         }
         composable<ActivityReviewDestination> { backStackEntry ->
             val destination = backStackEntry.toRoute<ActivityReviewDestination>()

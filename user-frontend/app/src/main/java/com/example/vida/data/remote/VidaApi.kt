@@ -13,6 +13,7 @@ import com.example.vida.data.remote.model.FeedPostDto
 import com.example.vida.data.remote.model.FavoriteActivityResponseDto
 import com.example.vida.data.remote.model.FriendDto
 import com.example.vida.data.remote.model.GroupChatDto
+import com.example.vida.data.remote.model.JoinSessionResponseDto
 import com.example.vida.data.remote.model.ProfileDto
 import com.example.vida.data.remote.model.SendMessageRequest
 import com.example.vida.data.remote.model.SendMessageResponseDto
@@ -40,6 +41,11 @@ interface VidaApi {
     @GET("activities")
     suspend fun getActivities(): List<ActivityDto>
 
+    @GET("activities/{activityId}")
+    suspend fun getActivity(
+        @Path("activityId") activityId: Long,
+    ): ActivityDto
+
     @GET("activities/collections/{collection}")
     suspend fun getActivityCollection(
         @Path("collection") collection: String,
@@ -57,6 +63,11 @@ interface VidaApi {
     suspend fun removeFavoriteActivity(
         @Path("activityId") activityId: Long,
     ): FavoriteActivityResponseDto
+
+    @POST("sessions/{sessionId}/join")
+    suspend fun joinSession(
+        @Path("sessionId") sessionId: Long,
+    ): JoinSessionResponseDto
 
     @GET("tags")
     suspend fun getAvailableTags(): List<AvailableTagDto>

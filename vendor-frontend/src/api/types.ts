@@ -74,9 +74,6 @@ export type BaseSession = {
   startsAt: string;
   durationMinutes: number;
   spots: number;
-  credits: number;
-  isPremium: boolean;
-  skillsFuturePayable: boolean;
   location: string;
   lat: number;
   lng: number;
@@ -105,6 +102,7 @@ export type BaseActivity = {
   cover?: string;
   tags?: string[];
   isVolunteer: boolean;
+  credits: number;
   isPremium: boolean;
   skillsFuturePayable: boolean;
 }

@@ -118,7 +118,6 @@ function readSessionPayload(input: Record<string, any>, fallbackTitle: string) {
   const lng = getFiniteNumber(input.lng ?? input.longitude);
   const duration = getFiniteNumber(input.duration ?? input.durationMinutes);
   const spots = getFiniteNumber(input.spots);
-  const credits = getFiniteNumber(input.credits ?? 0);
   const groupId = getLinkedGroupId(input.groupId);
 
   return {
@@ -129,14 +128,7 @@ function readSessionPayload(input: Record<string, any>, fallbackTitle: string) {
     lng,
     duration,
     spots,
-    credits,
     groupId,
-    isPremium: input.isPremium === true,
-    skillsFuturePayable: Boolean(
-      input.skillsFuturePayable ??
-        input.skillsfuturePayable ??
-        input.isSkillsFuturePayable,
-    ),
   };
 }
 
@@ -162,10 +154,6 @@ function validateSessionPayload(session: ReturnType<typeof readSessionPayload>) 
 
   if (session.spots === null || session.spots < 1) {
     return "Session spots must be at least 1.";
-  }
-
-  if (session.credits === null || session.credits < 0) {
-    return "Session credits cannot be negative.";
   }
 
   if (Number.isNaN(session.groupId)) {
@@ -280,11 +268,6 @@ router.post("/", requireAuth, async (req, res, next) => {
     }
 
     const sessionPayload = readSessionPayload(req.body ?? {}, activity.title);
-    if (activity.isVolunteer === true) {
-      sessionPayload.credits = 0;
-      sessionPayload.isPremium = false;
-      sessionPayload.skillsFuturePayable = false;
-    }
     const errorMessage = validateSessionPayload(sessionPayload);
 
     if (errorMessage) {
@@ -325,15 +308,13 @@ router.post("/", requireAuth, async (req, res, next) => {
       activityCategories: Array.isArray(activity.categories)
         ? activity.categories.map(String)
         : [],
+      activityCredits: Number(activity.credits),
       linkedChatId: linkedChat?._id,
       session: {
         title: sessionPayload.title,
         startsAt: sessionPayload.startsAt as Date,
         duration: Math.round(Number(sessionPayload.duration)),
         spots: Math.round(Number(sessionPayload.spots)),
-        credits: Number(sessionPayload.credits),
-        isPremium: sessionPayload.isPremium,
-        skillsFuturePayable: sessionPayload.skillsFuturePayable,
         location: sessionPayload.location,
         lat: Number(sessionPayload.lat),
         lng: Number(sessionPayload.lng),

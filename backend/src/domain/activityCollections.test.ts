@@ -5,26 +5,22 @@ import {
   isActivityCollectionType,
 } from "./activityCollections.js";
 
-test("activity collections separate session and activity filters", () => {
+test("activity collections filter activity-owned fields", () => {
   assert.deepEqual(getActivityCollectionFilters("free"), {
-    sessionFilter: { isPremium: false, credits: 0 },
-    activityFilter: {},
+    isPremium: false,
+    credits: 0,
   });
   assert.deepEqual(getActivityCollectionFilters("premium"), {
-    sessionFilter: { isPremium: true },
-    activityFilter: {},
+    isPremium: true,
   });
   assert.deepEqual(getActivityCollectionFilters("skillsfuture"), {
-    sessionFilter: { skillsFuturePayable: true },
-    activityFilter: {},
+    skillsFuturePayable: true,
   });
   assert.deepEqual(getActivityCollectionFilters("volunteer"), {
-    sessionFilter: {},
-    activityFilter: { isVolunteer: true },
+    isVolunteer: true,
   });
   assert.deepEqual(getActivityCollectionFilters("aac"), {
-    sessionFilter: {},
-    activityFilter: { isAAC: true },
+    isAAC: true,
   });
 });
 

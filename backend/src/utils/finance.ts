@@ -263,11 +263,16 @@ function buildPeriod(
     isWithin(session.startsAt, window.previousStart, window.previousEnd),
   );
   const revenueBySessionId = new Map<string, number>();
+  const activityById = new Map(
+    activities.map((activity) => [String(activity._id), activity]),
+  );
 
   sessions.forEach((session) => {
     const sessionId = String(session._id);
     const attendees = joinsBySessionId.get(sessionId) ?? 0;
-    const revenue = convertCreditsToDollars(Number(session.credits), rate) * attendees;
+    const activity = activityById.get(String(session.activity));
+    const revenue =
+      convertCreditsToDollars(Number(activity?.credits), rate) * attendees;
 
     revenueBySessionId.set(sessionId, roundCurrency(revenue));
   });
@@ -288,9 +293,6 @@ function buildPeriod(
   const averagePerSession = currentSessions.length > 0
     ? currentTotals.revenue / currentSessions.length
     : 0;
-  const activityById = new Map(
-    activities.map((activity) => [String(activity._id), activity]),
-  );
   const breakdownByActivityId = new Map<string, FinanceActivity>();
 
   currentSessions.forEach((session) => {
@@ -365,12 +367,12 @@ export async function getVendorFinance(
     isVolunteer: { $ne: true },
     $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }],
   })
-    .select("_id title sessionsNum registeredCount totalRevenue")
+    .select("_id title credits sessionsNum registeredCount totalRevenue")
     .lean();
   const activityIds = activities.map((activity: Record<string, any>) => activity._id);
   const sessions = activityIds.length > 0
     ? await SessionModel.find({ activity: { $in: activityIds } })
-        .select("_id activity startsAt credits")
+        .select("_id activity startsAt")
         .lean()
     : [];
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -424,7 +426,7 @@ export async function getVendorFinanceActivity(
       { isVolunteer: { $ne: true } },
     ],
   })
-    .select("_id title")
+    .select("_id title credits")
     .lean()) as Record<string, any> | null;
 
   if (!activity) {
@@ -439,7 +441,7 @@ export async function getVendorFinanceActivity(
   const sessions = await SessionModel.find({
     activity: activity._id,
   })
-    .select("_id mockId title startsAt credits")
+    .select("_id mockId title startsAt")
     .sort({ startsAt: -1, mockId: -1 })
     .lean();
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -472,7 +474,7 @@ export async function getVendorFinanceActivity(
   const sessionRows = sessions.map((session: Record<string, any>) => {
     const registeredCount = attendeesBySessionId.get(String(session._id)) ?? 0;
     const revenue = roundCurrency(
-      convertCreditsToDollars(Number(session.credits), rate) * registeredCount,
+      convertCreditsToDollars(Number(activity.credits), rate) * registeredCount,
     );
 
     return {
