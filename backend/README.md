@@ -35,7 +35,7 @@ The reconciliation command treats participation documents as authoritative and r
 
 - `src/data.ts` is demo seed data used by `npm run seed`.
 - The seed script rebuilds demo users, friendships, groups, activities, map pins, feed posts, comments, and likes.
-- Some domain fields are still presentation-level values: credits are strings, ratings default for new activities, and unread counts are not calculated.
+- Some domain fields are still presentation-level values: ratings default for new activities, and unread counts are not calculated.
 - If MongoDB is unavailable, API routes return `503`; the backend does not serve fallback in-memory data.
 
 ## Environment

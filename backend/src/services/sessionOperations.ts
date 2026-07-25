@@ -41,15 +41,13 @@ type ScheduledSessionInput = {
   activityMockId: number | string;
   activityTitle: string;
   activityCategories: string[];
+  activityCredits: number;
   linkedChatId?: unknown;
   session: {
     title: string;
     startsAt: Date;
     duration: number;
     spots: number;
-    credits: number;
-    isPremium: boolean;
-    skillsFuturePayable: boolean;
     location: string;
     lat: number;
     lng: number;
@@ -88,8 +86,8 @@ function formatPreviewTime(value: Date) {
   }).format(value);
 }
 
-function getCreditCost(session: Record<string, any>) {
-  const credits = Number(session.credits);
+function getCreditCost(activity: Record<string, any>) {
+  const credits = Number(activity.credits);
 
   return Number.isFinite(credits) && credits > 0 ? credits : 0;
 }
@@ -163,10 +161,7 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
           spots: input.session.spots,
           registeredCount: 0,
           attendedCount: 0,
-          credits: input.session.credits,
           chat: chat._id,
-          isPremium: input.session.isPremium,
-          skillsFuturePayable: input.session.skillsFuturePayable,
           isOpen: true,
           isActive: true,
           location: input.session.location,
@@ -214,7 +209,7 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
               startsAt: input.session.startsAt.toISOString(),
               location: input.session.location,
               durationMinutes: input.session.duration,
-              credits: input.session.credits,
+              credits: input.activityCredits,
               categories: input.activityCategories,
             },
             session: {
@@ -257,6 +252,14 @@ export async function deleteScheduledSession(
       throw new SessionOperationError("Session not found.", 404);
     }
 
+    const activityPricing = await ActivityModel.findById(input.activityId)
+      .select("credits")
+      .session(dbSession);
+
+    if (!activityPricing) {
+      throw new SessionOperationError("Activity not found.", 404);
+    }
+
     const registeredCount = Math.max(
       0,
       Number(scheduledSession.registeredCount) || 0,
@@ -267,7 +270,7 @@ export async function deleteScheduledSession(
     );
     const sessionRevenue =
       convertCreditsToDollars(
-        Number(scheduledSession.credits),
+        getCreditCost(activityPricing),
         conversionRate,
       ) * registeredCount;
     const attendedParticipations = await SessionParticipationModel.find({
@@ -467,7 +470,7 @@ export async function registerForSession(
       });
     }
 
-    const creditCost = getCreditCost(reservedSession);
+    const creditCost = getCreditCost(activity);
     const account = await findEligibleAccount(userId, creditCost, dbSession);
 
     if (creditCost > 0 && !account) {

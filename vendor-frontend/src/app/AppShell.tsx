@@ -116,7 +116,6 @@ export function AppShell() {
             element={
               <CreateSessionPage
                 vendor={vendor}
-                activities={activities}
                 error={activityError}
                 isSubmitting={isCreatingActivity}
                 onCreateSession={createSession}

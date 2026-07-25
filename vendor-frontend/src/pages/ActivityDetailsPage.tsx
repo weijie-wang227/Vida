@@ -118,11 +118,8 @@ export function ActivityDetailsPage({
         duplicateSource.durationMinutes ?? duplicateSource.duration ?? 60,
       ),
       spots: Number(duplicateSource.spots),
-      credits: Number(duplicateSource.credits ?? 0),
       vendorId: vendor.id,
       createAsVendor: true,
-      isPremium: Number(duplicateSource.credits ?? 0) > 0,
-      skillsFuturePayable: false,
     });
     const createdSessionId = response.session?.id;
 

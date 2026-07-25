@@ -17,3 +17,10 @@ test("legacy participation counters are not part of current schemas", () => {
   assert.equal(SessionModel.schema.path("joiningCount"), undefined);
   assert.equal(ActivityModel.schema.path("attendeesNum"), undefined);
 });
+
+test("activity pricing fields are not duplicated on sessions", () => {
+  for (const field of ["credits", "isPremium", "skillsFuturePayable"]) {
+    assert.ok(ActivityModel.schema.path(field));
+    assert.equal(SessionModel.schema.path(field), undefined);
+  }
+});

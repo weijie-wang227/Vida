@@ -1,5 +1,5 @@
 import "./env.js";
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import { createAvatarUrl, createPasswordRecord } from "./auth.js";
 import { connectDB, disconnectDB } from "./db.js";
 import {
@@ -35,15 +35,6 @@ import {
 } from "./models/VidaData.js";
 import type { ActivitySeed } from "./data.js";
 import { reconcileParticipationCounters } from "./services/participationReconciliation.js";
-
-const legacyCollections = [
-  "profiles",
-  "friends",
-  "groupChats",
-  "activityJoins",
-  "sessionJoins",
-  "mapPins",
-];
 
 const allActivities: ActivitySeed[] = activities;
 const testUserSeed = {
@@ -102,17 +93,6 @@ function uniqueObjectIds(ids: Types.ObjectId[]) {
   });
 }
 
-async function dropLegacyCollections() {
-  const collections = await mongoose.connection.db?.listCollections().toArray();
-  const existingCollections = new Set(collections?.map((item) => item.name));
-
-  await Promise.all(
-    legacyCollections
-      .filter((collection) => existingCollections.has(collection))
-      .map((collection) => mongoose.connection.db?.dropCollection(collection)),
-  );
-}
-
 async function seed() {
   try {
     const connected = await connectDB();
@@ -120,8 +100,6 @@ async function seed() {
     if (!connected) {
       throw new Error("MONGODB_URI is required to seed the vida database.");
     }
-
-    await dropLegacyCollections();
 
     await Promise.all([
       UserModel.deleteMany(),
@@ -385,6 +363,9 @@ async function seed() {
           requireSeedValue(tagIdByName.get(name), `tag "${name}"`),
         ),
         isAAC: activity.isAAC ?? false,
+        credits: activity.credits,
+        isPremium: activity.isPremium,
+        skillsFuturePayable: activity.skillsFuturePayable ?? false,
         sessionsNum: 1,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,
@@ -398,10 +379,7 @@ async function seed() {
         spots: activity.spots,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,
-        credits: activity.credits,
         chat: chatId,
-        isPremium: activity.isPremium,
-        skillsFuturePayable: activity.skillsFuturePayable ?? false,
         isOpen: true,
         isActive: true,
         location: activity.location,

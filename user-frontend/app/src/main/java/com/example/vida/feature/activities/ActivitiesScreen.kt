@@ -2,6 +2,7 @@ package com.example.vida.feature.activities
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,13 +64,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.vida.core.designsystem.theme.VidaTheme
 import com.example.vida.domain.model.ActivitySummary
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -616,14 +622,6 @@ private fun TagSelector(
 private fun ActivityCollectionCarousel(
     onCollectionClick: (ActivityCollection) -> Unit,
 ) {
-    val palette = listOf(
-        Color(0xFFE8F4EA) to Color(0xFF287A3E),
-        Color(0xFFFFF0D5) to Color(0xFF9A6500),
-        Color(0xFFE5F3F8) to Color(0xFF15647E),
-        Color(0xFFF8E7EE) to Color(0xFFA62B5C),
-        Color(0xFFECE9FB) to Color(0xFF5542A8),
-    )
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -644,50 +642,75 @@ private fun ActivityCollectionCarousel(
                 items = ActivityCollection.entries,
                 key = ActivityCollection::routeValue,
             ) { collection ->
-                val index = ActivityCollection.entries.indexOf(collection)
-                val (background, foreground) = palette[index % palette.size]
-
-                Surface(
+                Box(
                     modifier = Modifier
-                        .width(146.dp)
-                        .height(132.dp)
+                        .width(158.dp)
+                        .height(172.dp)
                         .clickable { onCollectionClick(collection) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFF3F3F3),
-                    border = BorderStroke(1.dp, Color(0xFFE8E8E8)),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(128.dp)
+                            .align(Alignment.BottomCenter),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFF3F3F3),
+                        border = BorderStroke(1.dp, Color(0xFFE8E8E8)),
+                        shadowElevation = 1.dp,
                     ) {
-                        Surface(
-                            modifier = Modifier.size(58.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            color = background,
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(start = 12.dp, top = 56.dp, end = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = collection.mark,
-                                    color = foreground,
-                                    fontSize = if (collection.mark.length > 3) 12.sp else 17.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                )
-                            }
+                            Text(
+                                text = collection.title,
+                                color = VidaText,
+                                fontSize = 13.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = collection.previewText,
+                                modifier = Modifier.padding(top = 3.dp),
+                                color = VidaMutedText,
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
-                        Text(
-                            text = collection.title,
-                            modifier = Modifier.padding(top = 9.dp),
-                            color = VidaText,
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
                     }
+                    Image(
+                        painter = painterResource(collection.imageRes),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .size(if (collection == ActivityCollection.AAC) 88.dp else 90.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .zIndex(1f),
+                    )
                 }
             }
         }
+    }
+}
+
+@Preview(
+    name = "Activity collection carousel",
+    showBackground = true,
+    backgroundColor = 0xFFF9FAF8,
+    widthDp = 390,
+)
+@Composable
+private fun ActivityCollectionCarouselPreview() {
+    VidaTheme {
+        ActivityCollectionCarousel(onCollectionClick = {})
     }
 }
 

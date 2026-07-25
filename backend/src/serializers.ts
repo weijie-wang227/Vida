@@ -24,25 +24,7 @@ function getActivityCredits(activity: AnyDoc) {
   const item = asObject(activity ?? {});
   const credits = Number(item.credits);
 
-  if (Number.isFinite(credits)) {
-    return credits;
-  }
-
-  const price = Number(item.price);
-
-  if (Number.isFinite(price)) {
-    return price;
-  }
-
-  if (typeof item.price === "string") {
-    const match = item.price.match(/\d+(?:\.\d+)?/);
-
-    if (match) {
-      return Number(match[0]);
-    }
-  }
-
-  return 0;
+  return Number.isFinite(credits) ? credits : 0;
 }
 
 function getSessionDuration(sessionValue: unknown) {
@@ -334,14 +316,14 @@ export function serializeActivity(
       primarySession.registeredCount ?? participatingFriends.length,
     ),
     attendedCount: Number(primarySession.attendedCount ?? 0),
-    credits: getActivityCredits(primarySession),
+    credits: getActivityCredits(item),
     rating: item.rating,
     categories: (item.categories ?? []) as vidaCategory[],
     tags: serializeTagNames(item.tags),
     isVolunteer: Boolean(item.isVolunteer),
     isAAC: Boolean(item.isAAC),
-    isPremium: Boolean(primarySession.isPremium),
-    skillsFuturePayable: Boolean(primarySession.skillsFuturePayable),
+    isPremium: Boolean(item.isPremium),
+    skillsFuturePayable: Boolean(item.skillsFuturePayable),
     isOpen: primarySession.isOpen !== false,
     isActive: primarySession.isActive !== false,
     cover: item.cover || undefined,
@@ -378,11 +360,8 @@ export function serializeSession(session: AnyDoc) {
     spots: item.spots,
     registeredCount: Number(item.registeredCount ?? 0),
     attendedCount: Number(item.attendedCount ?? 0),
-    credits: getActivityCredits(item),
     chat: chat?._id ? String(chat._id) : String(item.chat ?? ""),
     groupId: chat?.mockId,
-    isPremium: Boolean(item.isPremium),
-    skillsFuturePayable: Boolean(item.skillsFuturePayable),
     isOpen: item.isOpen !== false,
     isActive: item.isActive !== false,
     location: item.location,
@@ -418,7 +397,7 @@ export function serializeMapPin(pin: AnyDoc) {
     x: 0,
     y: 0,
     label: item.title ?? item.label,
-    premium: item.isPremium ?? item.premium,
+    premium: activity.isPremium ?? activity.premium,
     categories: (activity.categories ?? []) as vidaCategory[],
   };
 }
