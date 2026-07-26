@@ -6,7 +6,7 @@ type FolderTypes =
   | "posts"
   | "groups"
   | "activities"
-  | "vendors";
+  | "vendor";
 
 export async function getPresignedUploadUrl(data: {
   fileName: string;

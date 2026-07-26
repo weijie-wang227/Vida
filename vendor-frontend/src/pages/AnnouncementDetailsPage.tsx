@@ -226,13 +226,13 @@ export function AnnouncementDetailsPage() {
                       className="vendor-message vendor-message--text"
                       key={announcement.id}
                     >
+                      <p>{announcement.content}</p>
                       <time
                         className="vendor-announcement-time"
                         dateTime={announcement.createdAt}
                       >
                         {formatAnnouncementTime(announcement.createdAt)}
                       </time>
-                      <p>{announcement.content}</p>
                     </article>
                   );
                 }
@@ -242,12 +242,6 @@ export function AnnouncementDetailsPage() {
                     className="vendor-message vendor-message--poll"
                     key={announcement.id}
                   >
-                    <time
-                      className="vendor-announcement-time"
-                      dateTime={announcement.createdAt}
-                    >
-                      {formatAnnouncementTime(announcement.createdAt)}
-                    </time>
                     <span className="vendor-message__kind">
                       <BarChart3 size={14} /> Poll
                     </span>
@@ -280,6 +274,12 @@ export function AnnouncementDetailsPage() {
                       {announcement.poll.totalVotes}{" "}
                       {announcement.poll.totalVotes === 1 ? "vote" : "votes"}
                     </p>
+                    <time
+                      className="vendor-announcement-time"
+                      dateTime={announcement.createdAt}
+                    >
+                      {formatAnnouncementTime(announcement.createdAt)}
+                    </time>
                   </article>
                 );
               })}
