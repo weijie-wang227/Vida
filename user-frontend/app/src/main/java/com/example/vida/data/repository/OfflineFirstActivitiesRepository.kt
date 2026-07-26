@@ -100,7 +100,7 @@ private fun ActivityDto.asEntity() = ActivityEntity(
     host = host,
     startsAt = startsAt,
     location = location,
-    coverUrl = cover,
+    coverUrl = imageUrls.firstOrNull(),
     isPremium = isPremium,
     tags = tags,
 )
@@ -116,7 +116,7 @@ private fun ActivityDto.asDetails() = ActivityDetails(
     credits = credits,
     isPremium = isPremium,
     skillsFuturePayable = skillsFuturePayable,
-    coverUrl = cover,
+    coverUrl = imageUrls.firstOrNull(),
     vendor = vendor?.let {
         ActivityVendor(
             id = it.id,
@@ -128,7 +128,6 @@ private fun ActivityDto.asDetails() = ActivityDetails(
     sessions = sessions.map { session ->
         ActivitySession(
             id = session.id,
-            title = session.title,
             startsAt = session.startsAt,
             location = session.location,
             durationMinutes = session.durationMinutes,

@@ -61,7 +61,7 @@ export function PremiumCard({ activity }: { activity: Activity }) {
       </button>
       <div className="relative h-32 bg-secondary overflow-hidden">
         <img
-          src={activity.cover ?? ""}
+          src={activity.imageUrls[0] ?? ""}
           alt={activity.title}
           className="w-full h-full object-cover"
         />

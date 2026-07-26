@@ -17,7 +17,7 @@ import {
   serializeMapPin,
   serializeSession,
 } from "../serializers.js";
-import { toIsoString } from "../utils/date.js";
+import { formatSessionDateTime, toIsoString } from "../utils/date.js";
 import { getString } from "../utils/input.js";
 import { asObject } from "../utils/mongoose.js";
 import { getPagination } from "../utils/pagination.js";
@@ -38,6 +38,7 @@ const vidaCategories = new Set([
   "creative",
 ]);
 const openSessionFilter = { isOpen: true, isActive: true };
+const maxActivityImages = 5;
 
 function attachSessionsToActivity(
   activity: Record<string, any>,
@@ -51,6 +52,26 @@ function attachSessionsToActivity(
 
 function getPrimarySession(sessions: Record<string, any>[]) {
   return sessions[0] ?? null;
+}
+
+function getActivityImageUrls(value: unknown) {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const imageUrls = value.map((item) => getString(item));
+  if (
+    imageUrls.length > maxActivityImages ||
+    imageUrls.some((imageUrl) => !imageUrl || !/^https?:\/\//i.test(imageUrl))
+  ) {
+    return null;
+  }
+
+  return imageUrls;
 }
 
 function serializeActivityWithSessionParticipations(
@@ -215,7 +236,7 @@ function serializePreviousActivity(sessionValue: unknown) {
   return {
     id: activity.mockId,
     sessionId: session.mockId,
-    title: activity.title ?? session.title,
+    title: activity.title,
     startsAt: toIsoString(session.startsAt),
     location: session.location,
   };
@@ -239,14 +260,13 @@ function serializeCreatedActivityTemplate(sessionValue: unknown) {
     id: activity.mockId,
     sessionId: session.mockId,
     title: activity.title,
-    sessionTitle: session.title,
+    sessionTitle: formatSessionDateTime(session.startsAt),
     location: session.location,
     latitude: session.lat,
     longitude: session.lng,
     lat: session.lat,
     lng: session.lng,
-    duration: session.duration,
-    durationMinutes: session.duration,
+    endAt: toIsoString(session.endAt),
     spots: session.spots,
     categories: Array.isArray(activity.categories) ? activity.categories : [],
     groupId: chat?.mockId,
@@ -567,7 +587,7 @@ router.post("/", requireAuth, async (req, res, next) => {
     const title = getString(req.body?.title);
     const description = getString(req.body?.description);
     const suitability = getString(req.body?.suitability);
-    const cover = getString(req.body?.cover);
+    const imageUrls = getActivityImageUrls(req.body?.imageUrls);
     const categories = getCategories(req.body?.categories);
     const requestedTagIds = getTagIds(req.body?.tagIds);
     const isVolunteer = req.body?.isVolunteer === true;
@@ -581,6 +601,13 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     if (!title) {
       res.status(400).json({ message: "Activity title is required." });
+      return;
+    }
+
+    if (imageUrls === null) {
+      res.status(400).json({
+        message: "imageUrls must contain at most 5 valid HTTP image URLs.",
+      });
       return;
     }
 
@@ -623,7 +650,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       host: vendor._id,
       rating: 5,
       categories,
-      cover: cover || undefined,
+      imageUrls,
       tags: await resolveTagIds(requestedTagIds),
       isVolunteer,
       isAAC,

@@ -1,9 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import {
-  CalendarPlus,
-  Loader2,
-} from "lucide-react";
+import { CalendarPlus, Loader2 } from "lucide-react";
 import {
   searchLocations,
   type LocationSearchResult,
@@ -32,14 +29,15 @@ export function CreateSessionPage({
   const [searchParams] = useSearchParams();
   const selectedDate = searchParams.get("date") ?? "";
   const activityId = searchParams.get("activityId") ?? undefined;
-  const [title, setTitle] = useState("");
   const [instructor, setInstructor] = useState("");
   const [sessionDate, setSessionDate] = useState(selectedDate);
   const [sessionTime, setSessionTime] = useState("09:00");
+  const [sessionEndDate, setSessionEndDate] = useState(selectedDate);
+  const [sessionEndTime, setSessionEndTime] = useState("10:00");
   const [location, setLocation] = useState("");
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState("60");
   const [spots, setSpots] = useState("10");
   const [localError, setLocalError] = useState<string | null>(null);
   const [locationSuggestions, setLocationSuggestions] = useState<
@@ -53,11 +51,13 @@ export function CreateSessionPage({
   useEffect(() => {
     if (selectedDate) {
       setSessionDate(selectedDate);
+      setSessionEndDate(selectedDate);
     }
   }, [selectedDate]);
 
   useEffect(() => {
-    const query = location.trim();
+    const query = locationSearchQuery.trim();
+    let isCurrentSearch = true;
 
     if (query.length < 2) {
       setLocationSuggestions([]);
@@ -71,23 +71,37 @@ export function CreateSessionPage({
       setLocationSearchError(null);
 
       searchLocations(query)
-        .then(setLocationSuggestions)
-        .catch((searchError) => {
-          setLocationSuggestions([]);
-          setLocationSearchError(
-            searchError instanceof Error
-              ? searchError.message
-              : "Unable to search places right now.",
-          );
+        .then((results) => {
+          if (isCurrentSearch) {
+            setLocationSuggestions(results);
+          }
         })
-        .finally(() => setIsSearchingLocation(false));
+        .catch((searchError) => {
+          if (isCurrentSearch) {
+            setLocationSuggestions([]);
+            setLocationSearchError(
+              searchError instanceof Error
+                ? searchError.message
+                : "Unable to search places right now.",
+            );
+          }
+        })
+        .finally(() => {
+          if (isCurrentSearch) {
+            setIsSearchingLocation(false);
+          }
+        });
     }, 300);
 
-    return () => window.clearTimeout(timeoutId);
-  }, [location]);
+    return () => {
+      isCurrentSearch = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [locationSearchQuery]);
 
   const selectLocation = (result: LocationSearchResult) => {
     setLocation(result.label);
+    setLocationSearchQuery("");
     setLatitude(String(result.latitude));
     setLongitude(String(result.longitude));
     setLocationSuggestions([]);
@@ -113,9 +127,13 @@ export function CreateSessionPage({
     const startsAtIso = startsAtValue
       ? new Date(startsAtValue).toISOString()
       : "";
+    const endAtValue =
+      sessionEndDate && sessionEndTime
+        ? `${sessionEndDate}T${sessionEndTime}`
+        : "";
+    const endAtIso = endAtValue ? new Date(endAtValue).toISOString() : "";
     const latitudeValue = Number(latitude);
     const longitudeValue = Number(longitude);
-    const durationValue = Number(durationMinutes);
     const spotsValue = Number(spots);
 
     if (!startsAtIso || Number.isNaN(new Date(startsAtIso).getTime())) {
@@ -123,13 +141,23 @@ export function CreateSessionPage({
       return;
     }
 
-    if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
-      setLocalError("Choose a valid session location.");
+    if (!endAtIso || Number.isNaN(new Date(endAtIso).getTime())) {
+      setLocalError("Choose a valid end time.");
       return;
     }
 
-    if (!Number.isFinite(durationValue) || durationValue < 15) {
-      setLocalError("Session duration must be at least 15 minutes.");
+    if (
+      new Date(endAtIso).getTime() - new Date(startsAtIso).getTime() <
+      15 * 60 * 1000
+    ) {
+      setLocalError(
+        "Session end time must be at least 15 minutes after its start time.",
+      );
+      return;
+    }
+
+    if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
+      setLocalError("Choose a valid session location.");
       return;
     }
 
@@ -140,13 +168,12 @@ export function CreateSessionPage({
 
     const payload: CreateSessionInput = {
       activityId,
-      title: title.trim(),
       instructor: instructor.trim(),
       startsAt: startsAtIso,
+      endAt: endAtIso,
       location: location.trim(),
       lat: latitudeValue,
       lng: longitudeValue,
-      durationMinutes: durationValue,
       spots: spotsValue,
       vendorId: vendor.id,
       createAsVendor: true,
@@ -164,11 +191,13 @@ export function CreateSessionPage({
         return;
       }
 
-      setTitle("");
       setInstructor("");
       setSessionDate(selectedDate);
       setSessionTime("09:00");
+      setSessionEndDate(selectedDate);
+      setSessionEndTime("10:00");
       setLocation("");
+      setLocationSearchQuery("");
       setLatitude("");
       setLongitude("");
       setDurationMinutes("60");
@@ -187,15 +216,6 @@ export function CreateSessionPage({
       <Card title="Create Session">
         <form className="activity-form" onSubmit={handleSubmit}>
           <label>
-            <span>Title</span>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              required
-            />
-          </label>
-
-          <label>
             <span>Instructor</span>
             <input
               value={instructor}
@@ -205,33 +225,18 @@ export function CreateSessionPage({
             />
           </label>
 
-          <label>
-            <span>Date</span>
-            <input
-              type="date"
-              value={sessionDate}
-              onChange={(event) => setSessionDate(event.target.value)}
-              disabled={Boolean(selectedDate)}
-              required
-            />
-          </label>
-
-          <label>
-            <span>Time</span>
-            <input
-              type="time"
-              value={sessionTime}
-              onChange={(event) => setSessionTime(event.target.value)}
-              required
-            />
-          </label>
-
           <label className="activity-form__wide">
             <span>Location Search</span>
             <div className="location-search-field">
               <input
                 value={location}
-                onChange={(event) => setLocation(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setLocation(value);
+                  setLocationSearchQuery(value);
+                  setLatitude("");
+                  setLongitude("");
+                }}
                 placeholder="Search a place in Singapore"
                 required
               />
@@ -265,12 +270,42 @@ export function CreateSessionPage({
           </label>
 
           <label>
-            <span>Duration minutes</span>
+            <span>Start Date</span>
             <input
-              type="number"
-              min={15}
-              value={durationMinutes}
-              onChange={(event) => setDurationMinutes(event.target.value)}
+              type="date"
+              value={sessionDate}
+              onChange={(event) => setSessionDate(event.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            <span>Start Time</span>
+            <input
+              type="time"
+              value={sessionTime}
+              onChange={(event) => setSessionTime(event.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            <span>End date</span>
+            <input
+              type="date"
+              value={sessionEndDate}
+              min={sessionDate || undefined}
+              onChange={(event) => setSessionEndDate(event.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            <span>End time</span>
+            <input
+              type="time"
+              value={sessionEndTime}
+              onChange={(event) => setSessionEndTime(event.target.value)}
               required
             />
           </label>

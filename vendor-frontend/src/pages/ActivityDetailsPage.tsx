@@ -68,6 +68,26 @@ function combineDateWithSourceTime(dateValue: string, sourceStartsAt: string) {
   return new Date(`${dateValue}T${hours}:${minutes}:${seconds}`).toISOString();
 }
 
+function getDuplicatedSessionRange(
+  dateValue: string,
+  sourceStartsAt: string,
+  sourceEndAt: string,
+) {
+  const startsAt = combineDateWithSourceTime(dateValue, sourceStartsAt);
+  const sourceStartTime = new Date(sourceStartsAt).getTime();
+  const sourceEndTime = new Date(sourceEndAt).getTime();
+  const elapsedTime = sourceEndTime - sourceStartTime;
+
+  if (!Number.isFinite(elapsedTime) || elapsedTime < 15 * 60 * 1000) {
+    return null;
+  }
+
+  return {
+    startsAt,
+    endAt: new Date(new Date(startsAt).getTime() + elapsedTime).toISOString(),
+  };
+}
+
 function getActivityPaymentMethod(activity: Activity) {
   if (activity.skillsFuturePayable) {
     return "SkillsFuture Payable";
@@ -130,18 +150,25 @@ export function ActivityDetailsPage({
     }
 
     setDuplicateError(null);
+    const duplicatedRange = getDuplicatedSessionRange(
+      dateValue,
+      duplicateSource.startsAt,
+      duplicateSource.endAt,
+    );
+
+    if (!duplicatedRange) {
+      setDuplicateError("The source session has an invalid start or end time.");
+      return;
+    }
 
     const response = await onCreateSession({
       activityId: activity.mockId,
-      title: duplicateSource.title,
       instructor: duplicateSource.instructor,
-      startsAt: combineDateWithSourceTime(dateValue, duplicateSource.startsAt),
+      startsAt: duplicatedRange.startsAt,
+      endAt: duplicatedRange.endAt,
       location: duplicateSource.location,
-      latitude: Number(duplicateSource.lat ?? 0),
-      longitude: Number(duplicateSource.lng ?? 0),
-      durationMinutes: Number(
-        duplicateSource.durationMinutes ?? duplicateSource.duration ?? 60,
-      ),
+      lat: Number(duplicateSource.lat ?? 0),
+      lng: Number(duplicateSource.lng ?? 0),
       spots: Number(duplicateSource.spots),
       vendorId: vendor.id,
       createAsVendor: true,
@@ -219,6 +246,18 @@ export function ActivityDetailsPage({
             <div className="activity-details__text-section">
               <strong>Suitability</strong>
               <p>{activity.suitability}</p>
+            </div>
+          )}
+
+          {activity.imageUrls.length > 0 && (
+            <div className="activity-details__images">
+              {activity.imageUrls.map((imageUrl, index) => (
+                <img
+                  key={imageUrl}
+                  src={imageUrl}
+                  alt={`${activity.title} ${index + 1}`}
+                />
+              ))}
             </div>
           )}
 

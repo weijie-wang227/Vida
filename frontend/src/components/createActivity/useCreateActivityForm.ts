@@ -337,7 +337,9 @@ export function useCreateActivityForm({
     try {
       setIsSaving(true);
       if (form.coverFile) {
-        payload.cover = await uploadImageToR2(form.coverFile, "activities");
+        payload.imageUrls = [
+          await uploadImageToR2(form.coverFile, "activities"),
+        ];
       }
       const activity = await createActivity(payload);
 

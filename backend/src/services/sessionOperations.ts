@@ -3,8 +3,9 @@ import {
   AccountModel,
   ActivityModel,
   AdminModel,
+  AnnouncementModel,
+  AnnouncementVoteModel,
   BlacklistModel,
-  ChatMessageModel,
   ChatModel,
   NotificationModel,
   SessionModel,
@@ -21,7 +22,7 @@ import {
   convertCreditsToDollars,
   getCreditsToDollarsRate,
 } from "../utils/finance.js";
-import { normalizeChatMessagePayload } from "../chatMessages.js";
+import { formatSessionDateTime } from "../utils/date.js";
 
 export class SessionOperationError extends Error {
   constructor(
@@ -36,18 +37,12 @@ export class SessionOperationError extends Error {
 
 type ScheduledSessionInput = {
   userId: unknown;
-  userName: string;
   activityId: unknown;
-  activityMockId: number | string;
-  activityTitle: string;
-  activityCategories: string[];
-  activityCredits: number;
   linkedChatId?: unknown;
   session: {
-    title: string;
     instructor: string;
     startsAt: Date;
-    duration: number;
+    endAt: Date;
     spots: number;
     location: string;
     lat: number;
@@ -78,13 +73,6 @@ async function nextMockId(
     .session(dbSession);
 
   return (lastItem?.mockId ?? 0) + 1;
-}
-
-function formatPreviewTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value);
 }
 
 function getCreditCost(activity: Record<string, any>) {
@@ -119,6 +107,7 @@ async function findEligibleAccount(
 
 export async function createScheduledSession(input: ScheduledSessionInput) {
   return mongoose.connection.transaction(async (dbSession) => {
+    const sessionLabel = formatSessionDateTime(input.session.startsAt);
     const chat = input.linkedChatId
       ? await ChatModel.findById(input.linkedChatId).session(dbSession)
       : (
@@ -126,11 +115,11 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
             [
               {
                 mockId: await nextMockId(ChatModel, dbSession),
-                name: input.session.title,
+                name: sessionLabel,
                 avatar: `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
-                  input.session.title,
+                  sessionLabel,
                 )}`,
-                members: [input.userId],
+                members: [],
                 lastMessage: "",
                 time: "",
                 unread: 0,
@@ -156,10 +145,9 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
         {
           mockId: await nextMockId(SessionModel, dbSession),
           activity: input.activityId,
-          title: input.session.title,
           instructor: input.session.instructor,
           startsAt: input.session.startsAt,
-          duration: input.session.duration,
+          endAt: input.session.endAt,
           spots: input.session.spots,
           registeredCount: 0,
           attendedCount: 0,
@@ -194,44 +182,6 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
           registeredAt: new Date(),
         },
       ],
-      { session: dbSession },
-    );
-
-    const [message] = await ChatMessageModel.create(
-      [
-        {
-          chat: chat._id,
-          sender: input.userId,
-          type: "activity_invite",
-          schemaVersion: 1,
-          payload: normalizeChatMessagePayload("activity_invite", {
-            activity: {
-              id: input.activityMockId,
-              title: input.activityTitle,
-              startsAt: input.session.startsAt.toISOString(),
-              location: input.session.location,
-              durationMinutes: input.session.duration,
-              credits: input.activityCredits,
-              categories: input.activityCategories,
-            },
-            session: {
-              id: scheduledSession.mockId,
-              objectId: String(scheduledSession._id),
-            },
-          }),
-        },
-      ],
-      { session: dbSession },
-    );
-    const createdAt =
-      message.createdAt instanceof Date ? message.createdAt : new Date();
-
-    await ChatModel.findByIdAndUpdate(
-      chat._id,
-      {
-        lastMessage: `Activity invite: ${input.activityTitle}`,
-        time: formatPreviewTime(createdAt),
-      },
       { session: dbSession },
     );
 
@@ -312,6 +262,24 @@ export async function deleteScheduledSession(
     }
 
     const participationResult = await SessionParticipationModel.deleteMany({
+      sessionId: scheduledSession._id,
+    }).session(dbSession);
+    const announcements = await AnnouncementModel.find({
+      sessionId: scheduledSession._id,
+    })
+      .select("_id")
+      .session(dbSession);
+    const announcementIds = announcements.map(
+      (announcement: Record<string, any>) => announcement._id,
+    );
+
+    if (announcementIds.length > 0) {
+      await AnnouncementVoteModel.deleteMany({
+        announcementId: { $in: announcementIds },
+      }).session(dbSession);
+    }
+
+    await AnnouncementModel.deleteMany({
       sessionId: scheduledSession._id,
     }).session(dbSession);
     const sessionResult = await SessionModel.deleteOne({
@@ -619,7 +587,7 @@ export async function markSessionAttendance(input: {
           {
             user: input.userId,
             title: "Review your activity",
-            content: `How was ${activity?.title ?? scheduledSession.title}? Share a quick rating and note.`,
+            content: `How was ${activity?.title ?? "this activity"}? Share a quick rating and note.`,
             link: `/sessions/${scheduledSession.mockId}/review`,
             read: false,
           },

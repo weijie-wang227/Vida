@@ -3,12 +3,12 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   CalendarDays,
-  CircleStop,
   ClipboardList,
   Copy,
   Loader2,
   Lock,
   MapPin,
+  Megaphone,
   Trash2,
   Unlock,
   Users,
@@ -72,30 +72,24 @@ export function SessionDetailsPage({
   sessions,
   updatingActivityId,
   deletingSessionId,
-  endingSessionId,
   onToggleActivityOpen,
   onDeleteSession,
-  onEndSession,
 }: {
   activities: Activity[];
   sessions: Session[];
   updatingActivityId: string | null;
   deletingSessionId: string | null;
-  endingSessionId: string | null;
   onToggleActivityOpen: (
     activityId: number | string,
     isOpen: boolean,
   ) => Promise<void>;
   onDeleteSession: (sessionId: number | string) => Promise<void>;
-  onEndSession: (sessionId: number | string) => Promise<void>;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { activityId, sessionId } = useParams();
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
-  const [endError, setEndError] = useState<string | null>(null);
   const activity = getActivityRows(activities, activityId)[0] ?? null;
   const session = getSessionByRouteId(sessions, activityId, sessionId);
   const isUpdating = session
@@ -115,16 +109,12 @@ export function SessionDetailsPage({
   const returnLabel =
     returnPath === "/activities" ? "Back to activities" : "Back to activity";
   const sessionRouteId = session?.mockId ?? session?.id ?? session?.objectId;
+  const announcementSessionId =
+    session?.id ?? session?.objectId ?? session?.mockId;
   const isDeleting =
     sessionRouteId !== undefined &&
     deletingSessionId === String(sessionRouteId);
-  const isEnding =
-    sessionRouteId !== undefined &&
-    endingSessionId === String(sessionRouteId);
-
   const openDeleteConfirmation = () => {
-    setIsEndConfirmOpen(false);
-    setEndError(null);
     setDeleteError(null);
     setIsDeleteConfirmOpen(true);
   };
@@ -133,39 +123,6 @@ export function SessionDetailsPage({
     if (!isDeleting) {
       setIsDeleteConfirmOpen(false);
       setDeleteError(null);
-    }
-  };
-
-  const openEndConfirmation = () => {
-    setIsDeleteConfirmOpen(false);
-    setDeleteError(null);
-    setEndError(null);
-    setIsEndConfirmOpen(true);
-  };
-
-  const closeEndConfirmation = () => {
-    if (!isEnding) {
-      setIsEndConfirmOpen(false);
-      setEndError(null);
-    }
-  };
-
-  const handleEndSession = async () => {
-    if (sessionRouteId === undefined) {
-      return;
-    }
-
-    setEndError(null);
-
-    try {
-      await onEndSession(sessionRouteId);
-      setIsEndConfirmOpen(false);
-    } catch (submissionError) {
-      setEndError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "Unable to end session.",
-      );
     }
   };
 
@@ -251,7 +208,7 @@ export function SessionDetailsPage({
               <span>
                 {activity?.title ?? session.activity?.title ?? "Activity"}
               </span>
-              <h2>{session.title}</h2>
+              <h2>{formatActivityDate(session.startsAt)}</h2>
             </div>
           </div>
 
@@ -266,9 +223,16 @@ export function SessionDetailsPage({
             <div className="activity-detail-tile">
               <span>
                 <CalendarDays size={16} />
-                Date
+                Starts
               </span>
               <strong>{formatActivityDate(session.startsAt)}</strong>
+            </div>
+            <div className="activity-detail-tile">
+              <span>
+                <CalendarDays size={16} />
+                Ends
+              </span>
+              <strong>{formatActivityDate(session.endAt)}</strong>
             </div>
             <div className="activity-detail-tile">
               <span>
@@ -313,38 +277,39 @@ export function SessionDetailsPage({
               Attendance
             </button>
             {session.isActive && (
-              <button
-                type="button"
-                className={`table-action ${
-                  session.isOpen ? "table-action--danger" : ""
-                }`}
-                disabled={isUpdating || isEnding}
-                onClick={() =>
-                  onToggleActivityOpen(session.mockId, !session.isOpen)
-                }
-              >
-                {session.isOpen ? "Close Signup" : "Open Signup"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="table-action"
+                  onClick={() =>
+                    navigate(
+                      `/announcements/${encodeURIComponent(
+                        String(announcementSessionId),
+                      )}`,
+                    )
+                  }
+                >
+                  <Megaphone size={14} />
+                  Announcements
+                </button>
+                <button
+                  type="button"
+                  className={`table-action ${
+                    session.isOpen ? "table-action--danger" : ""
+                  }`}
+                  disabled={isUpdating}
+                  onClick={() =>
+                    onToggleActivityOpen(session.mockId, !session.isOpen)
+                  }
+                >
+                  {session.isOpen ? "Close Signup" : "Open Signup"}
+                </button>
+              </>
             )}
             <button
               type="button"
-              className={`table-action ${
-                session.isActive ? "table-action--danger" : ""
-              }`}
-              disabled={!session.isActive || isEnding || isDeleting}
-              onClick={openEndConfirmation}
-            >
-              {isEnding ? (
-                <Loader2 size={14} className="spin" />
-              ) : (
-                <CircleStop size={14} />
-              )}
-              {session.isActive ? "End Session" : "Session Ended"}
-            </button>
-            <button
-              type="button"
               className="table-action table-action--danger"
-              disabled={isEnding}
+              disabled={isDeleting}
               onClick={openDeleteConfirmation}
             >
               <Trash2 size={14} />
@@ -353,66 +318,6 @@ export function SessionDetailsPage({
           </div>
         </div>
       </Card>
-
-      {isEndConfirmOpen && (
-        <div
-          className="vendor-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="end-session-title"
-          aria-describedby="end-session-description"
-        >
-          <div className="vendor-modal__panel confirmation-dialog">
-            <div className="vendor-modal__header">
-              <div>
-                <span>End session</span>
-                <h2 id="end-session-title">End {session.title}?</h2>
-              </div>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={closeEndConfirmation}
-                disabled={isEnding}
-                aria-label="Close end session confirmation"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="confirmation-dialog__body">
-              <p id="end-session-description">
-                Are you sure you want to end this session?
-              </p>
-              <p className="confirmation-dialog__warning">
-                The session will move to Past Sessions and will no longer
-                accept new signups.
-              </p>
-
-              {endError && <p className="form-error">{endError}</p>}
-
-              <div className="confirmation-dialog__actions">
-                <button
-                  type="button"
-                  className="secondary-action"
-                  onClick={closeEndConfirmation}
-                  disabled={isEnding}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="primary-action primary-action--danger"
-                  onClick={handleEndSession}
-                  disabled={isEnding}
-                >
-                  {isEnding && <Loader2 size={16} className="spin" />}
-                  End Session
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isDeleteConfirmOpen && (
         <div
@@ -426,7 +331,9 @@ export function SessionDetailsPage({
             <div className="vendor-modal__header">
               <div>
                 <span>Delete session</span>
-                <h2 id="delete-session-title">Delete {session.title}?</h2>
+                <h2 id="delete-session-title">
+                  Delete {formatActivityDate(session.startsAt)}?
+                </h2>
               </div>
               <button
                 type="button"

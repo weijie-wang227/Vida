@@ -15,6 +15,8 @@ import {
 import {
   AdminModel,
   ActivityModel,
+  AnnouncementModel,
+  AnnouncementVoteModel,
   BlacklistModel,
   ChatMessageModel,
   ChatModel,
@@ -104,6 +106,8 @@ async function seed() {
     await Promise.all([
       UserModel.deleteMany(),
       FriendshipModel.deleteMany(),
+      AnnouncementModel.deleteMany(),
+      AnnouncementVoteModel.deleteMany(),
       ChatModel.deleteMany(),
       AdminModel.deleteMany(),
       BlacklistModel.deleteMany(),
@@ -311,12 +315,13 @@ async function seed() {
     const activityBySeedId = new Map<number, Types.ObjectId>();
     const tagImageUrlByName = new Map<string, string>();
     for (const activity of allActivities) {
-      if (!activity.cover) {
+      const primaryImageUrl = activity.imageUrls?.[0];
+      if (!primaryImageUrl) {
         continue;
       }
       for (const tag of activity.tags) {
         if (!tagImageUrlByName.has(tag)) {
-          tagImageUrlByName.set(tag, activity.cover);
+          tagImageUrlByName.set(tag, primaryImageUrl);
         }
       }
     }
@@ -372,7 +377,7 @@ async function seed() {
         host,
         rating: activity.rating,
         categories: activity.categories,
-        cover: activity.cover,
+        imageUrls: activity.imageUrls ?? [],
         tags: activity.tags.map((name) =>
           requireSeedValue(tagIdByName.get(name), `tag "${name}"`),
         ),
@@ -387,9 +392,10 @@ async function seed() {
       const savedSession = await SessionModel.create({
         mockId: activity.id,
         activity: savedActivity._id,
-        title: activity.title,
         startsAt,
-        duration: activity.durationMinutes,
+        endAt: new Date(
+          startsAt.getTime() + activity.durationMinutes * 60 * 1000,
+        ),
         spots: activity.spots,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,

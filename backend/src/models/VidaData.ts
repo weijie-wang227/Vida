@@ -1,5 +1,6 @@
 import mongoose, { Schema, Types } from "mongoose";
 import { chatMessageTypes } from "../chatMessages.js";
+import { announcementTypes } from "../announcements.js";
 
 export type UserDocument = {
   _id: Types.ObjectId;
@@ -380,7 +381,15 @@ const activitySchema = new Schema(
     host: { type: Schema.Types.ObjectId, required: false, ref: "Vendor" },
     rating: { type: Number, required: true, default: 5 },
     categories: [{ type: String, required: true }],
-    cover: { type: String },
+    imageUrls: {
+      type: [{ type: String, trim: true }],
+      required: true,
+      default: [],
+      validate: {
+        validator: (value: string[]) => value.length <= 5,
+        message: "An activity can have at most 5 images.",
+      },
+    },
     tags: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
     isVolunteer: { type: Boolean, required: true, default: false },
     isAAC: { type: Boolean, required: true, default: false },
@@ -401,10 +410,22 @@ const sessionSchema = new Schema(
   {
     mockId: { type: Number, required: true, unique: true },
     activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
-    title: { type: String, required: true, trim: true },
     instructor: { type: String, trim: true, default: "", maxlength: 120 },
     startsAt: { type: Date, required: true },
-    duration: { type: Number, required: true, min: 1 },
+    endAt: {
+      type: Date,
+      required: true,
+      validate: {
+        validator(this: { startsAt?: Date }, value: Date) {
+          return (
+            this.startsAt instanceof Date &&
+            value instanceof Date &&
+            value.getTime() - this.startsAt.getTime() >= 15 * 60 * 1000
+          );
+        },
+        message: "Session end time must be at least 15 minutes after its start time.",
+      },
+    },
     spots: { type: Number, required: true, min: 1 },
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
@@ -420,6 +441,59 @@ const sessionSchema = new Schema(
 sessionSchema.index({ activity: 1, startsAt: 1 });
 sessionSchema.index({ chat: 1 });
 sessionSchema.index({ isOpen: 1, isActive: 1, startsAt: 1 });
+sessionSchema.index({ isActive: 1, endAt: 1 });
+
+const announcementSchema = new Schema(
+  {
+    sessionId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: "Session",
+    },
+    content: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 1000,
+    },
+    type: {
+      type: String,
+      enum: announcementTypes,
+      required: true,
+      default: "message",
+    },
+    poll: {
+      options: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          label: { type: String, required: true, trim: true, maxlength: 100 },
+        },
+      ],
+      allowsMultiple: { type: Boolean, required: true, default: false },
+    },
+  },
+  { timestamps: true },
+);
+announcementSchema.index({ sessionId: 1, createdAt: 1 });
+
+const announcementVoteSchema = new Schema(
+  {
+    announcementId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: "Announcement",
+    },
+    userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    optionId: { type: String, required: true },
+  },
+  { timestamps: true },
+);
+announcementVoteSchema.index(
+  { announcementId: 1, userId: 1 },
+  { unique: true },
+);
+announcementVoteSchema.index({ announcementId: 1 });
 
 const sessionParticipationSchema = new Schema(
   {
@@ -554,6 +628,16 @@ export const SessionModel = mongoose.model<any>(
   "Session",
   sessionSchema,
   "sessions",
+);
+export const AnnouncementModel = mongoose.model<any>(
+  "Announcement",
+  announcementSchema,
+  "announcements",
+);
+export const AnnouncementVoteModel = mongoose.model<any>(
+  "AnnouncementVote",
+  announcementVoteSchema,
+  "announcementVotes",
 );
 export const SessionParticipationModel = mongoose.model<any>(
   "SessionParticipation",

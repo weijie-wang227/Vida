@@ -24,7 +24,7 @@ export type ActivitySeed = {
   isPremium: boolean;
   skillsFuturePayable?: boolean;
   isAAC?: boolean;
-  cover?: string;
+  imageUrls?: string[];
   tags: string[];
   participatingFriends: FriendSeed[];
 };
@@ -109,8 +109,9 @@ export const activities: ActivitySeed[] = [
       "A guided outdoor Tai Chi session focused on mobility, breath, and balance.",
     host: "Master Chen Wei",
     isPremium: true,
-    cover:
+    imageUrls: [
       "https://images.unsplash.com/photo-1548957175-84f0f9af659e?w=400&h=220&fit=crop&auto=format",
+    ],
     startsAt: "2026-06-27T07:00:00+08:00",
     location: "Fort Canning Park",
     lat: 1.295,
@@ -130,8 +131,9 @@ export const activities: ActivitySeed[] = [
       "A small-group food walk through Chinatown stories, stalls, and tastings.",
     host: "Chef Mdm Siti",
     isPremium: true,
-    cover:
+    imageUrls: [
       "https://images.unsplash.com/photo-1562593028-1fe2d15bde36?w=400&h=220&fit=crop&auto=format",
+    ],
     startsAt: "2026-06-28T09:00:00+08:00",
     location: "Chinatown Complex",
     lat: 1.2823,
@@ -152,8 +154,9 @@ export const activities: ActivitySeed[] = [
     host: "Raymond Koh",
     isPremium: true,
     skillsFuturePayable: true,
-    cover:
+    imageUrls: [
       "https://images.unsplash.com/photo-1501554728187-ce583db33af7?w=400&h=220&fit=crop&auto=format",
+    ],
     startsAt: "2026-06-29T07:30:00+08:00",
     location: "Singapore Botanic Gardens",
     lat: 1.3138,

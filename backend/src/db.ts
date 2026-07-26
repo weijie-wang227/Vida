@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 import {
+  ActivityModel,
+  AnnouncementModel,
+  AnnouncementVoteModel,
   SessionModel,
   SessionParticipationModel,
 } from "./models/VidaData.js";
@@ -55,7 +58,24 @@ export async function connectDB() {
   }
 
   console.log(`Connected to MongoDB database "${databaseName}".`);
+  await ActivityModel.collection.updateMany(
+    {
+      imageUrls: { $exists: false },
+      cover: { $type: "string", $ne: "" },
+    },
+    [{ $set: { imageUrls: ["$cover"] } }],
+  );
+  await ActivityModel.collection.updateMany(
+    { cover: { $exists: true } },
+    { $unset: { cover: "" } },
+  );
+  await SessionModel.collection.updateMany(
+    { title: { $exists: true } },
+    { $unset: { title: "" } },
+  );
   await Promise.all([
+    AnnouncementModel.createIndexes(),
+    AnnouncementVoteModel.createIndexes(),
     SessionModel.createIndexes(),
     SessionParticipationModel.createIndexes(),
   ]);

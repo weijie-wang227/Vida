@@ -169,7 +169,10 @@ export function FinanceActivityPage() {
               return (
                 <article className="finance-recent-session" key={session.id}>
                   <div>
-                    <strong>{session.title}</strong>
+                    <strong>
+                      {sessionDateFormatter.format(startsAt)} ·{" "}
+                      {sessionTimeFormatter.format(startsAt)}
+                    </strong>
                     <span>
                       {sessionDateFormatter.format(startsAt)} ·{" "}
                       {sessionTimeFormatter.format(startsAt)} ·{" "}

@@ -4,7 +4,7 @@ import {
   normalizeChatMessagePayload,
   type ChatMessageType,
 } from "./chatMessages.js";
-import { toIsoString } from "./utils/date.js";
+import { formatSessionDateTime, toIsoString } from "./utils/date.js";
 import { asObject } from "./utils/mongoose.js";
 
 type vidaCategory = "physical" | "social" | "cognitive" | "creative";
@@ -25,13 +25,6 @@ function getActivityCredits(activity: AnyDoc) {
   const credits = Number(item.credits);
 
   return Number.isFinite(credits) ? credits : 0;
-}
-
-function getSessionDuration(sessionValue: unknown) {
-  const session = asObject((sessionValue ?? {}) as AnyDoc);
-  const duration = Number(session.duration ?? session.durationMinutes);
-
-  return Number.isFinite(duration) ? duration : 0;
 }
 
 function getActivitySessions(activity: AnyDoc) {
@@ -310,8 +303,7 @@ export function serializeActivity(
     lng: primarySession.lng ?? item.lng,
     latitude: primarySession.lat ?? item.latitude,
     longitude: primarySession.lng ?? item.longitude,
-    duration: getSessionDuration(primarySession),
-    durationMinutes: getSessionDuration(primarySession),
+    endAt: primarySession.endAt ? toIsoString(primarySession.endAt) : "",
     spots: primarySession.spots,
     registeredCount: Number(
       primarySession.registeredCount ?? participatingFriends.length,
@@ -327,7 +319,11 @@ export function serializeActivity(
     skillsFuturePayable: Boolean(item.skillsFuturePayable),
     isOpen: primarySession.isOpen !== false,
     isActive: primarySession.isActive !== false,
-    cover: item.cover || undefined,
+    imageUrls: Array.isArray(item.imageUrls)
+      ? item.imageUrls
+      : item.cover
+        ? [item.cover]
+        : [],
     vendor: host?._id
       ? {
           id: String(host._id ?? item.host),
@@ -348,17 +344,14 @@ export function serializeSession(session: AnyDoc) {
   const item = asObject(session);
   const activity = item.activity ? asObject(item.activity) : null;
   const chat = item.chat ? asObject(item.chat) : null;
-  const duration = getSessionDuration(item);
-
   return {
     id: item.mockId ?? String(item._id ?? ""),
     objectId: String(item._id ?? ""),
     activityId: activity?.mockId ?? String(activity?._id ?? item.activity ?? ""),
-    title: item.title,
+    title: formatSessionDateTime(item.startsAt),
     instructor: item.instructor ?? "",
     startsAt: getActivityStartsAt(activity ?? item, item),
-    duration,
-    durationMinutes: duration,
+    endAt: item.endAt ? toIsoString(item.endAt) : "",
     spots: item.spots,
     registeredCount: Number(item.registeredCount ?? 0),
     attendedCount: Number(item.attendedCount ?? 0),
@@ -398,7 +391,7 @@ export function serializeMapPin(pin: AnyDoc) {
     longitude: item.lng ?? item.longitude,
     x: 0,
     y: 0,
-    label: item.title ?? item.label,
+    label: formatSessionDateTime(item.startsAt),
     premium: activity.isPremium ?? activity.premium,
     categories: (activity.categories ?? []) as vidaCategory[],
   };

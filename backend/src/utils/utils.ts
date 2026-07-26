@@ -6,6 +6,7 @@ import {
   SessionModel,
 } from "../models/VidaData.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
+import { formatSessionDateTime } from "./date.js";
 
 export type VendorStats = {
   revenue: number;
@@ -74,7 +75,7 @@ function formatSessionLabel(session: Record<string, any>) {
   const startsAt = new Date(String(session.startsAt ?? ""));
 
   if (Number.isNaN(startsAt.getTime())) {
-    return session.title ?? "Unscheduled session";
+    return "Date and time unavailable";
   }
 
   return new Intl.DateTimeFormat("en-SG", {
@@ -311,7 +312,7 @@ export async function getVendorUsersPageStats(
     return {
       sessionId,
       sessionMockId: String(session.mockId),
-      title: session.title ?? "Session",
+      title: formatSessionDateTime(session.startsAt),
       startsAt: toSessionStartsAt(session.startsAt),
       label: formatSessionLabel(session),
       booked,

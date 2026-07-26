@@ -6,6 +6,7 @@ import {
 } from "../models/VidaData.js";
 import { getLinkedActivityIds } from "./utils.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
+import { formatSessionDateTime } from "./date.js";
 
 export const defaultCreditsToDollarsRate = 0.7;
 
@@ -480,7 +481,7 @@ export async function getVendorFinanceActivity(
     return {
       id: String(session._id),
       mockId: String(session.mockId),
-      title: String(session.title ?? activity.title),
+      title: formatSessionDateTime(session.startsAt),
       startsAt:
         session.startsAt instanceof Date
           ? session.startsAt.toISOString()

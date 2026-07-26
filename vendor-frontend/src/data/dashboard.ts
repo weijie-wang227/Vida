@@ -2,7 +2,7 @@ import {
   CalendarDays,
   CreditCard,
   LayoutDashboard,
-  MessageCircle,
+  Megaphone,
   PackagePlus,
   UserRoundCog,
   Users,
@@ -20,7 +20,7 @@ export type NavSection = {
       | "volunteer-management"
       | "finances"
       | "users"
-      | "chats";
+      | "announcements";
     label: string;
     active?: boolean;
     icon: LucideIcon;
@@ -34,7 +34,11 @@ export const navSections: NavSection[] = [
       { id: "dashboard", label: "My Dashboard", active: true, icon: LayoutDashboard },
       { id: "finances", label: "Finances", icon: CreditCard },
       { id: "users", label: "Users", icon: Users },
-      { id: "chats", label: "Chats", icon: MessageCircle },
+      {
+        id: "announcements",
+        label: "Announcements",
+        icon: Megaphone,
+      },
     ],
   },
   {

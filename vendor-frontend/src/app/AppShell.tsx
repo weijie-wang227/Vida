@@ -68,14 +68,14 @@ const VolunteerManagementPage = lazy(() =>
     default: module.VolunteerManagementPage,
   })),
 );
-const ChatsPage = lazy(() =>
-  import("../pages/ChatsPage").then((module) => ({
-    default: module.ChatsPage,
+const AnnouncementsPage = lazy(() =>
+  import("../pages/AnnouncementsPage").then((module) => ({
+    default: module.AnnouncementsPage,
   })),
 );
-const ChatDetailsPage = lazy(() =>
-  import("../pages/ChatDetailsPage").then((module) => ({
-    default: module.ChatDetailsPage,
+const AnnouncementDetailsPage = lazy(() =>
+  import("../pages/AnnouncementDetailsPage").then((module) => ({
+    default: module.AnnouncementDetailsPage,
   })),
 );
 
@@ -88,12 +88,10 @@ export function AppShell() {
     isCreatingActivity,
     updatingSessionId,
     deletingSessionId,
-    endingSessionId,
     createActivity,
     createSession,
     toggleSessionOpen,
     deleteSession,
-    endSession,
   } = useVendorState();
 
   return (
@@ -161,10 +159,8 @@ export function AppShell() {
                 sessions={sessions}
                 updatingActivityId={updatingSessionId}
                 deletingSessionId={deletingSessionId}
-                endingSessionId={endingSessionId}
                 onToggleActivityOpen={toggleSessionOpen}
                 onDeleteSession={deleteSession}
-                onEndSession={endSession}
               />
             }
           />
@@ -182,8 +178,11 @@ export function AppShell() {
             element={<FinanceActivityPage />}
           />
           <Route path="/users" element={<UsersPage />} />
-          <Route path="/chats" element={<ChatsPage />} />
-          <Route path="/chats/:chatId" element={<ChatDetailsPage />} />
+          <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route
+            path="/announcements/:sessionId"
+            element={<AnnouncementDetailsPage />}
+          />
           <Route path="/volunteers" element={<VolunteerManagementPage />} />
           <Route path="/upcoming" element={<Navigate to="/activities" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

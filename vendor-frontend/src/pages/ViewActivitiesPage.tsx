@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CalendarPlus,
   Lock,
+  Megaphone,
   Star,
   Unlock,
   Users,
@@ -39,6 +40,12 @@ function getSessionDetailsPath(session: Session) {
 
 function getSessionAttendancePath(session: Session) {
   return `/sessions/${getSessionRouteId(session)}/attendance`;
+}
+
+function getSessionAnnouncementsPath(session: Session) {
+  const sessionId = session.id ?? session.objectId ?? session.mockId;
+
+  return `/announcements/${encodeURIComponent(String(sessionId))}`;
 }
 
 export function ViewActivitiesPage({
@@ -178,7 +185,7 @@ export function ViewActivitiesPage({
                               })
                             }
                           >
-                            {session.title}
+                            {formatActivityDate(session.startsAt)}
                           </button>
                         </td>
                         <td>{formatActivityDate(session.startsAt)}</td>
@@ -197,7 +204,9 @@ export function ViewActivitiesPage({
                               aria-checked={session.isOpen}
                               aria-label={`${
                                 session.isOpen ? "Close" : "Open"
-                              } signups for ${session.title}`}
+                              } signups for ${formatActivityDate(
+                                session.startsAt,
+                              )}`}
                               className={`session-signup-switch ${
                                 session.isOpen
                                   ? "session-signup-switch--open"
@@ -217,15 +226,27 @@ export function ViewActivitiesPage({
                           </div>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className="table-action"
-                            onClick={() =>
-                              navigate(getSessionAttendancePath(session))
-                            }
-                          >
-                            Attendance
-                          </button>
+                          <div className="table-actions">
+                            <button
+                              type="button"
+                              className="table-action"
+                              onClick={() =>
+                                navigate(getSessionAttendancePath(session))
+                              }
+                            >
+                              Attendance
+                            </button>
+                            <button
+                              type="button"
+                              className="table-action"
+                              onClick={() =>
+                                navigate(getSessionAnnouncementsPath(session))
+                              }
+                            >
+                              <Megaphone size={14} />
+                              Announcements
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -272,7 +293,7 @@ export function ViewActivitiesPage({
                           })
                         }
                       >
-                        {session.title}
+                        {formatActivityDate(session.startsAt)}
                       </button>
                     </td>
                     <td>{formatActivityDate(session.startsAt)}</td>

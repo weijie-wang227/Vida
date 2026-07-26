@@ -8,7 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../app/components/ui/dialog";
-import { formatActivityDate, formatActivityTime } from "../lib/activityPresentation";
+import {
+  formatActivityDate,
+  formatActivityDateTime,
+  formatActivityTime,
+} from "../lib/activityPresentation";
 import type {
   VendorActivity,
   VendorSession,
@@ -179,7 +183,7 @@ export function VendorProfileDialog({
                       className="rounded-xl border border-border bg-card px-3 py-2"
                     >
                       <p className="text-sm font-semibold text-foreground">
-                        {session.activity?.title ?? session.title}
+                        {formatActivityDateTime(session.startsAt)}
                       </p>
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
                         {formatActivityDate(session.startsAt)} /{" "}

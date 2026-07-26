@@ -3,6 +3,7 @@ import { Loader2, Users } from "lucide-react";
 import { fetchVendorUsersPageStats } from "../api/vendors";
 import type { VendorUsersPageStats } from "../api/types";
 import { Card } from "../components/Card";
+import { formatSessionDateTime } from "../utils/sessionDateTime";
 
 function formatPercent(value: number) {
   return `${Math.round(value)}%`;
@@ -167,7 +168,7 @@ export function UsersPage() {
                 <div className="users-fill-row" key={session.sessionId}>
                   <div className="users-fill-row__header">
                     <div className="users-fill-row__session">
-                      <strong>{session.title}</strong>
+                      <strong>{formatSessionDateTime(session.startsAt)}</strong>
                       <span>{session.label}</span>
                     </div>
                     <div className="users-fill-row__numbers">
@@ -178,7 +179,9 @@ export function UsersPage() {
                   </div>
                   <div
                     className="users-fill-bar"
-                    aria-label={`${session.title} is ${fillRate}% filled`}
+                    aria-label={`${formatSessionDateTime(
+                      session.startsAt,
+                    )} is ${fillRate}% filled`}
                     role="img"
                   >
                     <span

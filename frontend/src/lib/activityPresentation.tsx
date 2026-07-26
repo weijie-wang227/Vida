@@ -104,3 +104,7 @@ export function formatActivityTime(startsAt: string) {
     timeZone: activityTimeZone,
   }).format(getActivityDate(startsAt));
 }
+
+export function formatActivityDateTime(startsAt: string) {
+  return `${formatActivityDate(startsAt)}, ${formatActivityTime(startsAt)}`;
+}
