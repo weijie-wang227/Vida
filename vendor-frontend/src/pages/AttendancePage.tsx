@@ -192,7 +192,7 @@ export function AttendancePage({
         View All Activities
       </button>
 
-      <Card title={`Attendance - ${session.title}`}>
+      <Card title={`Attendance - ${formatSignedUpAt(session.startsAt)}`}>
         <div className="attendance-panel">
           <div className="attendee-list">
             <h3>Signed-up users</h3>

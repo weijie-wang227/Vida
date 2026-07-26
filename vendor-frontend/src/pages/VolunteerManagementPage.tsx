@@ -344,7 +344,9 @@ export function VolunteerManagementPage() {
                             )
                           }
                         >
-                          <strong>{opportunity.title}</strong>
+                          <strong>
+                            {formatSessionDate(opportunity.startsAt)}
+                          </strong>
                           <span>{opportunity.location}</span>
                         </button>
                       </td>
@@ -386,7 +388,11 @@ export function VolunteerManagementPage() {
       {selectedSessionId && (
         <Card
           className="volunteer-roster"
-          title={`Volunteer roster — ${roster?.session.title ?? selectedOpportunity?.title ?? "Opportunity"}`}
+          title={`Volunteer roster — ${
+            selectedOpportunity
+              ? formatSessionDate(selectedOpportunity.startsAt)
+              : "Opportunity"
+          }`}
         >
           {isLoadingRoster ? (
             <div className="empty-state empty-state--compact">

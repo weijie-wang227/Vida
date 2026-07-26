@@ -9,7 +9,7 @@ export type VendorTab =
   | "volunteer-management"
   | "finances"
   | "users"
-  | "chats";
+  | "announcements";
 
 export function Sidebar({
   activeTab,

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router";
 import type { ReactNode } from "react";
-import { CalendarPlus, MessageCircle } from "lucide-react";
+import { CalendarPlus, Megaphone } from "lucide-react";
 import { useVendorState } from "../state";
 import { Sidebar, type VendorTab } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -30,8 +30,8 @@ function getActiveTab(pathname: string): VendorTab {
     return "users";
   }
 
-  if (pathname.startsWith("/chats")) {
-    return "chats";
+  if (pathname.startsWith("/announcements")) {
+    return "announcements";
   }
 
   return "dashboard";
@@ -70,8 +70,8 @@ function getPageHeading(pathname: string, activeTab: VendorTab, vendorName: stri
     return { label: "Users", title: "Users" };
   }
 
-  if (activeTab === "chats") {
-    return { label: "Chats", title: "Session chats" };
+  if (activeTab === "announcements") {
+    return { label: "Announcements", title: "Session announcements" };
   }
 
   if (isCalendarPage) {
@@ -138,8 +138,8 @@ export function VendorLayout({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (tab === "chats") {
-      navigate("/chats");
+    if (tab === "announcements") {
+      navigate("/announcements");
       return;
     }
 
@@ -183,10 +183,10 @@ export function VendorLayout({ children }: { children: ReactNode }) {
       <button
         type="button"
         className="chat-fab"
-        aria-label="Open chats"
-        onClick={() => handleTabChange("chats")}
+        aria-label="Open announcements"
+        onClick={() => handleTabChange("announcements")}
       >
-        <MessageCircle size={21} />
+        <Megaphone size={21} />
       </button>
     </div>
   );

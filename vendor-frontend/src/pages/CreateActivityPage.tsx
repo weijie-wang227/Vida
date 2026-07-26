@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   CalendarPlus,
@@ -28,6 +28,11 @@ const categories: Array<{ value: VidaCategory; label: string }> = [
 ];
 
 type PaymentMode = "free" | "premium" | "skillsfuture";
+type SelectedActivityImage = {
+  file: File;
+  previewUrl: string;
+};
+const maxActivityImages = 5;
 
 export function CreateActivityPage({
   vendor,
@@ -51,8 +56,10 @@ export function CreateActivityPage({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [tagLoadError, setTagLoadError] = useState<string | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState("");
+  const [activityImages, setActivityImages] = useState<SelectedActivityImage[]>(
+    [],
+  );
+  const activityImagesRef = useRef(activityImages);
   const [selectedCategories, setSelectedCategories] = useState<VidaCategory[]>(
     [],
   );
@@ -62,15 +69,19 @@ export function CreateActivityPage({
   const [credits, setCredits] = useState("0");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("free");
   const [localError, setLocalError] = useState<string | null>(null);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+
+  useEffect(() => {
+    activityImagesRef.current = activityImages;
+  }, [activityImages]);
 
   useEffect(() => {
     return () => {
-      if (coverPreview) {
-        URL.revokeObjectURL(coverPreview);
-      }
+      activityImagesRef.current.forEach(({ previewUrl }) =>
+        URL.revokeObjectURL(previewUrl),
+      );
     };
-  }, [coverPreview]);
+  }, []);
 
   useEffect(() => {
     if (isVolunteer || paymentMode === "free") {
@@ -122,14 +133,30 @@ export function CreateActivityPage({
     );
   };
 
-  const selectCoverFile = (file: File | null) => {
-    if (coverPreview) {
-      URL.revokeObjectURL(coverPreview);
+  const selectActivityImages = (files: FileList | null) => {
+    const selectedFiles = Array.from(files ?? []);
+    if (activityImages.length + selectedFiles.length > maxActivityImages) {
+      setLocalError(
+        `You can upload up to ${maxActivityImages} activity images.`,
+      );
+      return;
     }
 
-    setCoverFile(file);
-    setCoverPreview(file ? URL.createObjectURL(file) : "");
+    setActivityImages((current) => [
+      ...current,
+      ...selectedFiles.map((file) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
     setLocalError(null);
+  };
+
+  const removeActivityImage = (previewUrl: string) => {
+    URL.revokeObjectURL(previewUrl);
+    setActivityImages((current) =>
+      current.filter((image) => image.previewUrl !== previewUrl),
+    );
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -159,20 +186,22 @@ export function CreateActivityPage({
       description: description.trim(),
       suitability: suitability.trim(),
       categories: selectedCategories,
+      imageUrls: [],
       tagIds: selectedTagIds,
       isVolunteer,
       vendorId: vendor.id,
       createAsVendor: true,
       credits: creditsValue,
       isPremium: !isVolunteer && paymentMode === "premium",
-      skillsFuturePayable:
-        !isVolunteer && paymentMode === "skillsfuture",
+      skillsFuturePayable: !isVolunteer && paymentMode === "skillsfuture",
     };
 
     try {
-      setIsUploadingCover(true);
-      if (coverFile) {
-        payload.cover = await uploadImageToR2(coverFile, "activities");
+      setIsUploadingImages(true);
+      if (activityImages.length > 0) {
+        payload.imageUrls = await Promise.all(
+          activityImages.map(({ file }) => uploadImageToR2(file, "activities")),
+        );
       }
 
       const response = await onCreateActivity(payload);
@@ -184,7 +213,7 @@ export function CreateActivityPage({
           : "Unable to create activity.",
       );
     } finally {
-      setIsUploadingCover(false);
+      setIsUploadingImages(false);
     }
   };
 
@@ -197,7 +226,10 @@ export function CreateActivityPage({
               <HandHeart size={18} />
               <span>
                 <strong>Volunteer activity</strong>
-                <small>Volunteer sessions are always free and appear in Volunteer Management.</small>
+                <small>
+                  Volunteer sessions are always free and appear in Volunteer
+                  Management.
+                </small>
               </span>
             </span>
             <span className="volunteer-activity-toggle__control">
@@ -275,29 +307,41 @@ export function CreateActivityPage({
           <label className="activity-form__wide activity-cover-field">
             <span>
               <Image size={15} />
-              Cover Image
+              Activity Images ({activityImages.length}/{maxActivityImages})
             </span>
-            {coverPreview ? (
-              <img src={coverPreview} alt="" />
+            {activityImages.length > 0 ? (
+              <div className="activity-image-previews">
+                {activityImages.map(({ file, previewUrl }, index) => (
+                  <figure key={previewUrl}>
+                    <img src={previewUrl} alt={`${file.name} preview`} />
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      onClick={() => removeActivityImage(previewUrl)}
+                    >
+                      Remove
+                    </button>
+                    {index === 0 && <small>Primary image</small>}
+                  </figure>
+                ))}
+              </div>
             ) : (
-              <div>No cover selected</div>
+              <div className="activity-image-empty">No images selected</div>
             )}
             <input
               type="file"
+              multiple
               accept="image/png,image/jpeg,image/webp"
-              onChange={(event) =>
-                selectCoverFile(event.target.files?.[0] ?? null)
-              }
+              disabled={activityImages.length >= maxActivityImages}
+              onChange={(event) => {
+                selectActivityImages(event.target.files);
+                event.currentTarget.value = "";
+              }}
             />
-            {coverFile && (
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={() => selectCoverFile(null)}
-              >
-                Remove cover
-              </button>
-            )}
+            <small>
+              Select up to five PNG, JPEG, or WebP images. The first image is
+              used as the primary image.
+            </small>
           </label>
 
           <fieldset className="activity-form__wide category-fieldset">
@@ -411,14 +455,14 @@ export function CreateActivityPage({
           <button
             type="submit"
             className="primary-action activity-form__wide"
-            disabled={isSubmitting || isUploadingCover}
+            disabled={isSubmitting || isUploadingImages}
           >
-            {isSubmitting || isUploadingCover ? (
+            {isSubmitting || isUploadingImages ? (
               <Loader2 size={16} className="spin" />
             ) : (
               <CalendarPlus size={16} />
             )}
-            {isUploadingCover ? "Uploading Cover" : "Create Activity"}
+            Select Date and Time
           </button>
         </form>
       </Card>

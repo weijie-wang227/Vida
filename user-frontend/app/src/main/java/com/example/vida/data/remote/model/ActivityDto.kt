@@ -15,7 +15,7 @@ data class ActivityDto(
     val registeredCount: Int = 0,
     val credits: Double = 0.0,
     val categories: List<String> = emptyList(),
-    val cover: String? = null,
+    val imageUrls: List<String> = emptyList(),
     val isPremium: Boolean = false,
     val skillsFuturePayable: Boolean = false,
     val tags: List<String> = emptyList(),
@@ -28,7 +28,6 @@ data class ActivityDto(
 @Serializable
 data class ActivitySessionDto(
     val id: Long,
-    val title: String = "",
     val startsAt: String = "",
     val location: String = "",
     val durationMinutes: Int = 0,

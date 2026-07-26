@@ -7,7 +7,6 @@ import type {
   CreateSessionInput,
   CreateVendorSessionResponse,
   DeleteVendorSessionResponse,
-  EndVendorSessionResponse,
   UpdateActivityOpenResponse,
   UpdateAttendanceResponse,
   AttendanceStatus,
@@ -45,13 +44,6 @@ export function deleteVendorSession(sessionId: number | string) {
   return apiRequest<DeleteVendorSessionResponse>(
     `/vendors/me/sessions/${sessionId}`,
     { method: "DELETE" },
-  );
-}
-
-export function endVendorSession(sessionId: number | string) {
-  return apiRequest<EndVendorSessionResponse>(
-    `/vendors/me/sessions/${sessionId}/end`,
-    { method: "PATCH" },
   );
 }
 

@@ -19,6 +19,7 @@ import {
   categoriesForActivity,
   categoryIcon,
   formatActivityDate,
+  formatActivityDateTime,
   formatActivityTime,
   formatCredits,
   primaryActivityCategory,
@@ -141,7 +142,7 @@ export function ActivityDetailPage() {
   }
 
   const liked = Boolean(likedActivityIds[activity.id]);
-  const cover = activity.cover;
+  const cover = activity.imageUrls[0];
   const categories = categoriesForActivity(activity.categories);
   const primaryCategory = primaryActivityCategory(activity.categories);
   const primaryColor = vidaCategoryColor[primaryCategory];
@@ -407,7 +408,7 @@ export function ActivityDetailPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <h3 className="truncate text-sm font-bold text-foreground">
-                            {session.title || activity.title}
+                            {formatActivityDateTime(session.startsAt)}
                           </h3>
                           <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                             <span className="flex items-center gap-1">

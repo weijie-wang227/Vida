@@ -41,7 +41,6 @@ export type VendorState = {
   isCreatingActivity: boolean;
   updatingSessionId: string | null;
   deletingSessionId: string | null;
-  endingSessionId: string | null;
   submitAuth: (mode: AuthMode, input: AuthSubmitInput) => Promise<void>;
   createVendorProfile: (input: CreateVendorInput) => Promise<void>;
   signOut: () => void;
@@ -57,5 +56,4 @@ export type VendorState = {
     isOpen: boolean,
   ) => Promise<void>;
   deleteSession: (sessionId: number | string) => Promise<void>;
-  endSession: (sessionId: number | string) => Promise<void>;
 };

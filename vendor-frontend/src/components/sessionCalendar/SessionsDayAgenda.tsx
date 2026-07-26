@@ -7,6 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import type { Session } from "../../api/types";
+import { formatSessionDateTime } from "../../utils/sessionDateTime";
 import {
   formatSessionTime,
   fullDateLabel,
@@ -49,11 +50,11 @@ export function SessionsDayAgenda({
                 <span className="vendor-calendar-agenda-card__time">
                   {formatSessionTime(session.startsAt)}
                 </span>
-                <strong>{session.title}</strong>
+                <strong>{formatSessionDateTime(session.startsAt)}</strong>
                 <span className="vendor-calendar-agenda-card__meta">
                   <span><MapPin size={13} />{session.location}</span>
                   <span><Users size={13} />{session.registeredCount} / {session.spots}</span>
-                  <span><Clock3 size={13} />{session.durationMinutes} min</span>
+                  <span><Clock3 size={13} />Ends {formatSessionTime(session.endAt)}</span>
                 </span>
                 <span
                   className={`activity-status${

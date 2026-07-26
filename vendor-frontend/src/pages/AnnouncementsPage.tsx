@@ -3,12 +3,12 @@ import {
   CalendarDays,
   Loader2,
   MapPin,
-  MessageCircle,
+  Megaphone,
   Users,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import { fetchVendorChats } from "../api/vendors";
-import type { VendorChat } from "../api/types";
+import { fetchVendorAnnouncementSessions } from "../api/announcements";
+import type { VendorAnnouncementSession } from "../api/types";
 import { Card } from "../components/Card";
 
 const sessionDateFormatter = new Intl.DateTimeFormat("en-SG", {
@@ -41,9 +41,13 @@ function formatLastActivity(value: string) {
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const messageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const announcementDay = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
   const dayDifference = Math.round(
-    (today.getTime() - messageDay.getTime()) / 86_400_000,
+    (today.getTime() - announcementDay.getTime()) / 86_400_000,
   );
 
   if (dayDifference === 0) {
@@ -57,10 +61,10 @@ function formatLastActivity(value: string) {
   return sessionDateFormatter.format(date);
 }
 
-function getSessionStatus(chat: VendorChat) {
-  const startsAt = new Date(chat.session.startsAt).getTime();
+function getSessionStatus(item: VendorAnnouncementSession) {
+  const startsAt = new Date(item.session.startsAt).getTime();
 
-  if (!chat.session.isActive) {
+  if (!item.session.isActive) {
     return { label: "Inactive", className: "vendor-chat-status--closed" };
   }
 
@@ -68,16 +72,16 @@ function getSessionStatus(chat: VendorChat) {
     return { label: "Past", className: "vendor-chat-status--past" };
   }
 
-  if (!chat.session.isOpen) {
+  if (!item.session.isOpen) {
     return { label: "Closed", className: "vendor-chat-status--closed" };
   }
 
   return { label: "Upcoming", className: "vendor-chat-status--upcoming" };
 }
 
-export function ChatsPage() {
+export function AnnouncementsPage() {
   const navigate = useNavigate();
-  const [chats, setChats] = useState<VendorChat[]>([]);
+  const [sessions, setSessions] = useState<VendorAnnouncementSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -87,19 +91,19 @@ export function ChatsPage() {
     setIsLoading(true);
     setError(null);
 
-    fetchVendorChats()
+    fetchVendorAnnouncementSessions()
       .then((response) => {
         if (active) {
-          setChats(response);
+          setSessions(response);
         }
       })
       .catch((loadError) => {
         if (active) {
-          setChats([]);
+          setSessions([]);
           setError(
             loadError instanceof Error
               ? loadError.message
-              : "Unable to load session chats.",
+              : "Unable to load session announcements.",
           );
         }
       })
@@ -117,11 +121,11 @@ export function ChatsPage() {
   return (
     <div className="dashboard__main dashboard__main--full chats-page">
       <Card
-        title="All session chats"
+        title="All session announcements"
         action={
           !isLoading && !error ? (
             <span className="vendor-chat-count">
-              {chats.length} {chats.length === 1 ? "chat" : "chats"}
+              {sessions.length} {sessions.length === 1 ? "session" : "sessions"}
             </span>
           ) : null
         }
@@ -130,76 +134,81 @@ export function ChatsPage() {
         {isLoading ? (
           <div className="empty-state empty-state--compact">
             <Loader2 size={20} className="spin" />
-            <span>Loading session chats</span>
+            <span>Loading session announcements</span>
           </div>
         ) : error ? (
           <div className="vendor-chats-error">
             <p className="form-error">{error}</p>
           </div>
-        ) : chats.length === 0 ? (
+        ) : sessions.length === 0 ? (
           <div className="empty-state">
-            <MessageCircle size={28} />
-            <strong>No session chats yet</strong>
-            <span>A chat will appear here when you create a session.</span>
+            <Megaphone size={28} />
+            <strong>No sessions available</strong>
+            <span>A session will appear here after you create it.</span>
           </div>
         ) : (
           <div className="vendor-chat-list" role="list">
-            {chats.map((chat) => {
-              const status = getSessionStatus(chat);
+            {sessions.map((item) => {
+              const status = getSessionStatus(item);
 
               return (
                 <button
                   type="button"
                   className="vendor-chat-row"
-                  key={`${chat.id}-${chat.session.id}`}
+                  key={item.id}
                   role="listitem"
-                  onClick={() => navigate(`/chats/${chat.mockId}`)}
+                  onClick={() =>
+                    navigate(
+                      `/announcements/${encodeURIComponent(item.session.id)}`,
+                    )
+                  }
                 >
                   <div className="vendor-chat-avatar" aria-hidden="true">
-                    {chat.avatar ? (
-                      <img src={chat.avatar} alt="" />
-                    ) : (
-                      <MessageCircle size={22} />
-                    )}
+                    <Megaphone size={22} />
                   </div>
 
                   <div className="vendor-chat-body">
                     <div className="vendor-chat-heading">
                       <div>
-                        <strong>
-                          {formatSessionDate(chat.session.startsAt)}
-                        </strong>
-                        <span>{chat.activity.title}</span>
+                        <strong>{formatSessionDate(item.session.startsAt)}</strong>
+                        <span>{item.activity.title}</span>
                       </div>
                       <span className={`vendor-chat-status ${status.className}`}>
                         {status.label}
                       </span>
                     </div>
 
-                    <p className={chat.lastMessage ? "" : "vendor-chat-message--empty"}>
-                      {chat.lastMessage || "No messages yet"}
+                    <p
+                      className={
+                        item.lastAnnouncement ? "" : "vendor-chat-message--empty"
+                      }
+                    >
+                      {item.lastAnnouncement || "No announcements yet"}
                     </p>
 
                     <div className="vendor-chat-meta">
                       <span>
                         <CalendarDays size={14} />
-                        {formatSessionDate(chat.session.startsAt)}
+                        {formatSessionDate(item.session.startsAt)}
                       </span>
-                      {chat.session.location && (
+                      {item.session.location && (
                         <span>
                           <MapPin size={14} />
-                          {chat.session.location}
+                          {item.session.location}
                         </span>
                       )}
                       <span>
                         <Users size={14} />
-                        {chat.memberCount} {chat.memberCount === 1 ? "member" : "members"}
+                        {item.session.registeredCount} registered
                       </span>
                     </div>
                   </div>
 
-                  <time dateTime={chat.updatedAt} className="vendor-chat-updated">
-                    {formatLastActivity(chat.updatedAt)}
+                  <time
+                    dateTime={item.updatedAt}
+                    className="vendor-chat-updated"
+                  >
+                    {formatLastActivity(item.updatedAt)}
                   </time>
                 </button>
               );

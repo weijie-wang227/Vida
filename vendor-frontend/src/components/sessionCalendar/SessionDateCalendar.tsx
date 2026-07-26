@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Card } from "../Card";
 import type { Session } from "../../api/types";
+import { formatSessionDateTime } from "../../utils/sessionDateTime";
 import {
   buildCalendarDays,
   changeMonth,
@@ -171,12 +172,12 @@ export function SessionDateCalendar({
                         }`}
                         style={{ "--event-color": color } as CSSProperties}
                         onClick={() => onSelectSession(session)}
-                        aria-label={`Open ${session.title} at ${formatSessionTime(
+                        aria-label={`Open ${formatSessionDateTime(
                           session.startsAt,
                         )}`}
                       >
                         <strong>{formatSessionTime(session.startsAt)}</strong>
-                        <span>{session.title}</span>
+                        <span>{formatSessionDateTime(session.startsAt)}</span>
                       </button>
                     );
                   })}

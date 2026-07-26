@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { requireAuth, requireVendorAuth } from "../middleware/auth.js";
 import {
   ActivityModel,
+  AnnouncementModel,
   RatingModel,
   SessionParticipationModel,
   SessionModel,
@@ -11,6 +12,7 @@ import {
 import { getChatPreview, getLatestChatPreviews } from "../chatPreviews.js";
 import { serializeTagNames, serializeVendor } from "../serializers.js";
 import { asObject } from "../utils/mongoose.js";
+import { formatSessionDateTime } from "../utils/date.js";
 import {
   getActivitySelector,
   getSessionSelector,
@@ -73,7 +75,7 @@ function serializeVendorActivityRow(
     description: activity.description ?? "",
     suitability: activity.suitability ?? "",
     categories: Array.isArray(activity.categories) ? activity.categories : [],
-    cover: activity.cover,
+    imageUrls: Array.isArray(activity.imageUrls) ? activity.imageUrls : [],
     tags: serializeTagNames(activity.tags),
     isVolunteer: Boolean(activity.isVolunteer),
     credits: Number(activity.credits) || 0,
@@ -112,11 +114,10 @@ function serializeVendorSessionRow(
     activity: activityRow,
     activityId,
     activityMockId: activity.mockId,
-    title: session.title,
+    title: formatSessionDateTime(session.startsAt),
     instructor: session.instructor ?? "",
     startsAt: session.startsAt,
-    duration: session.duration,
-    durationMinutes: session.duration,
+    endAt: session.endAt,
     spots: session.spots,
     location: session.location,
     lat: session.lat,
@@ -270,7 +271,7 @@ async function getVendorChatRows(vendor: Record<string, any>) {
       return {
         id: String(chat._id),
         mockId: Number(chat.mockId),
-        name: String(chat.name ?? session.title ?? "Session chat"),
+        name: formatSessionDateTime(session.startsAt),
         avatar: String(chat.avatar ?? ""),
         memberCount: Array.isArray(chat.members) ? chat.members.length : 0,
         lastMessage: preview.lastMessage,
@@ -278,7 +279,7 @@ async function getVendorChatRows(vendor: Record<string, any>) {
         session: {
           id: String(session._id),
           mockId: String(session.mockId),
-          title: String(session.title ?? activity.title ?? "Session"),
+          title: formatSessionDateTime(session.startsAt),
           startsAt: session.startsAt,
           location: String(session.location ?? ""),
           registeredCount: Number(session.registeredCount) || 0,
@@ -289,7 +290,92 @@ async function getVendorChatRows(vendor: Record<string, any>) {
         activity: {
           id: String(activity._id),
           mockId: Number(activity.mockId),
-          title: String(activity.title ?? session.title ?? "Activity"),
+          title: String(activity.title ?? "Activity"),
+        },
+      };
+    })
+    .filter(Boolean)
+    .sort((first: any, second: any) => {
+      const firstTime = new Date(String(first.updatedAt ?? "")).getTime();
+      const secondTime = new Date(String(second.updatedAt ?? "")).getTime();
+
+      return secondTime - firstTime;
+    });
+}
+
+async function getVendorAnnouncementRows(vendor: Record<string, any>) {
+  const activities = await ActivityModel.find({ host: vendor._id })
+    .select("_id mockId title")
+    .lean();
+  const activityIds = activities.map((activity: Record<string, any>) => activity._id);
+  const sessions = activityIds.length
+    ? await SessionModel.find({
+        activity: { $in: activityIds },
+        isActive: true,
+      })
+        .select(
+          "_id mockId activity startsAt location registeredCount spots isOpen isActive updatedAt createdAt",
+        )
+        .sort({ startsAt: -1, mockId: 1 })
+        .lean()
+    : [];
+  const sessionIds = sessions.map((session: Record<string, any>) => session._id);
+  const announcements: Record<string, any>[] = sessionIds.length
+    ? ((await AnnouncementModel.find({ sessionId: { $in: sessionIds } })
+        .sort({ createdAt: -1, _id: -1 })
+        .lean()) as Record<string, any>[])
+    : [];
+  const latestAnnouncementBySessionId = new Map<string, Record<string, any>>();
+
+  for (const announcement of announcements) {
+    const sessionId = String(announcement.sessionId);
+
+    if (!latestAnnouncementBySessionId.has(sessionId)) {
+      latestAnnouncementBySessionId.set(sessionId, announcement);
+    }
+  }
+
+  const activityById = new Map(
+    activities.map((activity: Record<string, any>) => [String(activity._id), activity]),
+  );
+
+  return sessions
+    .map((sessionValue: Record<string, any>) => {
+      const session = asObject(sessionValue);
+      const activity = activityById.get(String(session.activity));
+
+      if (!activity) {
+        return null;
+      }
+
+      const latestAnnouncement = latestAnnouncementBySessionId.get(
+        String(session._id),
+      );
+
+      return {
+        id: String(session._id),
+        mockId: String(session.mockId),
+        lastAnnouncement: String(latestAnnouncement?.content ?? ""),
+        updatedAt:
+          latestAnnouncement?.createdAt ??
+          session.updatedAt ??
+          session.createdAt ??
+          session.startsAt,
+        session: {
+          id: String(session._id),
+          mockId: String(session.mockId),
+          title: formatSessionDateTime(session.startsAt),
+          startsAt: session.startsAt,
+          location: String(session.location ?? ""),
+          registeredCount: Number(session.registeredCount) || 0,
+          spots: Number(session.spots) || 0,
+          isOpen: session.isOpen !== false,
+          isActive: session.isActive !== false,
+        },
+        activity: {
+          id: String(activity._id),
+          mockId: Number(activity.mockId),
+          title: String(activity.title ?? "Activity"),
         },
       };
     })
@@ -321,7 +407,7 @@ async function getVolunteerOverview(vendor: Record<string, any>) {
   const sessions = activityIds.length
     ? await SessionModel.find({ activity: { $in: activityIds } })
         .select(
-          "_id mockId activity title startsAt duration spots isOpen isActive location",
+          "_id mockId activity title startsAt endAt spots isOpen isActive location",
         )
         .lean()
     : [];
@@ -389,17 +475,20 @@ async function getVolunteerOverview(vendor: Record<string, any>) {
 
       const session = sessionById.get(String(participation.sessionId));
       const startsAt = new Date(String(session?.startsAt ?? ""));
+      const endAt = new Date(String(session?.endAt ?? ""));
 
       if (
         !session ||
         Number.isNaN(startsAt.getTime()) ||
+        Number.isNaN(endAt.getTime()) ||
+        endAt <= startsAt ||
         startsAt < monthStart ||
         startsAt > now
       ) {
         return hours;
       }
 
-      return hours + (Number(session.duration) || 0) / 60;
+      return hours + (endAt.getTime() - startsAt.getTime()) / (60 * 60 * 1000);
     },
     0,
   );
@@ -423,8 +512,8 @@ async function getVolunteerOverview(vendor: Record<string, any>) {
         mockId: String(session.mockId),
         activityId: String(activity?._id ?? session.activity),
         activityMockId: activity?.mockId,
-        title: String(session.title ?? activity?.title ?? "Volunteer opportunity"),
-        activityTitle: String(activity?.title ?? session.title ?? "Volunteer activity"),
+        title: formatSessionDateTime(session.startsAt),
+        activityTitle: String(activity?.title ?? "Volunteer activity"),
         startsAt:
           !Number.isNaN(startsAt.getTime()) ? startsAt.toISOString() : "",
         location: String(session.location ?? ""),
@@ -481,8 +570,8 @@ async function getVolunteerRoster(
     session: {
       id: String(session._id),
       mockId: String(session.mockId),
-      title: String(session.title ?? activity.title ?? "Volunteer opportunity"),
-      activityTitle: String(activity.title ?? session.title ?? "Volunteer activity"),
+      title: formatSessionDateTime(session.startsAt),
+      activityTitle: String(activity.title ?? "Volunteer activity"),
     },
     volunteers: participations.map((participationValue: Record<string, any>) => {
       const participation = asObject(participationValue);
@@ -514,15 +603,14 @@ function serializeSessionTemplate(
     id: activity.mockId,
     sessionId: session.mockId,
     title: activity.title,
-    sessionTitle: session.title,
+    sessionTitle: formatSessionDateTime(session.startsAt),
     instructor: session.instructor ?? "",
     location: session.location,
     latitude: session.lat,
     longitude: session.lng,
     lat: session.lat,
     lng: session.lng,
-    duration: session.duration,
-    durationMinutes: session.duration,
+    endAt: session.endAt,
     spots: session.spots,
     categories: Array.isArray(activity.categories) ? activity.categories : [],
   };
@@ -660,7 +748,7 @@ router.delete(
         session: {
           id: String(deletedSession._id),
           mockId: deletedSession.mockId,
-          title: deletedSession.title,
+          title: formatSessionDateTime(deletedSession.startsAt),
         },
         activity: {
           id: String(updatedActivity._id),
@@ -686,6 +774,17 @@ router.delete(
 router.get("/me/chats", requireVendorAuth, async (_req, res, next) => {
   try {
     res.json({ chats: await getVendorChatRows(res.locals.vendor) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Lists the sessions where the signed-in vendor can publish announcements.
+router.get("/me/announcements", requireVendorAuth, async (_req, res, next) => {
+  try {
+    res.json({
+      sessions: await getVendorAnnouncementRows(res.locals.vendor),
+    });
   } catch (error) {
     next(error);
   }
@@ -910,7 +1009,7 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
       session: {
         id: String(session._id),
         mockId: session.mockId,
-        title: session.title,
+        title: formatSessionDateTime(session.startsAt),
       },
       attendees: participations.map((participation: Record<string, any>) => {
         const item = asObject(participation);
@@ -967,51 +1066,14 @@ router.patch("/me/sessions/:sessionId/open", requireVendorAuth, async (req, res,
       activity: {
         id: String(activity._id ?? session.activity),
         mockId: activity.mockId,
-        title: activity.title ?? session.title,
+        title: activity.title,
         isOpen: session.isOpen !== false,
       },
       session: {
         id: String(session._id),
         mockId: session.mockId,
-        title: session.title,
+        title: formatSessionDateTime(session.startsAt),
         isOpen: session.isOpen !== false,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Ends one session owned by the signed-in vendor.
-router.patch("/me/sessions/:sessionId/end", requireVendorAuth, async (req, res, next) => {
-  try {
-    const sessionId = String(req.params.sessionId);
-    const vendor = res.locals.vendor;
-    const session = await findVendorSession(vendor, sessionId);
-
-    if (!session) {
-      const hasValidSelector = getSessionSelector(sessionId).length > 0;
-
-      if (!hasValidSelector) {
-        res.status(400).json({ message: "Choose a valid session." });
-        return;
-      }
-
-      res.status(404).json({ message: "Session not found." });
-      return;
-    }
-
-    if (session.isActive !== false) {
-      session.isActive = false;
-      await session.save();
-    }
-
-    res.json({
-      session: {
-        id: String(session._id),
-        mockId: session.mockId,
-        title: session.title,
-        isActive: session.isActive !== false,
       },
     });
   } catch (error) {

@@ -70,10 +70,9 @@ export type BaseSession = {
   activity?: Activity;
   activityId?: number | string;
   activityMockId?: number;
-  title: string;
   instructor?: string;
   startsAt: string;
-  durationMinutes: number;
+  endAt: string;
   spots: number;
   location: string;
   lat: number;
@@ -81,6 +80,7 @@ export type BaseSession = {
 }
 
 export type Session = BaseSession &{
+  title: string;
   id?: string;
   objectId?: string;
   mockId: string;
@@ -101,7 +101,7 @@ export type BaseActivity = {
   description?: string;
   suitability?: string;
   categories: VidaCategory[];
-  cover?: string;
+  imageUrls: string[];
   tags?: string[];
   isVolunteer: boolean;
   credits: number;
@@ -270,15 +270,6 @@ export type DeleteVendorSessionResponse = {
   deletedParticipationCount: number;
 };
 
-export type EndVendorSessionResponse = {
-  session: {
-    id: string;
-    mockId: number | string;
-    title: string;
-    isActive: boolean;
-  };
-};
-
 export type VendorChat = {
   id: string;
   mockId: number;
@@ -307,6 +298,62 @@ export type VendorChat = {
 
 export type VendorChatsResponse = {
   chats: VendorChat[];
+};
+
+export type VendorAnnouncementSession = {
+  id: string;
+  mockId: string;
+  lastAnnouncement: string;
+  updatedAt: string;
+  session: {
+    id: string;
+    mockId: string;
+    title: string;
+    startsAt: string;
+    location: string;
+    registeredCount: number;
+    spots: number;
+    isOpen: boolean;
+    isActive: boolean;
+  };
+  activity: {
+    id: string;
+    mockId: number;
+    title: string;
+  };
+};
+
+export type VendorAnnouncementsResponse = {
+  sessions: VendorAnnouncementSession[];
+};
+
+type AnnouncementBase = {
+  id: string;
+  sessionId: string;
+  content: string;
+  createdAt: string;
+};
+
+export type Announcement =
+  | (AnnouncementBase & {
+      type: "message";
+    })
+  | (AnnouncementBase & {
+      type: "poll";
+      poll: {
+        options: Array<{
+          id: string;
+          label: string;
+          votes: number;
+          selected: boolean;
+        }>;
+        allowsMultiple: false;
+        totalVotes: number;
+      };
+    });
+
+export type CreateAnnouncementResponse = {
+  announcement: Announcement;
 };
 
 type VendorChatMessageBase = {

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import {
+  formatActivityDateTime,
   formatActivityTime,
   primaryActivityCategory,
   vidaCategoryColor,
@@ -27,7 +28,7 @@ type CalendarMonth = {
 type CalendarSession = {
   id: string;
   activityId: number;
-  title: string;
+  label: string;
   startsAt: string;
   location: string;
   category: vidaCategory;
@@ -126,7 +127,7 @@ function toCalendarSessions(activities: Activity[]): CalendarSession[] {
             .map((session) => ({
               id: `${activity.id}-${String(session.id)}`,
               activityId: activity.id,
-              title: session.title || activity.title,
+              label: formatActivityDateTime(session.startsAt),
               startsAt: session.startsAt,
               location: session.location || activity.location,
               category,
@@ -136,7 +137,7 @@ function toCalendarSessions(activities: Activity[]): CalendarSession[] {
             {
               id: String(activity.id),
               activityId: activity.id,
-              title: activity.title,
+              label: formatActivityDateTime(activity.startsAt),
               startsAt: activity.startsAt,
               location: activity.location,
               category,
@@ -320,7 +321,7 @@ export function ActivityCalendarPage() {
                               borderLeft: `2px solid ${color}`,
                             }}
                           >
-                            {session.title}
+                            {session.label}
                           </span>
                         );
                       })}
@@ -371,7 +372,7 @@ export function ActivityCalendarPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-start justify-between gap-2">
                         <span className="truncate text-[13px] font-bold text-foreground">
-                          {session.title}
+                          {session.label}
                         </span>
                         {session.isPremium && (
                           <Star

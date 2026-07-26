@@ -25,7 +25,7 @@ export type VendorActivity = {
   title: string;
   description: string;
   categories: vidaCategory[];
-  cover?: string;
+  imageUrls: string[];
   tags: string[];
   isVolunteer: boolean;
   rating: number;
@@ -124,7 +124,7 @@ export type Activity = {
   skillsFuturePayable: boolean;
   isOpen: boolean;
   isActive: boolean;
-  cover?: string;
+  imageUrls: string[];
   vendor?: VendorSummary;
   sessions?: ActivitySession[];
   participatingFriends: Friend[];
@@ -142,7 +142,7 @@ export type CreateActivityInput = {
   credits: number;
   categories: vidaCategory[];
   tagIds?: string[];
-  cover?: string;
+  imageUrls?: string[];
   groupId?: number;
 };
 

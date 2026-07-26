@@ -699,7 +699,6 @@ private fun AvailableSessions(
             openSessions.forEach { session ->
                 SessionCard(
                     session = session,
-                    fallbackTitle = activity.title,
                     joined = session.participatingFriends.any {
                         it.handle.equals(currentUserHandle, ignoreCase = true)
                     },
@@ -736,7 +735,6 @@ private fun MessageCard(
 @Composable
 private fun SessionCard(
     session: ActivitySession,
-    fallbackTitle: String,
     joined: Boolean,
     isJoining: Boolean,
     joinEnabled: Boolean,
@@ -755,7 +753,7 @@ private fun SessionCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = session.title.ifBlank { fallbackTitle },
+                        text = formatSessionDateTime(session.startsAt),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -936,6 +934,9 @@ private fun formatTime(value: String): String =
         SimpleDateFormat("h:mm a", Locale.getDefault()).format(it)
     } ?: "Time TBC"
 
+private fun formatSessionDateTime(value: String): String =
+    "${formatDate(value)}, ${formatTime(value)}"
+
 private fun parseApiDate(value: String): Date? {
     val patterns = listOf(
         "yyyy-MM-dd'T'HH:mm:ss.SSSX",
@@ -1006,7 +1007,6 @@ private val previewActivity = ActivityDetails(
     sessions = listOf(
         ActivitySession(
             id = 101,
-            title = "Sunday morning walk",
             startsAt = "2026-08-02T00:30:00.000Z",
             location = "Botanic Gardens MRT",
             durationMinutes = 90,

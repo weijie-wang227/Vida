@@ -9,7 +9,6 @@ import {
   createVendorActivity,
   createVendorSession,
   deleteVendorSession,
-  endVendorSession,
   fetchVendorActivities,
   fetchVendorSessions,
   updateSessionOpen,
@@ -57,7 +56,6 @@ export function VendorStateProvider({
   const [isCreatingActivity, setIsCreatingActivity] = useState(false);
   const [updatingSessionId, setUpdatingSessionId] = useState<string | null>(null);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
-  const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
 
   const loadVendor = useCallback(async () => {
     setStatus("vendor-check");
@@ -321,39 +319,6 @@ export function VendorStateProvider({
     }
   };
 
-  const endSession = async (sessionId: number | string) => {
-    setActivityError(null);
-    setEndingSessionId(String(sessionId));
-
-    try {
-      const response = await endVendorSession(sessionId);
-      const endedIds = new Set([
-        String(response.session.id),
-        String(response.session.mockId),
-        String(sessionId),
-      ]);
-
-      setSessions((current) =>
-        current.map((row) =>
-          [row.id, row.objectId, row.mockId].some(
-            (value) => value !== undefined && endedIds.has(String(value)),
-          )
-            ? { ...row, isActive: response.session.isActive }
-            : row,
-        ),
-      );
-    } catch (submissionError) {
-      setActivityError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "Unable to end session.",
-      );
-      throw submissionError;
-    } finally {
-      setEndingSessionId(null);
-    }
-  };
-
   const value = useMemo(
     () => ({
       status,
@@ -369,7 +334,6 @@ export function VendorStateProvider({
       isCreatingActivity,
       updatingSessionId,
       deletingSessionId,
-      endingSessionId,
       submitAuth,
       createVendorProfile,
       signOut,
@@ -378,7 +342,6 @@ export function VendorStateProvider({
       updateVendorProfile: saveVendorProfile,
       toggleSessionOpen,
       deleteSession,
-      endSession,
     }),
     [
       status,
@@ -394,7 +357,6 @@ export function VendorStateProvider({
       isCreatingActivity,
       updatingSessionId,
       deletingSessionId,
-      endingSessionId,
     ],
   );
 

@@ -20,7 +20,6 @@ data class ActivityDetails(
 
 data class ActivitySession(
     val id: Long,
-    val title: String,
     val startsAt: String,
     val location: String,
     val durationMinutes: Int,
