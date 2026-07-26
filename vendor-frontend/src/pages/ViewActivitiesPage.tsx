@@ -171,7 +171,11 @@ export function ViewActivitiesPage({
                             type="button"
                             className="activity-title-button"
                             onClick={() =>
-                              navigate(getSessionDetailsPath(session))
+                              navigate(getSessionDetailsPath(session), {
+                                state: {
+                                  sessionDetailsReturnTo: "/activities",
+                                },
+                              })
                             }
                           >
                             {session.title}
@@ -260,7 +264,13 @@ export function ViewActivitiesPage({
                       <button
                         type="button"
                         className="activity-title-button"
-                        onClick={() => navigate(getSessionDetailsPath(session))}
+                        onClick={() =>
+                          navigate(getSessionDetailsPath(session), {
+                            state: {
+                              sessionDetailsReturnTo: "/activities",
+                            },
+                          })
+                        }
                       >
                         {session.title}
                       </button>

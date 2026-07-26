@@ -33,6 +33,7 @@ export function CreateSessionPage({
   const selectedDate = searchParams.get("date") ?? "";
   const activityId = searchParams.get("activityId") ?? undefined;
   const [title, setTitle] = useState("");
+  const [instructor, setInstructor] = useState("");
   const [sessionDate, setSessionDate] = useState(selectedDate);
   const [sessionTime, setSessionTime] = useState("09:00");
   const [location, setLocation] = useState("");
@@ -140,6 +141,7 @@ export function CreateSessionPage({
     const payload: CreateSessionInput = {
       activityId,
       title: title.trim(),
+      instructor: instructor.trim(),
       startsAt: startsAtIso,
       location: location.trim(),
       lat: latitudeValue,
@@ -163,6 +165,7 @@ export function CreateSessionPage({
       }
 
       setTitle("");
+      setInstructor("");
       setSessionDate(selectedDate);
       setSessionTime("09:00");
       setLocation("");
@@ -189,6 +192,16 @@ export function CreateSessionPage({
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               required
+            />
+          </label>
+
+          <label>
+            <span>Instructor</span>
+            <input
+              value={instructor}
+              onChange={(event) => setInstructor(event.target.value)}
+              maxLength={120}
+              placeholder="Instructor name"
             />
           </label>
 

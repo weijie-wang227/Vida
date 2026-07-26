@@ -71,6 +71,7 @@ export type BaseSession = {
   activityId?: number | string;
   activityMockId?: number;
   title: string;
+  instructor?: string;
   startsAt: string;
   durationMinutes: number;
   spots: number;
@@ -98,6 +99,7 @@ export type CreateSessionInput = BaseSession & {
 export type BaseActivity = {
   title: string;
   description?: string;
+  suitability?: string;
   categories: VidaCategory[];
   cover?: string;
   tags?: string[];
@@ -266,6 +268,15 @@ export type DeleteVendorSessionResponse = {
     totalRevenue: number;
   };
   deletedParticipationCount: number;
+};
+
+export type EndVendorSessionResponse = {
+  session: {
+    id: string;
+    mockId: number | string;
+    title: string;
+    isActive: boolean;
+  };
 };
 
 export type VendorChat = {

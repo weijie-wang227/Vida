@@ -1683,7 +1683,7 @@
   outline-offset: 2px;
 }
 
-.volunteer-session-payment-note {
+.volunteer-activity-payment-note {
   min-height: 64px;
   display: flex;
   align-items: center;
@@ -1695,17 +1695,17 @@
   color: #168a3a;
 }
 
-.volunteer-session-payment-note div {
+.volunteer-activity-payment-note div {
   display: grid;
   gap: 3px;
 }
 
-.volunteer-session-payment-note strong {
+.volunteer-activity-payment-note strong {
   color: var(--ink);
   font-size: 0.84rem;
 }
 
-.volunteer-session-payment-note span {
+.volunteer-activity-payment-note span {
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 700;
@@ -2689,6 +2689,23 @@
   line-height: 1.55;
 }
 
+.activity-details__text-section {
+  display: grid;
+  gap: 4px;
+}
+
+.activity-details__text-section strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.activity-details__text-section p {
+  margin: 0;
+  color: #4d5d62;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
 .activity-details__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2697,6 +2714,10 @@
 
 .activity-details__grid--single {
   grid-template-columns: minmax(0, 220px);
+}
+
+.activity-details__grid--two {
+  grid-template-columns: repeat(2, minmax(0, 220px));
 }
 
 .activity-details__grid--three {
@@ -2726,6 +2747,12 @@
   color: var(--ink);
   font-size: 0.95rem;
   line-height: 1.25;
+}
+
+.activity-detail-tile small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
 }
 
 .activity-details__actions {

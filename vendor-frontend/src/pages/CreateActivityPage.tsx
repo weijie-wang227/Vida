@@ -46,6 +46,7 @@ export function CreateActivityPage({
   const [searchParams] = useSearchParams();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [suitability, setSuitability] = useState("");
   const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
@@ -156,6 +157,7 @@ export function CreateActivityPage({
     const payload: CreateActivityInput = {
       title: title.trim(),
       description: description.trim(),
+      suitability: suitability.trim(),
       categories: selectedCategories,
       tagIds: selectedTagIds,
       isVolunteer,
@@ -260,6 +262,16 @@ export function CreateActivityPage({
             />
           </label>
 
+          <label className="activity-form__wide">
+            <span>Suitability</span>
+            <textarea
+              value={suitability}
+              onChange={(event) => setSuitability(event.target.value)}
+              maxLength={500}
+              placeholder="Describe who this activity is suitable for."
+            />
+          </label>
+
           <label className="activity-form__wide activity-cover-field">
             <span>
               <Image size={15} />
@@ -312,7 +324,7 @@ export function CreateActivityPage({
           </fieldset>
 
           {isVolunteer ? (
-            <div className="activity-form__wide volunteer-session-payment-note">
+            <div className="activity-form__wide volunteer-activity-payment-note">
               <HandHeart size={18} />
               <div>
                 <strong>Volunteer activity</strong>

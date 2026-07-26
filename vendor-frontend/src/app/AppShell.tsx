@@ -88,10 +88,12 @@ export function AppShell() {
     isCreatingActivity,
     updatingSessionId,
     deletingSessionId,
+    endingSessionId,
     createActivity,
     createSession,
     toggleSessionOpen,
     deleteSession,
+    endSession,
   } = useVendorState();
 
   return (
@@ -159,8 +161,10 @@ export function AppShell() {
                 sessions={sessions}
                 updatingActivityId={updatingSessionId}
                 deletingSessionId={deletingSessionId}
+                endingSessionId={endingSessionId}
                 onToggleActivityOpen={toggleSessionOpen}
                 onDeleteSession={deleteSession}
+                onEndSession={endSession}
               />
             }
           />
