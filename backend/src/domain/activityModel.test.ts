@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Error as MongooseError } from "mongoose";
 import { ActivityModel } from "../models/VidaData.js";
 
 test("activity imageUrls defaults to an empty array", async () => {
@@ -27,9 +28,10 @@ test("activity imageUrls accepts no more than five images", async () => {
 
   const error = await activity.validate().then(
     () => null,
-    (validationError) => validationError,
+    (validationError: unknown) => validationError,
   );
 
+  assert.ok(error instanceof MongooseError.ValidationError);
   assert.equal(
     error?.errors.imageUrls?.message,
     "An activity can have at most 5 images.",
