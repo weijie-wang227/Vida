@@ -10,6 +10,14 @@ data class SignInRequestDto(
 )
 
 @Serializable
+data class SignUpRequestDto(
+    val name: String,
+    val handle: String? = null,
+    val email: String,
+    val password: String,
+)
+
+@Serializable
 data class AuthResponseDto(
     val token: String,
     val user: AuthUserDto,

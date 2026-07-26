@@ -22,6 +22,18 @@ class AuthViewModel @Inject constructor(
         restoreSession()
     }
 
+    fun updateMode(mode: AuthMode) {
+        _uiState.update { it.copy(mode = mode, errorMessage = null) }
+    }
+
+    fun updateName(name: String) {
+        _uiState.update { it.copy(name = name, errorMessage = null) }
+    }
+
+    fun updateHandle(handle: String) {
+        _uiState.update { it.copy(handle = handle, errorMessage = null) }
+    }
+
     fun updateEmail(email: String) {
         _uiState.update { it.copy(email = email, errorMessage = null) }
     }
@@ -59,6 +71,53 @@ class AuthViewModel @Inject constructor(
                     it.copy(
                         isSubmitting = false,
                         errorMessage = error.message ?: "Unable to sign in.",
+                    )
+                }
+            }
+        }
+    }
+
+    fun signUp() {
+        val state = _uiState.value
+        val name = state.name.trim()
+        val email = state.email.trim()
+
+        if (state.isSubmitting) return
+
+        val validationMessage = when {
+            name.isBlank() -> "Name is required."
+            email.isBlank() -> "Email is required."
+            state.password.length < 8 -> "Password must be at least 8 characters."
+            else -> null
+        }
+        if (validationMessage != null) {
+            _uiState.update { it.copy(errorMessage = validationMessage) }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+
+            runCatching {
+                authRepository.signUp(
+                    name = name,
+                    handle = state.handle.trim().takeIf(String::isNotBlank),
+                    email = email,
+                    password = state.password,
+                )
+            }.onSuccess { user ->
+                _uiState.update {
+                    it.copy(
+                        currentUser = user,
+                        password = "",
+                        isSubmitting = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        errorMessage = error.message ?: "Unable to create your account.",
                     )
                 }
             }

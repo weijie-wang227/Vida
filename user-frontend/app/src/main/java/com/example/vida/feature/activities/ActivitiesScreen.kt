@@ -77,6 +77,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.vida.core.designsystem.theme.VidaTheme
 import com.example.vida.domain.model.ActivitySummary
+import com.example.vida.domain.model.AvailableTag
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -316,7 +317,7 @@ private fun FavoriteErrorBanner(message: String) {
 private fun ActivitiesContent(
     premiumActivities: List<ActivitySummary>,
     upcomingActivities: List<ActivitySummary>,
-    availableTags: List<String>,
+    availableTags: List<AvailableTag>,
     tagsErrorMessage: String?,
     selectedTag: String?,
     sortBy: ActivitySort,
@@ -576,7 +577,7 @@ private fun SortPill(
 
 @Composable
 private fun TagSelector(
-    tags: List<String>,
+    tags: List<AvailableTag>,
     selectedTag: String?,
     errorMessage: String?,
     onTagSelected: (String) -> Unit,
@@ -594,13 +595,13 @@ private fun TagSelector(
                 ) {
                     items(
                         items = tags,
-                        key = { it },
+                        key = AvailableTag::id,
                     ) { tag ->
                         TagItem(
                             tag = tag,
                             index = tags.indexOf(tag),
-                            selected = selectedTag == tag,
-                            onClick = { onTagSelected(tag) },
+                            selected = selectedTag == tag.name,
+                            onClick = { onTagSelected(tag.name) },
                         )
                     }
                 }
@@ -716,7 +717,7 @@ private fun ActivityCollectionCarouselPreview() {
 
 @Composable
 private fun TagItem(
-    tag: String,
+    tag: AvailableTag,
     index: Int,
     selected: Boolean,
     onClick: () -> Unit,
@@ -728,6 +729,9 @@ private fun TagItem(
         Color(0xFFF8E4EA) to Color(0xFFC62E53),
     )
     val (background, foreground) = palette[index % palette.size]
+    var imageFailed by remember(tag.imageUrl) {
+        mutableStateOf(tag.imageUrl.isBlank())
+    }
 
     Column(
         modifier = Modifier
@@ -743,15 +747,25 @@ private fun TagItem(
             border = if (selected) BorderStroke(3.dp, Color.White) else null,
             shadowElevation = if (selected) 4.dp else 0.dp,
         ) {
-            Icon(
-                imageVector = tagIcon(tag),
-                contentDescription = null,
-                tint = if (selected) Color.White else foreground,
-                modifier = Modifier.padding(17.dp),
-            )
+            if (imageFailed) {
+                Icon(
+                    imageVector = tagIcon(tag.name),
+                    contentDescription = null,
+                    tint = if (selected) Color.White else foreground,
+                    modifier = Modifier.padding(17.dp),
+                )
+            } else {
+                AsyncImage(
+                    model = tag.imageUrl,
+                    contentDescription = "${tag.name} tag",
+                    contentScale = ContentScale.Crop,
+                    onError = { imageFailed = true },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
         Text(
-            text = tag,
+            text = tag.name,
             modifier = Modifier.padding(top = 7.dp),
             color = if (selected) foreground else VidaText,
             fontSize = 12.sp,

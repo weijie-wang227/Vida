@@ -112,6 +112,7 @@ function getLinkedGroupId(value: unknown) {
 
 function readSessionPayload(input: Record<string, any>, fallbackTitle: string) {
   const title = getString(input.title) || fallbackTitle;
+  const instructor = getString(input.instructor);
   const startsAt = getDate(input.startsAt);
   const location = getString(input.location);
   const lat = getFiniteNumber(input.lat ?? input.latitude);
@@ -122,6 +123,7 @@ function readSessionPayload(input: Record<string, any>, fallbackTitle: string) {
 
   return {
     title,
+    instructor,
     startsAt,
     location,
     lat,
@@ -135,6 +137,10 @@ function readSessionPayload(input: Record<string, any>, fallbackTitle: string) {
 function validateSessionPayload(session: ReturnType<typeof readSessionPayload>) {
   if (!session.title || !session.startsAt || !session.location) {
     return "Session title, start date/time, and location are required.";
+  }
+
+  if (session.instructor.length > 120) {
+    return "Instructor must be 120 characters or less.";
   }
 
   if (
@@ -312,6 +318,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       linkedChatId: linkedChat?._id,
       session: {
         title: sessionPayload.title,
+        instructor: sessionPayload.instructor,
         startsAt: sessionPayload.startsAt as Date,
         duration: Math.round(Number(sessionPayload.duration)),
         spots: Math.round(Number(sessionPayload.spots)),

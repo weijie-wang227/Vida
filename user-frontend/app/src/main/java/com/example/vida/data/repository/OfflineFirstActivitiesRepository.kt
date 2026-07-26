@@ -11,6 +11,7 @@ import com.example.vida.domain.model.ActivityDetails
 import com.example.vida.domain.model.ActivityFriend
 import com.example.vida.domain.model.ActivitySession
 import com.example.vida.domain.model.ActivityVendor
+import com.example.vida.domain.model.AvailableTag
 import com.example.vida.domain.model.JoinedActivitySession
 import com.example.vida.domain.repository.ActivitiesRepository
 import javax.inject.Inject
@@ -77,10 +78,20 @@ class OfflineFirstActivitiesRepository @Inject constructor(
         favoriteActivityIds.value = favoriteActivityIds.value - activityId
     }
 
-    override suspend fun fetchAvailableTags(): List<String> =
+    override suspend fun fetchAvailableTags(): List<AvailableTag> =
         api.getAvailableTags()
-            .map { it.name.trim() }
-            .filter { it.isNotEmpty() }
+            .mapNotNull { tag ->
+                val name = tag.name.trim()
+                if (name.isEmpty()) {
+                    null
+                } else {
+                    AvailableTag(
+                        id = tag.id,
+                        name = name,
+                        imageUrl = tag.imageUrl.trim(),
+                    )
+                }
+            }
 }
 
 private fun ActivityDto.asEntity() = ActivityEntity(

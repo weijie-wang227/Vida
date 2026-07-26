@@ -5,5 +5,11 @@ import com.example.vida.domain.model.AuthUser
 interface AuthRepository {
     suspend fun restoreSession(): AuthUser?
     suspend fun signIn(email: String, password: String): AuthUser
+    suspend fun signUp(
+        name: String,
+        handle: String?,
+        email: String,
+        password: String,
+    ): AuthUser
     suspend fun signOut()
 }

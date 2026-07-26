@@ -74,6 +74,7 @@ export type RatingDocument = {
 export type TagDocument = {
   _id: Types.ObjectId;
   name: string;
+  imageUrl: string;
 };
 
 export type MembershipDocument = {
@@ -364,6 +365,7 @@ ratingSchema.index({ sender: 1 });
 const tagSchema = new Schema<TagDocument>(
   {
     name: { type: String, required: true, trim: true },
+    imageUrl: { type: String, trim: true, default: "" },
   },
   { timestamps: true },
 );
@@ -374,6 +376,7 @@ const activitySchema = new Schema(
     mockId: { type: Number, required: true, unique: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: "" },
+    suitability: { type: String, trim: true, default: "", maxlength: 500 },
     host: { type: Schema.Types.ObjectId, required: false, ref: "Vendor" },
     rating: { type: Number, required: true, default: 5 },
     categories: [{ type: String, required: true }],
@@ -399,6 +402,7 @@ const sessionSchema = new Schema(
     mockId: { type: Number, required: true, unique: true },
     activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
     title: { type: String, required: true, trim: true },
+    instructor: { type: String, trim: true, default: "", maxlength: 120 },
     startsAt: { type: Date, required: true },
     duration: { type: Number, required: true, min: 1 },
     spots: { type: Number, required: true, min: 1 },

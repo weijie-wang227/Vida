@@ -566,6 +566,7 @@ router.post("/", requireAuth, async (req, res, next) => {
     const user = res.locals.user;
     const title = getString(req.body?.title);
     const description = getString(req.body?.description);
+    const suitability = getString(req.body?.suitability);
     const cover = getString(req.body?.cover);
     const categories = getCategories(req.body?.categories);
     const requestedTagIds = getTagIds(req.body?.tagIds);
@@ -580,6 +581,11 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     if (!title) {
       res.status(400).json({ message: "Activity title is required." });
+      return;
+    }
+
+    if (suitability.length > 500) {
+      res.status(400).json({ message: "Suitability must be 500 characters or less." });
       return;
     }
 
@@ -613,6 +619,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       mockId: await nextMockId(ActivityModel),
       title,
       description,
+      suitability,
       host: vendor._id,
       rating: 5,
       categories,

@@ -6,4 +6,5 @@ import kotlinx.serialization.Serializable
 data class AvailableTagDto(
     val id: String,
     val name: String,
+    val imageUrl: String = "",
 )
