@@ -49,7 +49,6 @@ export function TopBar({
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [editProfileUrl, setEditProfileUrl] = useState(vendor?.profileUrl ?? "");
   const [editDescription, setEditDescription] = useState(
     vendor?.description ?? "",
   );
@@ -57,10 +56,9 @@ export function TopBar({
   const [editProfilePreview, setEditProfilePreview] = useState("");
   const [editImageName, setEditImageName] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
-  const editedProfileImageSrc = editProfilePreview || editProfileUrl;
+  const editedProfileImageSrc = editProfilePreview || vendor?.profileUrl || "";
 
   const openEditProfile = () => {
-    setEditProfileUrl(vendor?.profileUrl ?? "");
     setEditDescription(vendor?.description ?? "");
     setEditProfileFile(null);
     setEditProfilePreview("");
@@ -144,8 +142,8 @@ export function TopBar({
 
     try {
       const profileUrl = editProfileFile
-        ? await uploadImageToR2(editProfileFile, "vendors")
-        : editProfileUrl.trim();
+        ? await uploadImageToR2(editProfileFile, "vendor")
+        : vendor?.profileUrl ?? "";
 
       await onUpdateVendorProfile({
         profileUrl,
@@ -275,21 +273,6 @@ export function TopBar({
                 </div>
                 {editImageName && <p>{editImageName}</p>}
               </div>
-
-              <label>
-                <span>Profile photo URL</span>
-                <input
-                  type="url"
-                  value={editProfileUrl}
-                  onChange={(event) => {
-                    setEditProfileUrl(event.target.value);
-                    setEditProfileFile(null);
-                    setEditProfilePreview("");
-                    setEditImageName("");
-                  }}
-                  placeholder="https://..."
-                />
-              </label>
 
               <label>
                 <span>Description</span>

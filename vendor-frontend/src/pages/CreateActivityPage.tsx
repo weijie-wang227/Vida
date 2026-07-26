@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   CalendarPlus,
+  ChevronDown,
   CircleDollarSign,
   GraduationCap,
   HandHeart,
   Image,
   Loader2,
+  RotateCcw,
   Star,
 } from "lucide-react";
 import type {
@@ -70,6 +72,9 @@ export function CreateActivityPage({
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("free");
   const [localError, setLocalError] = useState<string | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const selectedTagNames = availableTags
+    .filter((tag) => selectedTagIds.includes(tag.id))
+    .map((tag) => tag.name);
 
   useEffect(() => {
     activityImagesRef.current = activityImages;
@@ -159,6 +164,22 @@ export function CreateActivityPage({
     );
   };
 
+  const resetForm = () => {
+    activityImages.forEach(({ previewUrl }) =>
+      URL.revokeObjectURL(previewUrl),
+    );
+    setTitle("");
+    setDescription("");
+    setSuitability("");
+    setSelectedTagIds([]);
+    setActivityImages([]);
+    setSelectedCategories([]);
+    setIsVolunteer(searchParams.get("volunteer") === "true");
+    setCredits("0");
+    setPaymentMode("free");
+    setLocalError(null);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLocalError(null);
@@ -219,6 +240,16 @@ export function CreateActivityPage({
 
   return (
     <div className="dashboard__main dashboard__main--full">
+      <button
+        type="button"
+        className="back-button"
+        onClick={resetForm}
+        disabled={isSubmitting || isUploadingImages}
+      >
+        <RotateCcw size={16} />
+        Reset
+      </button>
+
       <Card title="Create Activity">
         <form className="activity-form" onSubmit={handleSubmit}>
           <label className="activity-form__wide volunteer-activity-toggle">
@@ -262,25 +293,35 @@ export function CreateActivityPage({
             ) : availableTags.length === 0 ? (
               <p>No tags are available.</p>
             ) : (
-              <div>
-                {availableTags.map((tag) => (
-                  <label
-                    key={tag.id}
-                    className={
-                      selectedTagIds.includes(tag.id)
-                        ? "tag-option tag-option--active"
-                        : "tag-option"
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedTagIds.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
-                    />
-                    <span>{tag.name}</span>
-                  </label>
-                ))}
-              </div>
+              <details className="tag-dropdown">
+                <summary>
+                  <span>
+                    {selectedTagNames.length > 0
+                      ? selectedTagNames.join(", ")
+                      : "Select tags"}
+                  </span>
+                  <ChevronDown size={17} />
+                </summary>
+                <div className="tag-dropdown__menu" role="group" aria-label="Tags">
+                  {availableTags.map((tag) => (
+                    <label
+                      key={tag.id}
+                      className={
+                        selectedTagIds.includes(tag.id)
+                          ? "tag-option tag-option--active"
+                          : "tag-option"
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTagIds.includes(tag.id)}
+                        onChange={() => toggleTag(tag.id)}
+                      />
+                      <span>{tag.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
             )}
           </fieldset>
 
