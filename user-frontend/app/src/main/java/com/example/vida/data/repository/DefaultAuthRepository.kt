@@ -4,6 +4,7 @@ import com.example.vida.core.storage.TokenStore
 import com.example.vida.data.remote.VidaApi
 import com.example.vida.data.remote.model.ApiErrorDto
 import com.example.vida.data.remote.model.SignInRequestDto
+import com.example.vida.data.remote.model.SignUpRequestDto
 import com.example.vida.data.remote.model.asDomainModel
 import com.example.vida.domain.model.AuthUser
 import com.example.vida.domain.repository.AuthRepository
@@ -50,6 +51,30 @@ class DefaultAuthRepository @Inject constructor(
             response.user.asDomainModel()
         } catch (error: HttpException) {
             throw error.asAuthException("Unable to sign in.")
+        } catch (error: IOException) {
+            throw AuthException("Unable to reach the server. Check your connection.", error)
+        }
+    }
+
+    override suspend fun signUp(
+        name: String,
+        handle: String?,
+        email: String,
+        password: String,
+    ): AuthUser {
+        return try {
+            val response = api.signUp(
+                SignUpRequestDto(
+                    name = name.trim(),
+                    handle = handle?.trim()?.takeIf(String::isNotBlank),
+                    email = email.trim(),
+                    password = password,
+                ),
+            )
+            tokenStore.saveAuthToken(response.token)
+            response.user.asDomainModel()
+        } catch (error: HttpException) {
+            throw error.asAuthException("Unable to create your account.")
         } catch (error: IOException) {
             throw AuthException("Unable to reach the server. Check your connection.", error)
         }

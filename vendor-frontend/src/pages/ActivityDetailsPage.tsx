@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ClipboardList, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  CircleDollarSign,
+  ClipboardList,
+  GraduationCap,
+  Star,
+} from "lucide-react";
 import { Card } from "../components/Card";
 import { SessionDateCalendar } from "../components/sessionCalendar";
 import type {
@@ -62,6 +68,24 @@ function combineDateWithSourceTime(dateValue: string, sourceStartsAt: string) {
   return new Date(`${dateValue}T${hours}:${minutes}:${seconds}`).toISOString();
 }
 
+function getActivityPaymentMethod(activity: Activity) {
+  if (activity.skillsFuturePayable) {
+    return "SkillsFuture Payable";
+  }
+
+  if (activity.isPremium) {
+    return "Premium";
+  }
+
+  return "Free";
+}
+
+function formatActivityCredits(credits: number) {
+  const value = Number.isFinite(credits) && credits >= 0 ? credits : 0;
+
+  return `${value.toLocaleString()} ${value === 1 ? "credit" : "credits"}`;
+}
+
 export function ActivityDetailsPage({
   vendor,
   activities,
@@ -110,6 +134,7 @@ export function ActivityDetailsPage({
     const response = await onCreateSession({
       activityId: activity.mockId,
       title: duplicateSource.title,
+      instructor: duplicateSource.instructor,
       startsAt: combineDateWithSourceTime(dateValue, duplicateSource.startsAt),
       location: duplicateSource.location,
       latitude: Number(duplicateSource.lat ?? 0),
@@ -127,6 +152,13 @@ export function ActivityDetailsPage({
       createdSessionId
         ? `/activities/${activity.mockId}/sessions/${createdSessionId}`
         : `/activities/${activity.mockId}`,
+      createdSessionId
+        ? {
+            state: {
+              sessionDetailsReturnTo: `/activities/${activity.mockId}`,
+            },
+          }
+        : undefined,
     );
   };
 
@@ -152,6 +184,8 @@ export function ActivityDetailsPage({
       </div>
     );
   }
+
+  const paymentMethod = getActivityPaymentMethod(activity);
 
   return (
     <div className="dashboard__main dashboard__main--full">
@@ -181,7 +215,30 @@ export function ActivityDetailsPage({
             </p>
           )}
 
-          <div className="activity-details__grid activity-details__grid--single">
+          {activity.suitability && (
+            <div className="activity-details__text-section">
+              <strong>Suitability</strong>
+              <p>{activity.suitability}</p>
+            </div>
+          )}
+
+          <div className="activity-details__grid activity-details__grid--two">
+            <div className="activity-detail-tile">
+              <span>
+                {paymentMethod === "SkillsFuture Payable" ? (
+                  <GraduationCap size={16} />
+                ) : paymentMethod === "Premium" ? (
+                  <Star size={16} />
+                ) : (
+                  <CircleDollarSign size={16} />
+                )}
+                Payment method
+              </span>
+              <strong>{paymentMethod}</strong>
+              {paymentMethod !== "Free" && (
+                <small>{formatActivityCredits(activity.credits)}</small>
+              )}
+            </div>
             <div className="activity-detail-tile">
               <span>
                 <Star size={16} />
@@ -229,6 +286,11 @@ export function ActivityDetailsPage({
             `/activities/${activity.mockId}/sessions/${getSessionRouteId(
               session,
             )}`,
+            {
+              state: {
+                sessionDetailsReturnTo: `/activities/${activity.mockId}`,
+              },
+            },
           )
         }
       />

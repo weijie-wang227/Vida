@@ -13,14 +13,18 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Login
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -42,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -54,12 +59,16 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun LoginScreen(
     uiState: AuthUiState,
+    onModeChange: (AuthMode) -> Unit,
+    onNameChange: (String) -> Unit,
+    onHandleChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onSignIn: () -> Unit,
+    onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
+    val isSignUp = uiState.mode == AuthMode.SignUp
 
     Column(
         modifier = modifier
@@ -82,7 +91,7 @@ fun LoginScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Welcome back",
+                    text = if (isSignUp) "Create your account" else "Welcome back",
                     style = MaterialTheme.typography.headlineMedium,
                 )
             }
@@ -90,11 +99,57 @@ fun LoginScreen(
 
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "Sign in to continue planning your next activity.",
+            text = if (isSignUp) {
+                "Join activities, groups, and friends around Singapore."
+            } else {
+                "Sign in to continue planning your next activity."
+            },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyLarge,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
+
+        AuthModeTabs(
+            mode = uiState.mode,
+            onModeChange = onModeChange,
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        if (isSignUp) {
+            Text(
+                text = "Name",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(Modifier.height(6.dp))
+            AuthTextField(
+                value = uiState.name,
+                onValueChange = onNameChange,
+                placeholder = "Linda Tan",
+                leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
+
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "Handle",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(Modifier.height(6.dp))
+            AuthTextField(
+                value = uiState.handle,
+                onValueChange = onHandleChange,
+                placeholder = "lindatan",
+                leadingIcon = {
+                    Icon(Icons.Rounded.AlternateEmail, contentDescription = null)
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
+
+            Spacer(Modifier.height(16.dp))
+        }
 
         Text(
             text = "Email",
@@ -146,7 +201,7 @@ fun LoginScreen(
                 keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done,
             ),
-            keyboardActions = KeyboardActions(onDone = { onSignIn() }),
+            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
         )
 
         uiState.errorMessage?.let { message ->
@@ -167,7 +222,7 @@ fun LoginScreen(
 
         Spacer(Modifier.height(20.dp))
         Button(
-            onClick = onSignIn,
+            onClick = onSubmit,
             enabled = !uiState.isSubmitting,
             shape = RoundedCornerShape(16.dp),
             contentPadding = ButtonDefaults.ContentPadding,
@@ -182,10 +237,74 @@ fun LoginScreen(
                     strokeWidth = 2.dp,
                 )
             } else {
-                Icon(Icons.Rounded.Login, contentDescription = null)
+                Icon(
+                    imageVector = if (isSignUp) {
+                        Icons.Rounded.PersonAdd
+                    } else {
+                        Icons.AutoMirrored.Rounded.Login
+                    },
+                    contentDescription = null,
+                )
             }
             Spacer(Modifier.size(8.dp))
-            Text("Sign in", fontWeight = FontWeight.Bold)
+            Text(
+                text = if (isSignUp) "Create account" else "Sign in",
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AuthModeTabs(
+    mode: AuthMode,
+    onModeChange: (AuthMode) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        listOf(
+            Triple(AuthMode.SignIn, "Sign in", Icons.AutoMirrored.Rounded.Login),
+            Triple(AuthMode.SignUp, "Sign up", Icons.Rounded.PersonAdd),
+        ).forEach { (tabMode, label, icon) ->
+            val selected = mode == tabMode
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (selected) {
+                            MaterialTheme.colorScheme.surface
+                        } else {
+                            Color.Transparent
+                        },
+                    )
+                    .selectable(
+                        selected = selected,
+                        onClick = { onModeChange(tabMode) },
+                        role = Role.Tab,
+                    )
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = label,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
     }
 }

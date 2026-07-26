@@ -22,6 +22,7 @@ import com.example.vida.core.designsystem.component.VidaProgressMark
 import com.example.vida.core.designsystem.theme.VidaTheme
 import com.example.vida.domain.model.AuthUser
 import com.example.vida.feature.auth.AuthLoadingScreen
+import com.example.vida.feature.auth.AuthMode
 import com.example.vida.feature.auth.AuthViewModel
 import com.example.vida.feature.auth.LoginScreen
 import com.example.vida.navigation.VidaBottomNavigation
@@ -39,9 +40,17 @@ fun VidaApp(
             authState.isCheckingSession -> AuthLoadingScreen()
             authState.currentUser == null -> LoginScreen(
                 uiState = authState,
+                onModeChange = authViewModel::updateMode,
+                onNameChange = authViewModel::updateName,
+                onHandleChange = authViewModel::updateHandle,
                 onEmailChange = authViewModel::updateEmail,
                 onPasswordChange = authViewModel::updatePassword,
-                onSignIn = authViewModel::signIn,
+                onSubmit = {
+                    when (authState.mode) {
+                        AuthMode.SignIn -> authViewModel.signIn()
+                        AuthMode.SignUp -> authViewModel.signUp()
+                    }
+                },
             )
             else -> AuthenticatedVidaApp(
                 currentUser = checkNotNull(authState.currentUser),

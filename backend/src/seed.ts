@@ -309,9 +309,23 @@ async function seed() {
     }
 
     const activityBySeedId = new Map<number, Types.ObjectId>();
+    const tagImageUrlByName = new Map<string, string>();
+    for (const activity of allActivities) {
+      if (!activity.cover) {
+        continue;
+      }
+      for (const tag of activity.tags) {
+        if (!tagImageUrlByName.has(tag)) {
+          tagImageUrlByName.set(tag, activity.cover);
+        }
+      }
+    }
     const tagDocuments = await TagModel.create(
       Array.from(new Set(allActivities.flatMap((activity) => activity.tags))).map(
-        (name) => ({ name }),
+        (name) => ({
+          name,
+          imageUrl: tagImageUrlByName.get(name) ?? "",
+        }),
       ),
     );
     const tagIdByName = new Map(

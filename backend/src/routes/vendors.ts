@@ -71,6 +71,7 @@ function serializeVendorActivityRow(
     mockId: activity.mockId,
     title: activity.title,
     description: activity.description ?? "",
+    suitability: activity.suitability ?? "",
     categories: Array.isArray(activity.categories) ? activity.categories : [],
     cover: activity.cover,
     tags: serializeTagNames(activity.tags),
@@ -112,6 +113,7 @@ function serializeVendorSessionRow(
     activityId,
     activityMockId: activity.mockId,
     title: session.title,
+    instructor: session.instructor ?? "",
     startsAt: session.startsAt,
     duration: session.duration,
     durationMinutes: session.duration,
@@ -513,6 +515,7 @@ function serializeSessionTemplate(
     sessionId: session.mockId,
     title: activity.title,
     sessionTitle: session.title,
+    instructor: session.instructor ?? "",
     location: session.location,
     latitude: session.lat,
     longitude: session.lng,
@@ -972,6 +975,43 @@ router.patch("/me/sessions/:sessionId/open", requireVendorAuth, async (req, res,
         mockId: session.mockId,
         title: session.title,
         isOpen: session.isOpen !== false,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Ends one session owned by the signed-in vendor.
+router.patch("/me/sessions/:sessionId/end", requireVendorAuth, async (req, res, next) => {
+  try {
+    const sessionId = String(req.params.sessionId);
+    const vendor = res.locals.vendor;
+    const session = await findVendorSession(vendor, sessionId);
+
+    if (!session) {
+      const hasValidSelector = getSessionSelector(sessionId).length > 0;
+
+      if (!hasValidSelector) {
+        res.status(400).json({ message: "Choose a valid session." });
+        return;
+      }
+
+      res.status(404).json({ message: "Session not found." });
+      return;
+    }
+
+    if (session.isActive !== false) {
+      session.isActive = false;
+      await session.save();
+    }
+
+    res.json({
+      session: {
+        id: String(session._id),
+        mockId: session.mockId,
+        title: session.title,
+        isActive: session.isActive !== false,
       },
     });
   } catch (error) {

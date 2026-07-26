@@ -18,6 +18,7 @@ import com.example.vida.data.remote.model.ProfileDto
 import com.example.vida.data.remote.model.SendMessageRequest
 import com.example.vida.data.remote.model.SendMessageResponseDto
 import com.example.vida.data.remote.model.SignInRequestDto
+import com.example.vida.data.remote.model.SignUpRequestDto
 import com.example.vida.data.remote.model.UpdateFeedPostRequest
 import com.example.vida.data.remote.model.UpdateProfileRequest
 import com.example.vida.data.remote.model.VoteRequest
@@ -34,6 +35,9 @@ import retrofit2.http.Query
 interface VidaApi {
     @POST("auth/signin")
     suspend fun signIn(@Body request: SignInRequestDto): AuthResponseDto
+
+    @POST("auth/signup")
+    suspend fun signUp(@Body request: SignUpRequestDto): AuthResponseDto
 
     @GET("auth/me")
     suspend fun getCurrentUser(): CurrentUserResponseDto

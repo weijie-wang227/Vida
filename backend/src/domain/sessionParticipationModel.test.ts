@@ -24,3 +24,13 @@ test("activity pricing fields are not duplicated on sessions", () => {
     assert.equal(SessionModel.schema.path(field), undefined);
   }
 });
+
+test("activities and sessions expose their new text fields with safe defaults", () => {
+  const activity = new ActivityModel();
+  const session = new SessionModel();
+
+  assert.ok(ActivityModel.schema.path("suitability"));
+  assert.equal(activity.suitability, "");
+  assert.ok(SessionModel.schema.path("instructor"));
+  assert.equal(session.instructor, "");
+});

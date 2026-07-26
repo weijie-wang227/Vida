@@ -45,6 +45,7 @@ type ScheduledSessionInput = {
   linkedChatId?: unknown;
   session: {
     title: string;
+    instructor: string;
     startsAt: Date;
     duration: number;
     spots: number;
@@ -156,6 +157,7 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
           mockId: await nextMockId(SessionModel, dbSession),
           activity: input.activityId,
           title: input.session.title,
+          instructor: input.session.instructor,
           startsAt: input.session.startsAt,
           duration: input.session.duration,
           spots: input.session.spots,

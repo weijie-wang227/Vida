@@ -171,6 +171,7 @@ private fun ActivityDetailContent(
                         onVendorClick = { showVendor = true },
                         onToggleFavorite = onToggleFavorite,
                     )
+                    ActivityPaymentSummary(activity)
                     FriendsCard(
                         friends = activity.participatingFriends,
                         description = activity.description.ifBlank {
@@ -484,6 +485,57 @@ private fun ActivityTitleBlock(
 }
 
 @Composable
+private fun ActivityPaymentSummary(activity: ActivityDetails) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "ACTIVITY PAYMENT",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 1.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = formatCredits(activity.credits),
+                modifier = Modifier.padding(top = 7.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            if (activity.isPremium || activity.skillsFuturePayable) {
+                FlowRow(
+                    modifier = Modifier.padding(top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (activity.isPremium) {
+                        DetailPill(
+                            icon = Icons.Rounded.Star,
+                            label = "Premium",
+                            color = Color(0xFFB47A00),
+                        )
+                    }
+                    if (activity.skillsFuturePayable) {
+                        DetailPill(
+                            icon = Icons.Rounded.WorkspacePremium,
+                            label = "SkillsFuture payable",
+                            color = Color(0xFF238B57),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CategoryPill(category: String) {
     DetailPill(
         icon = categoryIcon(category),
@@ -648,7 +700,6 @@ private fun AvailableSessions(
                 SessionCard(
                     session = session,
                     fallbackTitle = activity.title,
-                    credits = activity.credits,
                     joined = session.participatingFriends.any {
                         it.handle.equals(currentUserHandle, ignoreCase = true)
                     },
@@ -686,7 +737,6 @@ private fun MessageCard(
 private fun SessionCard(
     session: ActivitySession,
     fallbackTitle: String,
-    credits: Double,
     joined: Boolean,
     isJoining: Boolean,
     joinEnabled: Boolean,
@@ -742,12 +792,6 @@ private fun SessionCard(
                         )
                     }
                 }
-                Text(
-                    text = formatCredits(credits),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                )
             }
             Row(
                 modifier = Modifier
