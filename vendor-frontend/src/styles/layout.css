@@ -1794,10 +1794,62 @@
   padding: 0;
 }
 
-.tag-fieldset > div {
+.tags-dropdown {
+  position: relative;
+}
+
+.tags-dropdown__trigger {
+  min-height: 42px;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  padding: 0 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.tags-dropdown__trigger::-webkit-details-marker {
+  display: none;
+}
+
+.tags-dropdown__trigger::after {
+  content: "⌄";
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  transform: translateY(-2px);
+}
+
+.tags-dropdown[open] .tags-dropdown__trigger {
+  border-color: rgba(101, 119, 255, 0.55);
+}
+
+.tags-dropdown[open] .tags-dropdown__trigger::after {
+  transform: rotate(180deg) translateY(-2px);
+}
+
+.tags-dropdown__menu {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
   gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 12px 24px rgba(20, 29, 58, 0.14);
+  padding: 10px;
 }
 
 .tag-fieldset > p {
@@ -1809,7 +1861,7 @@
 
 .activity-form .tag-option {
   min-height: 36px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line);
@@ -1817,6 +1869,7 @@
   background: var(--surface-soft);
   padding: 0 12px;
   color: var(--muted);
+  cursor: pointer;
   font-size: 0.78rem;
   font-weight: 800;
 }

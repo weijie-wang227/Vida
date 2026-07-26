@@ -262,25 +262,34 @@ export function CreateActivityPage({
             ) : availableTags.length === 0 ? (
               <p>No tags are available.</p>
             ) : (
-              <div>
-                {availableTags.map((tag) => (
-                  <label
-                    key={tag.id}
-                    className={
-                      selectedTagIds.includes(tag.id)
-                        ? "tag-option tag-option--active"
-                        : "tag-option"
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedTagIds.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
-                    />
-                    <span>{tag.name}</span>
-                  </label>
-                ))}
-              </div>
+              <details className="tags-dropdown">
+                <summary className="tags-dropdown__trigger">
+                  <span>
+                    {selectedTagIds.length > 0
+                      ? `${selectedTagIds.length} tag${selectedTagIds.length === 1 ? "" : "s"} selected`
+                      : "Select tags"}
+                  </span>
+                </summary>
+                <div className="tags-dropdown__menu">
+                  {availableTags.map((tag) => (
+                    <label
+                      key={tag.id}
+                      className={
+                        selectedTagIds.includes(tag.id)
+                          ? "tag-option tag-option--active"
+                          : "tag-option"
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTagIds.includes(tag.id)}
+                        onChange={() => toggleTag(tag.id)}
+                      />
+                      <span>{tag.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
             )}
           </fieldset>
 
