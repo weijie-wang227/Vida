@@ -35,6 +35,7 @@ import {
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import {
   AnnouncementPayloadError,
+  canPublishAnnouncementToSession,
   normalizeAnnouncementPoll,
 } from "../announcements.js";
 
@@ -80,6 +81,17 @@ async function findSessionByRouteId(sessionId: string, extraFilter = {}) {
       populate: [{ path: "host" }, { path: "tags" }],
     })
     .populate("chat");
+}
+
+function rejectInactiveAnnouncementSession(res: any, session: any) {
+  if (canPublishAnnouncementToSession(asObject(session))) {
+    return false;
+  }
+
+  res.status(409).json({
+    message: "Announcements can only be published to active sessions.",
+  });
+  return true;
 }
 
 async function getParticipatingUsersBySessionId(sessionId: unknown) {
@@ -445,6 +457,7 @@ router.post("/", requireAuth, async (req, res, next) => {
     const operation = await createScheduledSession({
       userId: user._id,
       activityId: activity._id,
+      activityTitle: activity.title,
       linkedChatId: linkedChat?._id,
       session: {
         instructor: sessionPayload.instructor,
@@ -544,6 +557,10 @@ router.post("/:id/announcements", requireAuth, async (req, res, next) => {
       return;
     }
 
+    if (rejectInactiveAnnouncementSession(res, session)) {
+      return;
+    }
+
     const content = getString(req.body?.content);
 
     if (!content) {
@@ -585,6 +602,10 @@ router.post("/:id/announcements/polls", requireAuth, async (req, res, next) => {
         message:
           "Only the vendor managing this session can create announcement polls.",
       });
+      return;
+    }
+
+    if (rejectInactiveAnnouncementSession(res, session)) {
       return;
     }
 

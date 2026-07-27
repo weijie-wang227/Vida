@@ -1,6 +1,5 @@
 export * from "./activities";
 export * from "./auth";
-export * from "./chats";
 export * from "./client";
 export * from "./locationSearch";
 export * from "./tags";

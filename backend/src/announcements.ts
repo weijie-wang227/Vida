@@ -18,6 +18,12 @@ export class AnnouncementPayloadError extends Error {
   }
 }
 
+export function canPublishAnnouncementToSession(
+  session: { isActive?: boolean } | null | undefined,
+) {
+  return session?.isActive !== false;
+}
+
 function requiredText(
   value: unknown,
   field: string,

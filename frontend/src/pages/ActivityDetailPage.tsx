@@ -53,11 +53,20 @@ function getSessionRouteId(session: ActivitySession) {
   return Number.isInteger(sessionId) ? sessionId : null;
 }
 
+function isSameHandle(firstHandle: string, secondHandle: string) {
+  return (
+    firstHandle.localeCompare(secondHandle, undefined, {
+      sensitivity: "accent",
+    }) === 0
+  );
+}
+
 export function ActivityDetailPage() {
   const {
     joinActivity,
     favoriteActivityIds,
     favoriteMutationIds,
+    groupChats,
     isLoading,
     premiumActivities,
     profile,
@@ -159,14 +168,20 @@ export function ActivityDetailPage() {
 
   const handleJoinSession = async (session: ActivitySession) => {
     const sessionId = getSessionRouteId(session);
-    const joined = (session.participatingFriends ?? []).some(
-      (friend) => friend.handle === profile.handle,
-    );
+    const sessionGroupId = Number(session.groupId);
+    const joinedGroup = Number.isInteger(sessionGroupId)
+      ? groupChats.find((group) => group.id === sessionGroupId)
+      : undefined;
+    const joined =
+      Boolean(joinedGroup) ||
+      (session.participatingFriends ?? []).some((friend) =>
+        isSameHandle(friend.handle, profile.handle),
+      );
 
     setJoinError(null);
 
-    if (joined && session.groupId) {
-      navigate(`/groups/${session.groupId}`);
+    if (joinedGroup) {
+      navigate(`/groups/${joinedGroup.id}`);
       return;
     }
 
@@ -385,6 +400,26 @@ export function ActivityDetailPage() {
             )}
           </div>
 
+          <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              About this activity
+            </p>
+            <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+              {activity.description?.trim() ||
+                "No activity description has been provided."}
+            </p>
+            {activity.suitability?.trim() && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Suitability
+                </p>
+                <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+                  {activity.suitability}
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="mt-4 rounded-2xl bg-card p-4 border border-border">
             <div className="flex items-center justify-between">
               <div>
@@ -402,10 +437,6 @@ export function ActivityDetailPage() {
               </div>
               */}
             </div>
-            <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
-              A small-group activity for meeting nearby friends and enjoying
-              Singapore at an easy pace.
-            </p>
           </div>
 
           <div className="mt-4 pb-6">
@@ -443,9 +474,13 @@ export function ActivityDetailPage() {
                     Number(session.spots ?? 0) -
                       Number(session.registeredCount ?? 0),
                   );
-                  const joined = sessionFriends.some(
-                    (friend) => friend.handle === profile.handle,
-                  );
+                  const sessionGroupId = Number(session.groupId);
+                  const joined =
+                    (Number.isInteger(sessionGroupId) &&
+                      groupChats.some((group) => group.id === sessionGroupId)) ||
+                    sessionFriends.some((friend) =>
+                      isSameHandle(friend.handle, profile.handle),
+                    );
                   const isJoining = joiningSessionId === sessionId;
 
                   return (

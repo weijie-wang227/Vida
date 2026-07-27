@@ -22,7 +22,7 @@ import {
   convertCreditsToDollars,
   getCreditsToDollarsRate,
 } from "../utils/finance.js";
-import { formatSessionDateTime } from "../utils/date.js";
+import { formatSessionChatName } from "../utils/date.js";
 
 export class SessionOperationError extends Error {
   constructor(
@@ -38,6 +38,7 @@ export class SessionOperationError extends Error {
 type ScheduledSessionInput = {
   userId: unknown;
   activityId: unknown;
+  activityTitle: string;
   linkedChatId?: unknown;
   session: {
     instructor: string;
@@ -107,7 +108,10 @@ async function findEligibleAccount(
 
 export async function createScheduledSession(input: ScheduledSessionInput) {
   return mongoose.connection.transaction(async (dbSession) => {
-    const sessionLabel = formatSessionDateTime(input.session.startsAt);
+    const chatName = formatSessionChatName(
+      input.activityTitle,
+      input.session.startsAt,
+    );
     const chat = input.linkedChatId
       ? await ChatModel.findById(input.linkedChatId).session(dbSession)
       : (
@@ -115,9 +119,9 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
             [
               {
                 mockId: await nextMockId(ChatModel, dbSession),
-                name: sessionLabel,
+                name: chatName,
                 avatar: `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
-                  sessionLabel,
+                  chatName,
                 )}`,
                 members: [],
                 lastMessage: "",

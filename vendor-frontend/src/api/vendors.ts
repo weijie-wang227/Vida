@@ -3,7 +3,6 @@ import type {
   UpdateVolunteerApplicationResponse,
   VolunteerOverviewResponse,
   VolunteerRosterResponse,
-  VendorChatsResponse,
   VendorFinanceActivityResponse,
   VendorFinanceResponse,
   VendorResponse,
@@ -23,12 +22,6 @@ export type UpdateVendorProfileInput = {
 
 export function fetchMyVendor() {
   return apiRequest<VendorResponse>("/vendors/me");
-}
-
-export function fetchVendorChats() {
-  return apiRequest<VendorChatsResponse>("/vendors/me/chats").then(
-    (response) => response.chats,
-  );
 }
 
 export function fetchVendorUsersPageStats() {
