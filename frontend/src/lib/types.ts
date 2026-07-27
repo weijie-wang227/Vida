@@ -17,6 +17,7 @@ export type VendorStats = {
 export type AvailableTag = {
   id: string;
   name: string;
+  imageUrl?: string;
 };
 
 export type VendorActivity = {
@@ -44,7 +45,6 @@ export type VendorSession = {
   location: string;
   durationMinutes: number;
   spots: number;
-  credits: number;
   isPremium: boolean;
   skillsFuturePayable: boolean;
   isOpen: boolean;
@@ -71,7 +71,6 @@ export type ActivitySession = {
   spots: number;
   registeredCount: number;
   attendedCount: number;
-  credits: number;
   groupId?: number;
   chat?: string;
   isPremium: boolean;
@@ -112,7 +111,6 @@ export type Activity = {
   lng?: number;
   durationMinutes: number;
   duration?: number;
-  spots: number;
   registeredCount: number;
   attendedCount: number;
   credits: number;
@@ -284,6 +282,7 @@ export type FeedLikeResponse = {
 
 export type GroupChat = {
   id: number;
+  sessionId?: string;
   name: string;
   members: number;
   memberList?: GroupMember[];
@@ -350,6 +349,31 @@ export type ChatMessage =
   | (ChatMessageBase & {
       type: "poll";
       payload: ChatPoll;
+    });
+
+type AnnouncementBase = {
+  id: string;
+  sessionId: string;
+  content: string;
+  createdAt: string;
+};
+
+export type Announcement =
+  | (AnnouncementBase & {
+      type: "message";
+    })
+  | (AnnouncementBase & {
+      type: "poll";
+      poll: {
+        options: Array<{
+          id: string;
+          label: string;
+          votes: number;
+          selected: boolean;
+        }>;
+        allowsMultiple: false;
+        totalVotes: number;
+      };
     });
 
 export type JoinActivityResponse = {
@@ -421,6 +445,8 @@ export type SettingsPreferences = {
   friendDiscovery: boolean;
   privateActivityHistory: boolean;
 };
+
+export type RemoteSettingsPreferences = Omit<SettingsPreferences, "appearance">;
 
 export type HandleAvailability = {
   handle: string;

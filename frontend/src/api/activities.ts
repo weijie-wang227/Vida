@@ -21,6 +21,30 @@ export async function fetchActivities() {
   return apiRequest<Activity[]>("/activities");
 }
 
+export async function fetchActivityCollection(collection: string) {
+  return apiRequest<Activity[]>(
+    `/activities/collections/${encodeURIComponent(collection)}`,
+  );
+}
+
+export async function fetchFavoriteActivities() {
+  return apiRequest<Activity[]>("/activities/favourites");
+}
+
+export async function addFavoriteActivity(activityId: ActivityId) {
+  return apiRequest<{ activityId: ActivityId; favourited: true }>(
+    `/activities/favourites/add/${activityId}`,
+    { method: "POST" },
+  );
+}
+
+export async function removeFavoriteActivity(activityId: ActivityId) {
+  return apiRequest<{ activityId: ActivityId; favourited: false }>(
+    `/activities/favourites/delete/${activityId}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function fetchActivity(activityId: ActivityId) {
   return apiRequest<Activity>(`/activities/${activityId}`);
 }

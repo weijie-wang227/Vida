@@ -20,6 +20,16 @@ const ActivityReviewPage = lazy(() =>
     default: module.ActivityReviewPage,
   })),
 );
+const ActivityCollectionPage = lazy(() =>
+  import("../pages/ActivityCollectionPage").then((module) => ({
+    default: module.ActivityCollectionPage,
+  })),
+);
+const FavoritedActivitiesPage = lazy(() =>
+  import("../pages/FavoritedActivitiesPage").then((module) => ({
+    default: module.FavoritedActivitiesPage,
+  })),
+);
 const ActivityCalendarPage = lazy(() =>
   import("../pages/ActivityCalendarPage").then((module) => ({
     default: module.ActivityCalendarPage,
@@ -58,6 +68,8 @@ export function AppShell() {
   const [nextPortionIndex, setNextPortionIndex] = useState(0);
   const hasFullScreenView =
     location.pathname === "/activities/calendar" ||
+    location.pathname === "/activities/favorited" ||
+    /^\/activities\/collections\/[^/]+$/.test(location.pathname) ||
     /^\/activities\/[^/]+$/.test(location.pathname) ||
     /^\/groups\/[^/]+$/.test(location.pathname) ||
     location.pathname === "/settings";
@@ -94,6 +106,14 @@ export function AppShell() {
             <Routes>
               <Route path="/" element={<Navigate to="/activities" replace />} />
               <Route path="/activities" element={<ActivitiesPage />} />
+              <Route
+                path="/activities/favorited"
+                element={<FavoritedActivitiesPage />}
+              />
+              <Route
+                path="/activities/collections/:collection"
+                element={<ActivityCollectionPage />}
+              />
               <Route
                 path="/activities/calendar"
                 element={<ActivityCalendarPage />}

@@ -58,11 +58,19 @@ export function markRecentActivityId(
 }
 
 export function upsertGroup(items: GroupChat[], group: GroupChat) {
-  const existing = items.some((item) => item.id === group.id);
+  const existing = items.find((item) => item.id === group.id);
 
   if (!existing) {
     return [group, ...items];
   }
 
-  return items.map((item) => (item.id === group.id ? group : item));
+  return items.map((item) =>
+    item.id === group.id
+      ? {
+          ...item,
+          ...group,
+          sessionId: group.sessionId ?? item.sessionId,
+        }
+      : item,
+  );
 }
