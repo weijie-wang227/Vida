@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { fetchActivity } from "../api";
 import { ActivityCategoryIndicators } from "../components/ActivityCategoryIndicators";
+import { ActivityImageGallery } from "../components/ActivityImageGallery";
 import { FriendAvatars } from "../components/FriendAvatars";
 import { VendorProfileDialog } from "../components/VendorProfileDialog";
 import {
@@ -74,6 +75,7 @@ export function ActivityDetailPage() {
   const [joiningSessionId, setJoiningSessionId] = useState<number | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
+  const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
   const activities: Activity[] = [...premiumActivities, ...standardActivities];
   const routeActivityId = parseActivityId(activityId);
   const listedActivity = getActivityById(activities, routeActivityId);
@@ -250,18 +252,30 @@ export function ActivityDetailPage() {
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
         {cover ? (
           <div className="relative mx-4 h-52 overflow-hidden rounded-2xl bg-secondary">
-            <img
-              src={cover}
-              alt={activity.title}
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <button
+              type="button"
+              onClick={() => setImageGalleryOpen(true)}
+              className="h-full w-full"
+              aria-label={`Open ${activity.title} image gallery`}
+            >
+              <img
+                src={cover}
+                alt={activity.title}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            </button>
             {activity.isPremium && (
-              <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
+              <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
                 <Star size={10} fill="var(--brand-yellow)" stroke="none" />
                 <span className="text-[10px] font-bold text-accent">
                   Premium
                 </span>
+              </div>
+            )}
+            {activity.imageUrls.length > 1 && (
+              <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+                1 / {activity.imageUrls.length}
               </div>
             )}
           </div>
@@ -501,6 +515,12 @@ export function ActivityDetailPage() {
         open={vendorDialogOpen}
         onOpenChange={setVendorDialogOpen}
         vendor={activity.vendor ?? null}
+      />
+      <ActivityImageGallery
+        images={activity.imageUrls}
+        title={activity.title}
+        open={imageGalleryOpen}
+        onOpenChange={setImageGalleryOpen}
       />
     </div>
   );
