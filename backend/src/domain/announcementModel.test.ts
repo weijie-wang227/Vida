@@ -6,6 +6,7 @@ import {
 } from "../models/VidaData.js";
 import {
   AnnouncementPayloadError,
+  canPublishAnnouncementToSession,
   normalizeAnnouncementPoll,
 } from "../announcements.js";
 
@@ -72,4 +73,10 @@ test("announcement votes store one replaceable ballot per user and poll", () => 
     AnnouncementVoteModel.schema.path("optionId") !== undefined,
     true,
   );
+});
+
+test("announcements can only be published to active sessions", () => {
+  assert.equal(canPublishAnnouncementToSession({ isActive: true }), true);
+  assert.equal(canPublishAnnouncementToSession({}), true);
+  assert.equal(canPublishAnnouncementToSession({ isActive: false }), false);
 });

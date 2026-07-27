@@ -102,6 +102,7 @@ export type Activity = {
   activityObjectId?: string;
   title: string;
   description?: string;
+  suitability?: string;
   host: string;
   startsAt: string;
   location: string;

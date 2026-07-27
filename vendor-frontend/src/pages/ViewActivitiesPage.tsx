@@ -33,9 +33,10 @@ function getSessionRouteId(session: Session) {
 }
 
 function getSessionDetailsPath(session: Session) {
-  return `/activities/${getActivityRouteId(session.activity)}/sessions/${getSessionRouteId(
-    session,
-  )}`;
+  const activityId =
+    session.activity?.mockId ?? session.activityMockId ?? session.activityId;
+
+  return `/activities/${activityId}/sessions/${getSessionRouteId(session)}`;
 }
 
 function getSessionAttendancePath(session: Session) {

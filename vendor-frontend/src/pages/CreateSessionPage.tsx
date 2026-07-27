@@ -200,7 +200,6 @@ export function CreateSessionPage({
       setLocationSearchQuery("");
       setLatitude("");
       setLongitude("");
-      setDurationMinutes("60");
       setSpots("10");
     } catch (submissionError) {
       setLocalError(

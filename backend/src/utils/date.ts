@@ -19,3 +19,12 @@ export function formatSessionDateTime(value: unknown) {
     timeZone: "Asia/Singapore",
   }).format(date);
 }
+
+export function formatSessionChatName(
+  activityTitle: unknown,
+  startsAt: unknown,
+) {
+  const title = String(activityTitle ?? "").trim() || "Activity";
+
+  return `${title} • ${formatSessionDateTime(startsAt)}`;
+}

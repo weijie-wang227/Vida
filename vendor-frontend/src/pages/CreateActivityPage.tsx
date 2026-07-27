@@ -35,6 +35,8 @@ type SelectedActivityImage = {
   previewUrl: string;
 };
 const maxActivityImages = 5;
+const createEmptyActivityImageSlots = () =>
+  Array<SelectedActivityImage | null>(maxActivityImages).fill(null);
 
 export function CreateActivityPage({
   vendor,
@@ -58,9 +60,9 @@ export function CreateActivityPage({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [tagLoadError, setTagLoadError] = useState<string | null>(null);
-  const [activityImages, setActivityImages] = useState<SelectedActivityImage[]>(
-    [],
-  );
+  const [activityImages, setActivityImages] = useState<
+    Array<SelectedActivityImage | null>
+  >(createEmptyActivityImageSlots);
   const activityImagesRef = useRef(activityImages);
   const [selectedCategories, setSelectedCategories] = useState<VidaCategory[]>(
     [],
@@ -72,6 +74,12 @@ export function CreateActivityPage({
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("free");
   const [localError, setLocalError] = useState<string | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const selectedActivityImages = activityImages.filter(
+    (image): image is SelectedActivityImage => image !== null,
+  );
+  const primaryActivityImageIndex = activityImages.findIndex(
+    (image) => image !== null,
+  );
   const selectedTagNames = availableTags
     .filter((tag) => selectedTagIds.includes(tag.id))
     .map((tag) => tag.name);
@@ -82,9 +90,11 @@ export function CreateActivityPage({
 
   useEffect(() => {
     return () => {
-      activityImagesRef.current.forEach(({ previewUrl }) =>
-        URL.revokeObjectURL(previewUrl),
-      );
+      activityImagesRef.current.forEach((image) => {
+        if (image) {
+          URL.revokeObjectURL(image.previewUrl);
+        }
+      });
     };
   }, []);
 
@@ -138,41 +148,52 @@ export function CreateActivityPage({
     );
   };
 
-  const selectActivityImages = (files: FileList | null) => {
-    const selectedFiles = Array.from(files ?? []);
-    if (activityImages.length + selectedFiles.length > maxActivityImages) {
-      setLocalError(
-        `You can upload up to ${maxActivityImages} activity images.`,
-      );
+  const selectActivityImage = (index: number, files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) {
       return;
     }
 
-    setActivityImages((current) => [
-      ...current,
-      ...selectedFiles.map((file) => ({
-        file,
-        previewUrl: URL.createObjectURL(file),
-      })),
-    ]);
+    const selectedImage = {
+      file,
+      previewUrl: URL.createObjectURL(file),
+    };
+
+    setActivityImages((current) => {
+      const existingImage = current[index];
+      if (existingImage) {
+        URL.revokeObjectURL(existingImage.previewUrl);
+      }
+
+      return current.map((image, imageIndex) =>
+        imageIndex === index ? selectedImage : image,
+      );
+    });
     setLocalError(null);
   };
 
-  const removeActivityImage = (previewUrl: string) => {
-    URL.revokeObjectURL(previewUrl);
+  const removeActivityImage = (index: number) => {
     setActivityImages((current) =>
-      current.filter((image) => image.previewUrl !== previewUrl),
+      current.map((image, imageIndex) => {
+        if (imageIndex !== index || !image) {
+          return image;
+        }
+
+        URL.revokeObjectURL(image.previewUrl);
+        return null;
+      }),
     );
   };
 
   const resetForm = () => {
-    activityImages.forEach(({ previewUrl }) =>
+    selectedActivityImages.forEach(({ previewUrl }) =>
       URL.revokeObjectURL(previewUrl),
     );
     setTitle("");
     setDescription("");
     setSuitability("");
     setSelectedTagIds([]);
-    setActivityImages([]);
+    setActivityImages(createEmptyActivityImageSlots());
     setSelectedCategories([]);
     setIsVolunteer(searchParams.get("volunteer") === "true");
     setCredits("0");
@@ -219,9 +240,11 @@ export function CreateActivityPage({
 
     try {
       setIsUploadingImages(true);
-      if (activityImages.length > 0) {
+      if (selectedActivityImages.length > 0) {
         payload.imageUrls = await Promise.all(
-          activityImages.map(({ file }) => uploadImageToR2(file, "activities")),
+          selectedActivityImages.map(({ file }) =>
+            uploadImageToR2(file, "activities"),
+          ),
         );
       }
 
@@ -345,45 +368,66 @@ export function CreateActivityPage({
             />
           </label>
 
-          <label className="activity-form__wide activity-cover-field">
+          <div className="activity-form__wide activity-cover-field">
             <span>
               <Image size={15} />
-              Activity Images ({activityImages.length}/{maxActivityImages})
+              Activity Images ({selectedActivityImages.length}/{maxActivityImages})
             </span>
-            {activityImages.length > 0 ? (
-              <div className="activity-image-previews">
-                {activityImages.map(({ file, previewUrl }, index) => (
-                  <figure key={previewUrl}>
-                    <img src={previewUrl} alt={`${file.name} preview`} />
-                    <button
-                      type="button"
-                      className="secondary-action"
-                      onClick={() => removeActivityImage(previewUrl)}
-                    >
-                      Remove
-                    </button>
-                    {index === 0 && <small>Primary image</small>}
-                  </figure>
-                ))}
-              </div>
-            ) : (
-              <div className="activity-image-empty">No images selected</div>
-            )}
-            <input
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp"
-              disabled={activityImages.length >= maxActivityImages}
-              onChange={(event) => {
-                selectActivityImages(event.target.files);
-                event.currentTarget.value = "";
-              }}
-            />
+            <div className="activity-image-slots">
+              {Array.from({ length: maxActivityImages }, (_, index) => {
+                const image = activityImages[index];
+
+                return (
+                  <label className="activity-image-slot" key={index}>
+                    <input
+                      type="file"
+                      className="activity-image-slot__input"
+                      accept="image/png,image/jpeg,image/webp"
+                      aria-label={`Upload activity image ${index + 1}`}
+                      onChange={(event) => {
+                        selectActivityImage(index, event.target.files);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    {image ? (
+                      <>
+                        <img
+                          className="activity-image-slot__preview"
+                          src={image.previewUrl}
+                          alt={`${image.file.name} preview`}
+                        />
+                        {index === primaryActivityImageIndex && (
+                          <small className="activity-image-slot__primary">
+                            Primary image
+                          </small>
+                        )}
+                        <button
+                          type="button"
+                          className="secondary-action activity-image-slot__remove"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            removeActivityImage(index);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <span className="activity-image-slot__prompt">
+                        <Image size={20} />
+                        Add image
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
             <small>
-              Select up to five PNG, JPEG, or WebP images. The first image is
-              used as the primary image.
+              Click a box to add or replace a PNG, JPEG, or WebP image. The
+              first image is used as the primary image.
             </small>
-          </label>
+          </div>
 
           <fieldset className="activity-form__wide category-fieldset">
             <legend>Categories</legend>

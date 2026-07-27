@@ -4,6 +4,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   Edit3,
@@ -142,7 +143,7 @@ export function TopBar({
 
     try {
       const profileUrl = editProfileFile
-        ? await uploadImageToR2(editProfileFile, "vendor")
+        ? await uploadImageToR2(editProfileFile, "vendors")
         : vendor?.profileUrl ?? "";
 
       await onUpdateVendorProfile({
@@ -221,9 +222,18 @@ export function TopBar({
         </button>
       </div>
 
-      {isEditProfileOpen && (
-        <div className="vendor-modal" role="dialog" aria-modal="true">
-          <div className="vendor-modal__panel">
+      {isEditProfileOpen &&
+        createPortal(
+          <div
+            className="vendor-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={closeEditProfile}
+          >
+            <div
+              className="vendor-modal__panel"
+              onClick={(event) => event.stopPropagation()}
+            >
             <div className="vendor-modal__header">
               <div>
                 <span>Edit Profile</span>
@@ -301,9 +311,10 @@ export function TopBar({
                 Save Profile
               </button>
             </form>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }

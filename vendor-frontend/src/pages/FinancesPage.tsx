@@ -67,7 +67,7 @@ export function FinancesPage() {
     );
   }
 
-  if (error || !selectedPeriod) {
+  if (error || !finance || !selectedPeriod) {
     return (
       <div className="dashboard__main dashboard__main--full finances-page">
         <Card className="finance-error-card">

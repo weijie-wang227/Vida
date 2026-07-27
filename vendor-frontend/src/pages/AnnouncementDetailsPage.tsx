@@ -66,6 +66,8 @@ export function AnnouncementDetailsPage() {
 
     setIsLoading(true);
     setError(null);
+    setSession(null);
+    setAnnouncements([]);
 
     Promise.all([
       fetchVendorAnnouncementSessions(),
@@ -76,10 +78,17 @@ export function AnnouncementDetailsPage() {
           return;
         }
 
-        setSession(
-          sessions.find((item) => item.session.id === sessionId) ?? null,
-        );
+        const activeSession =
+          sessions.find((item) => item.session.id === sessionId) ?? null;
+
+        setSession(activeSession);
         setAnnouncements(announcementRows);
+
+        if (!activeSession) {
+          setError(
+            "Announcements can only be managed for an active vendor session.",
+          );
+        }
       })
       .catch((loadError) => {
         if (active) {
@@ -105,7 +114,7 @@ export function AnnouncementDetailsPage() {
     event.preventDefault();
     const content = draft.trim();
 
-    if (!content || !sessionId) {
+    if (!content || !sessionId || !session) {
       return;
     }
 
@@ -141,7 +150,7 @@ export function AnnouncementDetailsPage() {
     const nextQuestion = question.trim();
     const nextOptions = options.map((option) => option.trim()).filter(Boolean);
 
-    if (!nextQuestion || nextOptions.length < 2 || !sessionId) {
+    if (!nextQuestion || nextOptions.length < 2 || !sessionId || !session) {
       setError("Enter a question and at least two options.");
       return;
     }
@@ -176,6 +185,31 @@ export function AnnouncementDetailsPage() {
           <div className="empty-state empty-state--compact">
             <Loader2 size={20} className="spin" />
             <span>Loading announcements</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="dashboard__main dashboard__main--full vendor-chat-detail-page">
+        <button
+          type="button"
+          className="back-button"
+          onClick={() => navigate("/announcements")}
+        >
+          <ArrowLeft size={16} /> Back to announcements
+        </button>
+
+        <Card>
+          <div className="empty-state">
+            <Megaphone size={26} />
+            <strong>Announcements unavailable</strong>
+            <span>
+              {error ??
+                "Choose an active session from the announcements page."}
+            </span>
           </div>
         </Card>
       </div>
@@ -242,10 +276,12 @@ export function AnnouncementDetailsPage() {
                     className="vendor-message vendor-message--poll"
                     key={announcement.id}
                   >
-                    <span className="vendor-message__kind">
-                      <BarChart3 size={14} /> Poll
-                    </span>
-                    <h3>{announcement.content}</h3>
+                    <h3>
+                      <span className="vendor-message__kind">
+                        <BarChart3 size={14} /> Poll
+                      </span>{" "}
+                      {announcement.content}
+                    </h3>
                     <div className="vendor-poll-results">
                       {announcement.poll.options.map((option) => {
                         const percentage =

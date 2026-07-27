@@ -270,36 +270,6 @@ export type DeleteVendorSessionResponse = {
   deletedParticipationCount: number;
 };
 
-export type VendorChat = {
-  id: string;
-  mockId: number;
-  name: string;
-  avatar: string;
-  memberCount: number;
-  lastMessage: string;
-  updatedAt: string;
-  session: {
-    id: string;
-    mockId: string;
-    title: string;
-    startsAt: string;
-    location: string;
-    registeredCount: number;
-    spots: number;
-    isOpen: boolean;
-    isActive: boolean;
-  };
-  activity: {
-    id: string;
-    mockId: number;
-    title: string;
-  };
-};
-
-export type VendorChatsResponse = {
-  chats: VendorChat[];
-};
-
 export type VendorAnnouncementSession = {
   id: string;
   mockId: string;
@@ -354,73 +324,6 @@ export type Announcement =
 
 export type CreateAnnouncementResponse = {
   announcement: Announcement;
-};
-
-type VendorChatMessageBase = {
-  id: string;
-  groupId: number;
-  schemaVersion: number;
-  sender: {
-    id: string;
-    name: string;
-    handle: string;
-    avatar: string;
-    isAdmin: boolean;
-  };
-  time: string;
-  createdAt: string;
-};
-
-export type VendorChatMessage =
-  | (VendorChatMessageBase & {
-      type: "text";
-      payload: { text: string };
-    })
-  | (VendorChatMessageBase & {
-      type: "activity_invite";
-      payload: {
-        activity: {
-          id: number | string;
-          title: string;
-          startsAt: string;
-          location: string;
-          durationMinutes: number;
-          credits: number;
-          categories: VidaCategory[];
-        };
-        session: { id: number | string; objectId: string };
-        participatingFriends: Array<{
-          id: number | string;
-          name: string;
-          handle: string;
-          avatar: string;
-        }>;
-      };
-    })
-  | (VendorChatMessageBase & {
-      type: "poll";
-      payload: {
-        question: string;
-        options: Array<{
-          id: string;
-          label: string;
-          votes: number;
-          selected: boolean;
-        }>;
-        allowsMultiple: false;
-        totalVotes: number;
-      };
-    });
-
-export type CreateVendorChatMessageResponse = {
-  message: VendorChatMessage;
-};
-
-export type VendorChatProfileActivity = {
-  id: number | string;
-  title: string;
-  location: string;
-  startsAt?: string;
 };
 
 export type AttendanceStatus =

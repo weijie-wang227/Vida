@@ -99,7 +99,7 @@ export function CreateVendorPage({
 
     try {
       const profileUrl = profileImage
-        ? await uploadImageToR2(profileImage, "vendor")
+        ? await uploadImageToR2(profileImage, "vendors")
         : "";
 
       await onCreate({ name, profileUrl, description });
