@@ -1717,41 +1717,53 @@
   gap: 7px;
 }
 
-.activity-cover-field .activity-image-empty {
-  width: 100%;
-  height: 180px;
-  display: grid;
-  place-items: center;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.activity-image-previews {
+.activity-image-slots {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 
-.activity-image-previews figure {
+.activity-image-slot {
   position: relative;
   display: grid;
-  gap: 8px;
-  margin: 0;
-}
-
-.activity-image-previews img {
   width: 100%;
   height: 140px;
-  border: 1px solid var(--line);
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed var(--line);
   border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.activity-image-slot:focus-within {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+}
+
+.activity-image-slot__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.activity-image-slot__prompt {
+  display: grid;
+  gap: 5px;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.activity-image-slot__preview {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
-.activity-image-previews small {
+.activity-image-slot__primary {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -1763,8 +1775,10 @@
   font-weight: 800;
 }
 
-.activity-image-previews .secondary-action {
-  justify-self: start;
+.activity-image-slot__remove {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
 }
 
 .activity-details__images {
