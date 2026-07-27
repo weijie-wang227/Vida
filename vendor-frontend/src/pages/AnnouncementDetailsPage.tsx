@@ -242,10 +242,7 @@ export function AnnouncementDetailsPage() {
                     className="vendor-message vendor-message--poll"
                     key={announcement.id}
                   >
-                    <span className="vendor-message__kind">
-                      <BarChart3 size={14} /> Poll
-                    </span>
-                    <h3>{announcement.content}</h3>
+                    <h3><span className="vendor-message__kind"><BarChart3 size={14} /> Poll</span> {announcement.content}</h3>
                     <div className="vendor-poll-results">
                       {announcement.poll.options.map((option) => {
                         const percentage =
