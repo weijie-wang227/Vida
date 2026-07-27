@@ -1,22 +1,99 @@
-import { Clock, Heart, MapPin, Star } from "lucide-react";
-import { ActivityCategoryIndicators } from "./ActivityCategoryIndicators";
-import { FriendAvatars } from "./FriendAvatars";
+import { Clock3, Heart, MapPin, Mountain, Star } from "lucide-react";
+import type { ReactNode } from "react";
 import {
-  categoriesForActivity,
-  categoryIcon,
   formatActivityDate,
   formatActivityTime,
   formatCredits,
-  primaryActivityCategory,
-  vidaCategoryColor,
 } from "../lib/activityPresentation";
 import type { Activity } from "../lib/types";
 import { useAppState } from "../state";
 
+function ActivityImage({
+  activity,
+  className,
+}: {
+  activity: Activity;
+  className: string;
+}) {
+  const cover = activity.imageUrls[0];
+
+  return (
+    <div
+      className={`flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#dbe7ff] to-[#b7c9f2] ${className}`}
+    >
+      {cover ? (
+        <img
+          src={cover}
+          alt={activity.title}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <Mountain size={34} className="text-[#2852a4]/75" />
+      )}
+    </div>
+  );
+}
+
+function FavoriteButton({
+  activity,
+  className = "",
+  onChanged,
+}: {
+  activity: Activity;
+  className?: string;
+  onChanged?: (favorited: boolean) => void;
+}) {
+  const {
+    favoriteActivityIds,
+    favoriteMutationIds,
+    toggleFavoriteActivity,
+  } = useAppState();
+  const favorited = favoriteActivityIds.has(activity.id);
+  const updating = favoriteMutationIds.has(activity.id);
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        void toggleFavoriteActivity(activity.id)
+          .then(() => onChanged?.(!favorited))
+          .catch(() => undefined);
+      }}
+      disabled={updating}
+      className={`flex items-center justify-center rounded-full transition active:scale-90 disabled:opacity-50 ${className}`}
+      aria-label={
+        favorited
+          ? `Remove ${activity.title} from favorites`
+          : `Add ${activity.title} to favorites`
+      }
+    >
+      <Heart
+        size={19}
+        fill={favorited ? "#e24d6a" : "none"}
+        stroke={favorited ? "#e24d6a" : "#2852a4"}
+      />
+    </button>
+  );
+}
+
+function ActivityMeta({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof MapPin;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+      <Icon size={13} className="flex-shrink-0" />
+      <span className="truncate">{children}</span>
+    </div>
+  );
+}
+
 export function PremiumCard({ activity }: { activity: Activity }) {
-  const { likedActivityIds, openActivity, toggleActivityLike } = useAppState();
-  const liked = Boolean(likedActivityIds[activity.id]);
-  const categories = categoriesForActivity(activity.categories);
+  const { openActivity } = useAppState();
 
   return (
     <div
@@ -29,103 +106,44 @@ export function PremiumCard({ activity }: { activity: Activity }) {
           openActivity(activity.id);
         }
       }}
-      className="relative rounded-2xl overflow-hidden flex-shrink-0 w-64 text-left active:scale-[0.98] transition-transform"
-      style={{
-        boxShadow:
-          "0 0 0 1.5px var(--brand-yellow), 0 8px 28px rgba(244,185,80,0.2)",
-      }}
+      className="w-[236px] flex-shrink-0 overflow-hidden rounded-[20px] border border-border bg-card text-left shadow-sm transition active:scale-[0.98]"
       aria-label={`Open ${activity.title}`}
     >
-      <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
-        <Star size={9} fill="var(--brand-yellow)" stroke="none" />
-        <span
-          className="text-[9px] font-bold tracking-wide"
-          style={{ color: "var(--brand-yellow)" }}
-        >
-          PREMIUM
-        </span>
-      </div>
-      <button
-        onClick={(event) => {
-          event.stopPropagation();
-          toggleActivityLike(activity.id);
-        }}
-        className="absolute top-2.5 right-2.5 z-10 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center"
-        aria-label={liked ? "Unlike activity" : "Like activity"}
-      >
-        <Heart
-          size={12}
-          fill={liked ? "var(--brand-pink)" : "none"}
-          stroke={liked ? "var(--brand-pink)" : "var(--foreground)"}
-        />
-      </button>
-      <div className="relative h-32 bg-secondary overflow-hidden">
-        <img
-          src={activity.imageUrls[0] ?? ""}
-          alt={activity.title}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-      </div>
-      <div className="bg-card p-3">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-semibold text-[13px] text-foreground leading-tight">
-            {activity.title}
-          </h3>
-          <span className="text-xs font-bold text-accent flex-shrink-0">
+      <ActivityImage activity={activity} className="h-[142px] w-full" />
+      <div className="px-3.5 py-3">
+        <h3 className="line-clamp-2 text-base font-bold leading-5 text-foreground">
+          {activity.title}
+        </h3>
+        <ActivityMeta icon={MapPin}>
+          {activity.location || "Location to be confirmed"}
+        </ActivityMeta>
+        <ActivityMeta icon={Clock3}>
+          {formatActivityDate(activity.startsAt)} ·{" "}
+          {formatActivityTime(activity.startsAt)}
+        </ActivityMeta>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-lg bg-[#fff4d8] px-2 py-1 text-[11px] font-bold text-[#9a6500]">
+            <Star size={11} fill="currentColor" />
+            Premium
+          </span>
+          <span className="min-w-0 flex-1 truncate text-right text-xs font-bold text-accent">
             {formatCredits(activity.credits)}
           </span>
+          <FavoriteButton activity={activity} className="h-9 w-9" />
         </div>
-        <div className="flex items-center gap-1 mb-1.5">
-          <MapPin size={9} className="text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground truncate">
-            {activity.location}
-          </span>
-        </div>
-        <div className="mb-2">
-          <ActivityCategoryIndicators
-            categories={categories}
-            durationMinutes={activity.durationMinutes}
-          />
-        </div>
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1">
-            <Clock size={9} className="text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">
-              {formatActivityDate(activity.startsAt)} /{" "}
-              {formatActivityTime(activity.startsAt)}
-            </span>
-          </div>
-          {/*
-          <div className="flex items-center gap-0.5">
-            <Star size={9} fill="var(--brand-yellow)" stroke="none" />
-            <span className="text-[10px] text-foreground font-medium">
-              {activity.rating}
-            </span>
-          </div>
-          */}
-        </div>
-        <div className="flex gap-1 mb-1">
-          {activity.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-[9px] bg-secondary text-muted-foreground rounded-full px-2 py-0.5"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        <FriendAvatars friends={activity.participatingFriends} />
       </div>
     </div>
   );
 }
 
-export function StandardRow({ activity }: { activity: Activity }) {
+export function StandardRow({
+  activity,
+  onFavoriteChanged,
+}: {
+  activity: Activity;
+  onFavoriteChanged?: (favorited: boolean) => void;
+}) {
   const { openActivity } = useAppState();
-  const categories = categoriesForActivity(activity.categories);
-  const primaryCategory = primaryActivityCategory(activity.categories);
-  const primaryColor = vidaCategoryColor[primaryCategory];
 
   return (
     <div
@@ -138,68 +156,40 @@ export function StandardRow({ activity }: { activity: Activity }) {
           openActivity(activity.id);
         }
       }}
-      className="w-full py-3 border-b border-border last:border-0 text-left active:bg-secondary/40 transition-colors"
+      className="mx-[18px] my-1.5 flex items-center rounded-[18px] border border-border bg-card p-2.5 text-left shadow-sm transition active:scale-[0.99]"
       aria-label={`Open ${activity.title}`}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{
-            backgroundColor: `${primaryColor}22`,
-            color: primaryColor,
-          }}
-        >
-          {categoryIcon(primaryCategory, 18)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-foreground truncate pr-2">
-              {activity.title}
-            </p>
-            <span className="text-xs text-accent font-bold flex-shrink-0">
-              {formatCredits(activity.credits)}
+      <ActivityImage
+        activity={activity}
+        className="h-[94px] w-[94px] flex-shrink-0 rounded-[14px]"
+      />
+      <div className="min-w-0 flex-1 pl-3">
+        <h3 className="line-clamp-2 text-base font-bold leading-5 text-foreground">
+          {activity.title}
+        </h3>
+        <ActivityMeta icon={MapPin}>
+          {activity.location || "Location to be confirmed"}
+        </ActivityMeta>
+        <ActivityMeta icon={Clock3}>
+          {formatActivityDate(activity.startsAt)} ·{" "}
+          {formatActivityTime(activity.startsAt)}
+        </ActivityMeta>
+        <div className="mt-1.5 flex min-w-0 items-center gap-2">
+          {activity.tags[0] && (
+            <span className="max-w-[120px] truncate rounded-lg bg-[#eaf0ff] px-2 py-1 text-[10px] font-semibold text-[#2852a4]">
+              {activity.tags[0]}
             </span>
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-muted-foreground truncate">
-              {activity.location}
-            </span>
-            <span className="text-muted-foreground opacity-40">/</span>
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-              {formatActivityTime(activity.startsAt)}
-            </span>
-          </div>
-          <div className="mt-1">
-            <ActivityCategoryIndicators
-              categories={categories}
-              durationMinutes={activity.durationMinutes}
-            />
-          </div>
-          {activity.tags.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {activity.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-secondary px-2 py-0.5 text-[9px] text-muted-foreground"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
           )}
-        </div>
-        {/*
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          <Star size={9} fill="var(--brand-yellow)" stroke="none" />
-          <span className="text-[10px] text-muted-foreground">
-            {activity.rating}
+          <span className="ml-auto flex-shrink-0 text-[11px] font-bold text-accent">
+            {formatCredits(activity.credits)}
           </span>
         </div>
-        */}
       </div>
-      <div style={{ paddingLeft: 52 }}>
-        <FriendAvatars friends={activity.participatingFriends} max={4} />
-      </div>
+      <FavoriteButton
+        activity={activity}
+        className="ml-1 h-10 w-10 flex-shrink-0"
+        onChanged={onFavoriteChanged}
+      />
     </div>
   );
 }

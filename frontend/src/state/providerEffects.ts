@@ -2,6 +2,7 @@ import { useEffect, type Dispatch, type SetStateAction } from "react";
 import {
   clearAuthToken,
   fetchCurrentUser,
+  fetchFavoriteActivities,
   fetchFeedPosts,
   fetchFriends,
   fetchGroupChats,
@@ -12,7 +13,7 @@ import {
   fetchSettingsPreferences,
   getAuthToken,
 } from "../api";
-import { persistThemeMode } from "../app/themeMode";
+import { getStoredThemeMode } from "../app/themeMode";
 import type {
   AuthUser,
   Activity,
@@ -94,6 +95,7 @@ export function useLoadAppData({
   isAuthReady,
   setApiError,
   setFeedPosts,
+  setFavoriteActivityIds,
   setFriends,
   setGroupChats,
   setIsLoading,
@@ -109,6 +111,7 @@ export function useLoadAppData({
   isAuthReady: boolean;
   setApiError: Setter<string | null>;
   setFeedPosts: Setter<FeedPost[]>;
+  setFavoriteActivityIds: Setter<Set<number>>;
   setFriends: Setter<Friend[]>;
   setGroupChats: Setter<GroupChat[]>;
   setIsLoading: Setter<boolean>;
@@ -134,6 +137,7 @@ export function useLoadAppData({
       try {
         const [
           nextActivities,
+          nextFavoriteActivities,
           nextFeedPosts,
           nextGroupChats,
           nextFriends,
@@ -143,6 +147,7 @@ export function useLoadAppData({
           nextSettingsPreferences,
         ] = await Promise.all([
           fetchActivities(),
+          fetchFavoriteActivities(),
           fetchFeedPosts(),
           fetchGroupChats(),
           fetchFriends(),
@@ -161,6 +166,9 @@ export function useLoadAppData({
 
         setPremiumActivities(premiumActivities);
         setStandardActivities(standardActivities);
+        setFavoriteActivityIds(
+          new Set(nextFavoriteActivities.map((activity) => activity.id)),
+        );
         setJoinedActivityIds(
           activityIdsJoinedByProfile(
             nextActivities,
@@ -173,8 +181,10 @@ export function useLoadAppData({
         setMapPins(nextMapPins);
         setNotifications(nextNotifications);
         setProfile(nextProfile);
-        setSettingsPreferences(nextSettingsPreferences);
-        persistThemeMode(nextSettingsPreferences.appearance);
+        setSettingsPreferences({
+          ...nextSettingsPreferences,
+          appearance: getStoredThemeMode(),
+        });
         setApiError(null);
       } catch (error) {
         if (!ignore) {
@@ -198,6 +208,7 @@ export function useLoadAppData({
     isAuthReady,
     setApiError,
     setFeedPosts,
+    setFavoriteActivityIds,
     setFriends,
     setGroupChats,
     setIsLoading,

@@ -1,8 +1,8 @@
 import { apiRequest } from "./client";
-import type { SettingsPreferences } from "../lib/types";
+import type { RemoteSettingsPreferences } from "../lib/types";
 
 type SettingsResponse = {
-  preferences: SettingsPreferences;
+  preferences: RemoteSettingsPreferences;
 };
 
 export async function fetchSettingsPreferences() {
@@ -11,7 +11,7 @@ export async function fetchSettingsPreferences() {
   return response.preferences;
 }
 
-export async function updateSettingsPreferences(input: SettingsPreferences) {
+export async function updateSettingsPreferences(input: RemoteSettingsPreferences) {
   const response = await apiRequest<SettingsResponse>("/settings", {
     method: "PUT",
     body: JSON.stringify({ preferences: input }),

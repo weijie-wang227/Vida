@@ -2,6 +2,7 @@ import {
   Calendar,
   ChevronLeft,
   Clock,
+  Coins,
   Heart,
   MapPin,
   Share2,
@@ -54,12 +55,13 @@ function getSessionRouteId(session: ActivitySession) {
 export function ActivityDetailPage() {
   const {
     joinActivity,
+    favoriteActivityIds,
+    favoriteMutationIds,
     isLoading,
-    likedActivityIds,
     premiumActivities,
     profile,
     standardActivities,
-    toggleActivityLike,
+    toggleFavoriteActivity,
   } = useAppState();
   const navigate = useNavigate();
   const { activityId } = useParams();
@@ -70,6 +72,7 @@ export function ActivityDetailPage() {
   const [fallbackError, setFallbackError] = useState<string | null>(null);
   const [isLoadingFallback, setIsLoadingFallback] = useState(false);
   const [joiningSessionId, setJoiningSessionId] = useState<number | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const activities: Activity[] = [...premiumActivities, ...standardActivities];
   const routeActivityId = parseActivityId(activityId);
@@ -141,7 +144,8 @@ export function ActivityDetailPage() {
     );
   }
 
-  const liked = Boolean(likedActivityIds[activity.id]);
+  const favorited = favoriteActivityIds.has(activity.id);
+  const isFavoriteUpdating = favoriteMutationIds.has(activity.id);
   const cover = activity.imageUrls[0];
   const categories = categoriesForActivity(activity.categories);
   const primaryCategory = primaryActivityCategory(activity.categories);
@@ -192,6 +196,34 @@ export function ActivityDetailPage() {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: activity.title,
+      text: `${activity.title}\nHosted by ${activity.vendor?.name ?? activity.host}`,
+      url: window.location.href,
+    };
+
+    setShareFeedback(null);
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(
+        `${shareData.text}\n${shareData.url}`,
+      );
+      setShareFeedback("Activity link copied.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+
+      setShareFeedback("Unable to share this activity.");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex items-center gap-3 px-4 pt-5 pb-3">
@@ -206,6 +238,8 @@ export function ActivityDetailPage() {
           Activity
         </h2>
         <button
+          type="button"
+          onClick={() => void handleShare()}
           className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
           aria-label="Share activity"
         >
@@ -286,45 +320,40 @@ export function ActivityDetailPage() {
               )}
             </div>
             <button
-              onClick={() => toggleActivityLike(activity.id)}
+              type="button"
+              onClick={() =>
+                void toggleFavoriteActivity(activity.id).catch(() => undefined)
+              }
+              disabled={isFavoriteUpdating}
               className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center flex-shrink-0"
-              aria-label={liked ? "Unlike activity" : "Like activity"}
+              aria-label={
+                favorited
+                  ? "Remove from favorited activities"
+                  : "Add to favorited activities"
+              }
             >
               <Heart
                 size={17}
-                fill={liked ? "var(--brand-pink)" : "none"}
-                stroke={liked ? "var(--brand-pink)" : "var(--muted-foreground)"}
+                fill={favorited ? "var(--brand-pink)" : "none"}
+                stroke={
+                  favorited ? "var(--brand-pink)" : "var(--muted-foreground)"
+                }
               />
             </button>
           </div>
 
+          {shareFeedback && (
+            <p className="mt-2 text-xs text-muted-foreground" role="status">
+              {shareFeedback}
+            </p>
+          )}
+
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-card p-3 border border-border">
-              <Calendar size={14} className="mb-2 text-accent" />
-              <p className="text-[10px] text-muted-foreground">Date</p>
+            <div className="col-span-2 rounded-xl bg-card p-3 border border-border">
+              <Coins size={14} className="mb-2 text-accent" />
+              <p className="text-[10px] text-muted-foreground">Credits</p>
               <p className="text-xs font-semibold text-foreground">
-                {formatActivityDate(activity.startsAt)}
-              </p>
-            </div>
-            <div className="rounded-xl bg-card p-3 border border-border">
-              <Clock size={14} className="mb-2 text-accent" />
-              <p className="text-[10px] text-muted-foreground">Time</p>
-              <p className="text-xs font-semibold text-foreground">
-                {formatActivityTime(activity.startsAt)}
-              </p>
-            </div>
-            <div className="rounded-xl bg-card p-3 border border-border">
-              <MapPin size={14} className="mb-2 text-accent" />
-              <p className="text-[10px] text-muted-foreground">Place</p>
-              <p className="text-xs font-semibold text-foreground">
-                {activity.location}
-              </p>
-            </div>
-            <div className="rounded-xl bg-card p-3 border border-border">
-              <Users size={14} className="mb-2 text-accent" />
-              <p className="text-[10px] text-muted-foreground">Spots</p>
-              <p className="text-xs font-semibold text-foreground">
-                {activity.spots} open / {formatCredits(activity.credits)}
+                {formatCredits(activity.credits)}
               </p>
             </div>
             {activity.vendor && (
@@ -395,6 +424,11 @@ export function ActivityDetailPage() {
                 {openSessions.map((session) => {
                   const sessionId = getSessionRouteId(session);
                   const sessionFriends = session.participatingFriends ?? [];
+                  const availableSlots = Math.max(
+                    0,
+                    Number(session.spots ?? 0) -
+                      Number(session.registeredCount ?? 0),
+                  );
                   const joined = sessionFriends.some(
                     (friend) => friend.handle === profile.handle,
                   );
@@ -425,13 +459,11 @@ export function ActivityDetailPage() {
                             </span>
                             <span className="flex items-center gap-1">
                               <Users size={12} className="text-accent" />
-                              {session.spots} spots
+                              {availableSlots}{" "}
+                              {availableSlots === 1 ? "slot" : "slots"} available
                             </span>
                           </div>
                         </div>
-                        <span className="flex-shrink-0 text-xs font-bold text-accent">
-                          {formatCredits(session.credits)}
-                        </span>
                       </div>
 
                       <div className="mt-3 flex items-center justify-between gap-3">
@@ -442,7 +474,8 @@ export function ActivityDetailPage() {
                           disabled={
                             isJoining ||
                             Boolean(joinDisabledReason) ||
-                            sessionId === null
+                            sessionId === null ||
+                            (!joined && availableSlots === 0)
                           }
                           className="min-w-28 rounded-xl bg-accent px-3 py-2 text-xs font-bold text-accent-foreground transition-transform active:scale-[0.98] disabled:opacity-70"
                         >
@@ -450,7 +483,9 @@ export function ActivityDetailPage() {
                             ? "Joining..."
                             : joined
                               ? "Open group chat"
-                              : "Join session"}
+                              : availableSlots === 0
+                                ? "Full"
+                                : "Join session"}
                         </button>
                       </div>
                     </div>

@@ -48,8 +48,9 @@ export type AppState = {
   notifications: Notification[];
   profile: Profile;
   joinedActivityIds: number[];
+  favoriteActivityIds: Set<number>;
+  favoriteMutationIds: Set<number>;
   likedPostIds: Record<number, boolean>;
-  likedActivityIds: Record<number, boolean>;
   settingsPreferences: SettingsPreferences;
   signIn: (input: SignInInput) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<void>;
@@ -101,5 +102,5 @@ export type AppState = {
   setShowMap: (showMap: boolean) => void;
   setShowProfileFriends: (showFriends: boolean) => void;
   togglePostLike: (postId: number) => Promise<void>;
-  toggleActivityLike: (activityId: number) => void;
+  toggleFavoriteActivity: (activityId: number) => Promise<void>;
 };

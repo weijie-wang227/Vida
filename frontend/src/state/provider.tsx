@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import {
+  addFavoriteActivity as requestAddFavoriteActivity,
   addFriend as requestAddFriend,
   appointGroupAdmin as requestAppointGroupAdmin,
   blacklistGroupMember as requestBlacklistGroupMember,
@@ -15,6 +16,7 @@ import {
   likeFeedPost as requestLikeFeedPost,
   leaveGroup as requestLeaveGroup,
   markNotificationAsRead as requestMarkNotificationAsRead,
+  removeFavoriteActivity as requestRemoveFavoriteActivity,
   removeFriend as requestRemoveFriend,
   removeGroupMember as requestRemoveGroupMember,
   setAuthToken,
@@ -144,9 +146,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [likedPostIds, setLikedPostIds] = useState<Record<number, boolean>>(
     {},
   );
-  const [likedActivityIds, setLikedActivityIds] = useState<
-    Record<number, boolean>
-  >({});
+  const [favoriteActivityIds, setFavoriteActivityIds] = useState<Set<number>>(
+    new Set(),
+  );
+  const [favoriteMutationIds, setFavoriteMutationIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [joinedActivityIds, setJoinedActivityIds] = useState<number[]>([]);
   const [settingsPreferences, setSettingsPreferences] =
     useState<SettingsPreferences>(() => getDefaultSettingsPreferences());
@@ -162,6 +167,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     authUser,
     isAuthReady,
     setApiError,
+    setFavoriteActivityIds,
     setFeedPosts,
     setFriends,
     setGroupChats,
@@ -405,8 +411,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       notifications,
       profile,
       joinedActivityIds,
+      favoriteActivityIds,
+      favoriteMutationIds,
       likedPostIds,
-      likedActivityIds,
       settingsPreferences,
       signIn: async (input) => {
         try {
@@ -431,6 +438,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           setSelectedActivityId(null);
           setSelectedGroupId(null);
           setJoinedActivityIds([]);
+          setFavoriteActivityIds(new Set());
+          setFavoriteMutationIds(new Set());
           setSettingsPreferences(getDefaultSettingsPreferences());
         } catch (error) {
           console.error("Unable to sign in", error);
@@ -462,6 +471,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           setSelectedActivityId(null);
           setSelectedGroupId(null);
           setJoinedActivityIds([]);
+          setFavoriteActivityIds(new Set());
+          setFavoriteMutationIds(new Set());
           setSettingsPreferences(getDefaultSettingsPreferences());
         } catch (error) {
           console.error("Unable to sign up", error);
@@ -616,18 +627,40 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSettingsPreferences(input);
         persistThemeMode(input.appearance);
 
-        try {
-          const updatedPreferences = await requestUpdateSettingsPreferences(input);
+        const serverPreferences = {
+          activityReminders: input.activityReminders,
+          friendDiscovery: input.friendDiscovery,
+          privateActivityHistory: input.privateActivityHistory,
+        };
+        const serverPreferencesChanged =
+          serverPreferences.activityReminders !==
+            previousPreferences.activityReminders ||
+          serverPreferences.friendDiscovery !== previousPreferences.friendDiscovery ||
+          serverPreferences.privateActivityHistory !==
+            previousPreferences.privateActivityHistory;
 
-          setSettingsPreferences(updatedPreferences);
-          persistThemeMode(updatedPreferences.appearance);
+        if (!serverPreferencesChanged) {
+          return input;
+        }
+
+        try {
+          const updatedPreferences =
+            await requestUpdateSettingsPreferences(serverPreferences);
+          const nextPreferences = {
+            ...updatedPreferences,
+            appearance: input.appearance,
+          };
+
+          setSettingsPreferences(nextPreferences);
           setApiError(null);
 
-          return updatedPreferences;
+          return nextPreferences;
         } catch (error) {
           console.error("Unable to update settings", error);
-          setSettingsPreferences(previousPreferences);
-          persistThemeMode(previousPreferences.appearance);
+          setSettingsPreferences({
+            ...previousPreferences,
+            appearance: input.appearance,
+          });
 
           const message = getErrorMessage(error, "Unable to update settings");
           setApiError(message);
@@ -731,6 +764,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setGroupChats([]);
         setChatMessages({});
         setJoinedActivityIds([]);
+        setFavoriteActivityIds(new Set());
+        setFavoriteMutationIds(new Set());
         setSettingsPreferences(getDefaultSettingsPreferences());
         setActiveTab("activities");
         setShowProfile(false);
@@ -826,11 +861,61 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           throw new Error(message);
         }
       },
-      toggleActivityLike: (activityId) =>
-        setLikedActivityIds((current) => ({
-          ...current,
-          [activityId]: !current[activityId],
-        })),
+      toggleFavoriteActivity: async (activityId) => {
+        if (favoriteMutationIds.has(activityId)) {
+          return;
+        }
+
+        const wasFavorited = favoriteActivityIds.has(activityId);
+
+        setFavoriteMutationIds((current) => new Set(current).add(activityId));
+        setFavoriteActivityIds((current) => {
+          const next = new Set(current);
+
+          if (wasFavorited) {
+            next.delete(activityId);
+          } else {
+            next.add(activityId);
+          }
+
+          return next;
+        });
+
+        try {
+          if (wasFavorited) {
+            await requestRemoveFavoriteActivity(activityId);
+          } else {
+            await requestAddFavoriteActivity(activityId);
+          }
+
+          setApiError(null);
+        } catch (error) {
+          setFavoriteActivityIds((current) => {
+            const next = new Set(current);
+
+            if (wasFavorited) {
+              next.add(activityId);
+            } else {
+              next.delete(activityId);
+            }
+
+            return next;
+          });
+
+          const message = getErrorMessage(
+            error,
+            "Unable to update favorited activities",
+          );
+          setApiError(message);
+          throw new Error(message);
+        } finally {
+          setFavoriteMutationIds((current) => {
+            const next = new Set(current);
+            next.delete(activityId);
+            return next;
+          });
+        }
+      },
     }),
     [
       activeTab,
@@ -858,8 +943,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       notifications,
       profile,
       joinedActivityIds,
+      favoriteActivityIds,
+      favoriteMutationIds,
       likedPostIds,
-      likedActivityIds,
       settingsPreferences,
       navigate,
       applyGroupUpdate,

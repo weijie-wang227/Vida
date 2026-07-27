@@ -1,40 +1,36 @@
-import { lazy, Suspense, useRef, useState } from "react";
-import type { TouchEvent } from "react";
 import {
-  CalendarCheck,
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  Accessibility,
   CalendarDays,
   ChevronDown,
   Clock3,
   Coins,
-  Filter,
   GraduationCap,
+  HandHeart,
+  Heart,
   MapPin,
-  Maximize2,
-  Minimize2,
   Navigation,
   Plus,
+  Search,
+  Sparkles,
   Star,
+  Tag,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "../app/components/ui/sheet";
+import { fetchAvailableTags } from "../api";
 import { BaseSearchBar } from "../components/BaseSearchBar";
 import { PremiumCard, StandardRow } from "../components/ActivityCards";
 import { FloatingActionButton } from "../components/FloatingActionButton";
-import {
-  categoryIcon,
-  formatActivityDate,
-  formatActivityTime,
-  vidaCategories,
-  vidaCategoryColor,
-  vidaCategoryLabel,
-} from "../lib/activityPresentation";
-import type { Activity, vidaCategory } from "../lib/types";
+import { activityCollections } from "../lib/activityCollections";
+import { formatActivityDate, formatActivityTime } from "../lib/activityPresentation";
+import type { Activity, AvailableTag } from "../lib/types";
 import { useAppState } from "../state";
 
 const ActivityMap = lazy(() =>
@@ -47,473 +43,455 @@ const CreateActivityModal = lazy(() =>
     default: module.CreateActivityModal,
   })),
 );
-const userLocation = { latitude: 1.321, longitude: 103.845 };
-type ActivityRank = "earliest" | "proximity" | "price";
-type PaymentFilter = "free" | "premium" | "skillsfuture";
 
-const rankOptions: {
-  id: ActivityRank;
-  label: string;
-  description: string;
-  Icon: typeof Clock3;
-}[] = [
-  {
-    id: "earliest",
-    label: "Earliest time",
-    description: "Soonest activities first",
-    Icon: Clock3,
-  },
-  {
-    id: "proximity",
-    label: "Proximity",
-    description: "Closest activities first",
-    Icon: MapPin,
-  },
-  {
-    id: "price",
-    label: "Price",
-    description: "Lowest credits first",
-    Icon: Coins,
-  },
-];
+type ActivitySort = "location" | "time";
 
-const paymentFilterOptions: {
-  id: PaymentFilter;
-  label: string;
-  Icon: typeof Coins;
-}[] = [
-  {
-    id: "free",
-    label: "Free",
-    Icon: Coins,
-  },
-  {
-    id: "premium",
-    label: "Premium",
-    Icon: Star,
-  },
-  {
-    id: "skillsfuture",
-    label: "SkillsFuture",
-    Icon: GraduationCap,
-  },
-];
+const collectionIcons = {
+  free: Coins,
+  premium: Star,
+  skillsfuture: GraduationCap,
+  volunteer: HandHeart,
+  aac: Accessibility,
+};
 
 function searchableActivityText(activity: Activity) {
   return [
     activity.title,
     activity.host,
-    activity.startsAt,
+    activity.location,
     formatActivityDate(activity.startsAt),
     formatActivityTime(activity.startsAt),
-    activity.location,
-    String(activity.credits),
-    // activity.rating,
     activity.categories.join(" "),
     activity.tags.join(" "),
-    activity.skillsFuturePayable ? "skillsfuture skills future payable" : "",
-    activity.participatingFriends
-      .map((friend) => `${friend.name} ${friend.handle}`)
-      .join(" "),
   ]
     .join(" ")
     .toLowerCase();
 }
 
-function getActivityStartTime(activity: Activity) {
-  const time = new Date(activity.startsAt).getTime();
-
-  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+function activityStartTime(activity: Activity) {
+  const value = new Date(activity.startsAt).getTime();
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value;
 }
 
-function getDistanceScore(
-  activity: Activity,
-  activityCoordinates: Map<number, { latitude: number; longitude: number }>,
-) {
-  const coordinates = activityCoordinates.get(activity.id);
+function HeaderAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition active:scale-90"
+      aria-label={label}
+    >
+      {children}
+    </button>
+  );
+}
 
-  if (!coordinates) {
-    return Number.POSITIVE_INFINITY;
+function DiscoveryHero() {
+  return (
+    <section className="relative h-[218px] overflow-hidden rounded-b-[44px] bg-gradient-to-r from-[#2852a4] to-[#3769c3] px-5 pt-9 text-white">
+      <div className="absolute right-5 top-8 flex h-[126px] w-[126px] items-center justify-center rounded-full bg-white/10">
+        <Sparkles size={70} className="text-[#ffd166]" />
+      </div>
+      <div className="relative z-10 max-w-[66%]">
+        <h1 className="text-[26px] font-bold leading-[31px]">
+          Discover. Join. Enjoy.
+        </h1>
+        <p className="mt-2.5 text-[15px] leading-[22px] text-white/90">
+          Find activities that fit your vibe and make every moment count.
+        </p>
+        <span className="mt-3 inline-flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-[#183c82]">
+          <ChevronDown size={20} className="-rotate-90" />
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function SortButton({
+  label,
+  selected,
+  icon: Icon,
+  tone,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  icon: typeof MapPin;
+  tone: "blue" | "green";
+  onClick: () => void;
+}) {
+  const selectedClass =
+    tone === "blue"
+      ? "bg-[#e8f0fc] text-[#173b75]"
+      : "bg-[#eaf5e8] text-[#1b5e2e]";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[18px] border px-2 text-[13px] font-medium transition ${
+        selected
+          ? `border-transparent ${selectedClass}`
+          : "border-border bg-secondary text-foreground"
+      }`}
+      aria-pressed={selected}
+    >
+      <Icon size={20} className="flex-shrink-0" />
+      <span className="truncate">{label}</span>
+      <ChevronDown size={16} className="flex-shrink-0" />
+    </button>
+  );
+}
+
+function TagSelector({
+  tags,
+  selectedTag,
+  errorMessage,
+  onSelect,
+}: {
+  tags: AvailableTag[];
+  selectedTag: string | null;
+  errorMessage: string | null;
+  onSelect: (tag: string) => void;
+}) {
+  if (errorMessage && tags.length === 0) {
+    return (
+      <p className="px-5 py-4 text-[13px] text-muted-foreground">
+        Activity tags are temporarily unavailable.
+      </p>
+    );
   }
 
-  const latitudeDistance = coordinates.latitude - userLocation.latitude;
-  const longitudeDistance = coordinates.longitude - userLocation.longitude;
+  return (
+    <div className="flex gap-2 overflow-x-auto px-3.5 py-4 scrollbar-minimal">
+      {tags.map((tag) => {
+        const selected = selectedTag === tag.name;
 
-  return latitudeDistance * latitudeDistance + longitudeDistance * longitudeDistance;
+        return (
+          <button
+            key={tag.id}
+            type="button"
+            onClick={() => onSelect(tag.name)}
+            className={`flex min-w-[74px] flex-shrink-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 text-center transition ${
+              selected
+                ? "border-[#2852a4] bg-[#eaf0ff] text-[#2852a4]"
+                : "border-border bg-card text-muted-foreground"
+            }`}
+            aria-pressed={selected}
+          >
+            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-secondary">
+              {tag.imageUrl ? (
+                <img
+                  src={tag.imageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Tag size={17} />
+              )}
+            </span>
+            <span className="max-w-[70px] truncate text-[10px] font-semibold">
+              {tag.name}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
-function sortActivities(
-  activities: Activity[],
-  rankBy: ActivityRank,
-  activityCoordinates: Map<number, { latitude: number; longitude: number }>,
-) {
-  return [...activities].sort((firstActivity, secondActivity) => {
-    if (rankBy === "proximity") {
-      const distanceDifference =
-        getDistanceScore(firstActivity, activityCoordinates) -
-        getDistanceScore(secondActivity, activityCoordinates);
+function ActivityCollections() {
+  const navigate = useNavigate();
 
-      if (distanceDifference !== 0) {
-        return distanceDifference;
-      }
-    }
+  return (
+    <section className="pb-3">
+      <h2 className="px-[18px] pb-2.5 text-[17px] font-bold text-foreground">
+        Explore activities
+      </h2>
+      <div className="flex gap-2.5 overflow-x-auto px-[18px] pb-1 scrollbar-minimal">
+        {activityCollections.map((collection) => {
+          const Icon = collectionIcons[collection.id];
 
-    if (rankBy === "price") {
-      const priceDifference = firstActivity.credits - secondActivity.credits;
+          return (
+            <button
+              key={collection.id}
+              type="button"
+              onClick={() =>
+                navigate(`/activities/collections/${collection.id}`)
+              }
+              className="relative h-[172px] w-[158px] flex-shrink-0 text-center"
+            >
+              <span className="absolute inset-x-0 bottom-0 h-32 rounded-[20px] border border-border bg-card shadow-sm" />
+              <span
+                className="absolute left-1/2 top-0 z-10 flex h-[90px] w-[90px] -translate-x-1/2 items-center justify-center rounded-[18px]"
+                style={{
+                  background: `linear-gradient(145deg, ${collection.accent}33, ${collection.accent}88)`,
+                  color: collection.accent,
+                }}
+              >
+                <Icon size={42} />
+              </span>
+              <span className="absolute inset-x-3 bottom-4 z-10">
+                <span className="line-clamp-2 text-[13px] font-semibold leading-4 text-foreground">
+                  {collection.title}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                  {collection.previewText}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
-      if (priceDifference !== 0) {
-        return priceDifference;
-      }
-    }
-
-    const timeDifference =
-      getActivityStartTime(firstActivity) - getActivityStartTime(secondActivity);
-
-    if (timeDifference !== 0) {
-      return timeDifference;
-    }
-
-    return firstActivity.title.localeCompare(secondActivity.title);
-  });
+function SectionHeading({
+  title,
+  subtitle,
+  icon: Icon,
+  iconColor,
+}: {
+  title: string;
+  subtitle: string;
+  icon: typeof Star;
+  iconColor: string;
+}) {
+  return (
+    <div className="flex items-center px-[18px] pb-2 pt-2">
+      <span
+        className="flex h-10 w-10 items-center justify-center rounded-full"
+        style={{ backgroundColor: `${iconColor}20`, color: iconColor }}
+      >
+        <Icon size={19} />
+      </span>
+      <span className="pl-2.5">
+        <span className="block text-[17px] font-bold text-foreground">
+          {title}
+        </span>
+        <span className="block text-xs text-muted-foreground">{subtitle}</span>
+      </span>
+    </div>
+  );
 }
 
 export function ActivitiesPage() {
   const navigate = useNavigate();
   const {
-    joinedActivityIds,
-    mapPins,
     premiumActivities,
-    profile,
     setShowMap,
     showMap,
     standardActivities,
   } = useAppState();
-  const startY = useRef<number | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [createActivityOpen, setCreateActivityOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<vidaCategory[]>(
-    [],
-  );
-  const [rankBy, setRankBy] = useState<ActivityRank>("earliest");
-  const [showAllUpcomingActivities, setShowAllUpcomingActivities] =
-    useState(false);
-  const activeSearchQuery = debouncedSearchQuery.toLowerCase();
-  const activityCoordinates = new Map(
-    mapPins.map((pin) => [
-      pin.activityId,
-      { latitude: pin.latitude, longitude: pin.longitude },
-    ]),
-  );
-  const activityMatchesSearch = (activity: Activity) =>
-    searchableActivityText(activity).includes(activeSearchQuery);
-  const activityMatchesCategories = (activity: Activity) =>
-    selectedCategories.length === 0 ||
-    activity.categories.some((category) => selectedCategories.includes(category));
-  const activityMatchesPaymentFilter = (activity: Activity) => {
-    if (paymentFilter === "free") {
-      return !activity.isPremium && activity.credits === 0;
-    }
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<ActivitySort>("time");
+  const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
+  const [tagError, setTagError] = useState<string | null>(null);
 
-    if (paymentFilter === "premium") {
-      return activity.isPremium;
-    }
+  useEffect(() => {
+    let ignore = false;
 
-    if (paymentFilter === "skillsfuture") {
-      return activity.skillsFuturePayable;
-    }
+    fetchAvailableTags()
+      .then((tags) => {
+        if (!ignore) {
+          setAvailableTags(tags);
+          setTagError(null);
+        }
+      })
+      .catch((error) => {
+        if (!ignore) {
+          setTagError(
+            error instanceof Error ? error.message : "Unable to load tags.",
+          );
+        }
+      });
 
-    return true;
-  };
-  const activityMatchesFilters = (activity: Activity) =>
-    (!activeSearchQuery || activityMatchesSearch(activity)) &&
-    activityMatchesCategories(activity) &&
-    activityMatchesPaymentFilter(activity);
-  const filteredPremiumActivities = sortActivities(
-    premiumActivities.filter(activityMatchesFilters),
-    rankBy,
-    activityCoordinates,
-  );
-  const filteredStandardActivities = sortActivities(
-    standardActivities.filter(activityMatchesFilters),
-    rankBy,
-    activityCoordinates,
-  );
-  const filteredActivities = [
-    ...filteredPremiumActivities,
-    ...filteredStandardActivities,
-  ];
-  const activeFilterCount =
-    selectedCategories.length +
-    (rankBy === "earliest" ? 0 : 1) +
-    (paymentFilter ? 1 : 0);
-  const hasActiveFilters =
-    selectedCategories.length > 0 || rankBy !== "earliest" || Boolean(paymentFilter);
-  const joinedActivityOrder = new Map(
-    joinedActivityIds.map((activityId, index) => [activityId, index]),
-  );
-  const upcomingActivities = filteredActivities
-    .filter((activity) =>
-      activity.participatingFriends.some(
-        (friend) => friend.handle === profile.handle,
-      ),
-    )
-    .sort((firstActivity, secondActivity) => {
-      const firstOrder =
-        joinedActivityOrder.get(firstActivity.id) ?? Number.POSITIVE_INFINITY;
-      const secondOrder =
-        joinedActivityOrder.get(secondActivity.id) ?? Number.POSITIVE_INFINITY;
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
-      if (firstOrder === secondOrder) {
-        return 0;
+  const visibleActivities = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = [...premiumActivities, ...standardActivities].filter(
+      (activity) => {
+        const matchesQuery =
+          !query || searchableActivityText(activity).includes(query);
+        const matchesTag =
+          selectedTag === null ||
+          activity.tags.some((tag) =>
+            tag.localeCompare(selectedTag, undefined, {
+              sensitivity: "accent",
+            }) === 0,
+          );
+
+        return matchesQuery && matchesTag;
+      },
+    );
+
+    return filtered.sort((left, right) => {
+      if (sortBy === "location") {
+        const locationOrder = left.location.localeCompare(right.location);
+        if (locationOrder !== 0) {
+          return locationOrder;
+        }
       }
 
-      return firstOrder - secondOrder;
+      const timeOrder = activityStartTime(left) - activityStartTime(right);
+      return timeOrder || left.title.localeCompare(right.title);
     });
-  const visibleUpcomingActivities = showAllUpcomingActivities
-    ? upcomingActivities
-    : upcomingActivities.slice(0, 3);
-  const canExpandUpcomingActivities = upcomingActivities.length > 3;
-  const hasSearchResults =
-    filteredPremiumActivities.length > 0 || filteredStandardActivities.length > 0;
-
-  const handleToggleCategory = (category: vidaCategory) => {
-    setSelectedCategories((current) => {
-      if (current.includes(category)) {
-        return current.filter((item) => item !== category);
-      }
-
-      return [...current, category];
-    });
-  };
-
-  const handleResetFilters = () => {
-    setPaymentFilter(null);
-    setSelectedCategories([]);
-    setRankBy("earliest");
-  };
-
-  const handleTogglePaymentFilter = (filter: PaymentFilter) => {
-    setPaymentFilter((current) => (current === filter ? null : filter));
-  };
-
-  const handleTouchStart = (event: TouchEvent) => {
-    startY.current = event.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (event: TouchEvent) => {
-    if (startY.current === null) {
-      return;
-    }
-
-    if (startY.current - event.changedTouches[0].clientY < -50) {
-      setShowMap(true);
-    }
-
-    startY.current = null;
-  };
+  }, [
+    premiumActivities,
+    searchQuery,
+    selectedTag,
+    sortBy,
+    standardActivities,
+  ]);
+  const visiblePremiumActivities = visibleActivities.filter(
+    (activity) => activity.isPremium,
+  );
+  const visibleStandardActivities = visibleActivities.filter(
+    (activity) => !activity.isPremium,
+  );
+  const hasActiveQuery = searchQuery.trim() !== "" || selectedTag !== null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-4 pt-5 pb-3">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Activities</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Singapore</p>
-        </div>
+    <div className="flex h-full flex-col overflow-hidden bg-background">
+      <header className="flex-shrink-0 bg-gradient-to-b from-[#183c82] to-[#2852a4] px-5 pb-3.5 pt-3 text-white">
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            className="mr-auto flex min-w-0 items-center gap-1 text-[17px] font-medium"
+          >
+            <span className="truncate">SINGAPORE</span>
+            <ChevronDown size={20} />
+          </button>
+          <HeaderAction
+            label="View favorited activities"
+            onClick={() => navigate("/activities/favorited")}
+          >
+            <Heart size={20} />
+          </HeaderAction>
+          <HeaderAction
+            label="View activities calendar"
+            onClick={() => navigate("/activities/calendar")}
+          >
+            <CalendarDays size={20} />
+          </HeaderAction>
+          <HeaderAction
+            label={showMap ? "Show activity list" : "Show activity map"}
             onClick={() => setShowMap(!showMap)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-              showMap
-                ? "bg-accent text-accent-foreground"
-                : "bg-secondary text-muted-foreground"
-            }`}
-            aria-label={showMap ? "Show activity list" : "Show map"}
           >
-            <Navigation size={15} />
-          </button>
-          <button
-            onClick={() => setFiltersOpen(true)}
-            className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-              hasActiveFilters
-                ? "bg-accent text-accent-foreground"
-                : "bg-secondary text-muted-foreground"
-            }`}
-            aria-label="Filter activities"
-          >
-            <Filter size={16} />
-            {activeFilterCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[9px] font-bold text-background">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
+            <Navigation size={19} />
+          </HeaderAction>
         </div>
-      </div>
-
-      {!showMap && (
-        <div className="px-4 pb-3">
+        <div className="relative mt-3">
+          <Search
+            size={21}
+            className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-[#171717]"
+          />
           <BaseSearchBar
             value={searchQuery}
             onValueChange={setSearchQuery}
-            onDebouncedQueryChange={setDebouncedSearchQuery}
-            inputRef={searchInputRef}
-            placeholder="Search activities"
+            placeholder="Join an activity now"
             ariaLabel="Search activities"
             showIcon={false}
             clearable
             clearAriaLabel="Clear activity search"
+            className="flex h-14 items-center rounded-[22px] border-0 bg-white pl-11 pr-3 text-[#171717] shadow-none"
+            inputClassName="h-full min-w-0 flex-1 bg-transparent text-sm leading-normal text-[#171717] outline-none placeholder:text-[#8b8b8b]"
           />
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            {paymentFilterOptions.map(({ id, label, Icon }) => {
-              const selected = paymentFilter === id;
-
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => handleTogglePaymentFilter(id)}
-                  className="flex min-w-0 flex-col items-center gap-1.5 text-center transition-colors"
-                  aria-pressed={selected}
-                >
-                  <span
-                    className={`flex h-12 w-12 items-center justify-center rounded-full border transition-colors ${
-                      selected
-                        ? "border-accent bg-accent text-accent-foreground shadow-sm"
-                        : "border-border bg-secondary text-muted-foreground"
-                    }`}
-                  >
-                    <Icon size={18} />
-                  </span>
-                  <span
-                    className={`max-w-full truncate text-[11px] font-bold ${
-                      selected ? "text-foreground" : "text-muted-foreground"
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         </div>
-      )}
-
-      {!showMap && (
-        <button
-          onClick={() => setShowMap(true)}
-          className="flex flex-col items-center gap-0.5 pb-1 opacity-40"
-        >
-          <span className="text-[10px] text-muted-foreground">
-            Pull for map
-          </span>
-          <ChevronDown size={11} className="text-muted-foreground" />
-        </button>
-      )}
+      </header>
 
       {showMap ? (
-        <div
-          className="flex-1 overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
+        <div className="flex-1 overflow-hidden">
           <Suspense fallback={null}>
             <ActivityMap onClose={() => setShowMap(false)} />
           </Suspense>
         </div>
       ) : (
-        <div
-          className="flex-1 overflow-y-auto scrollbar-minimal"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          {filteredPremiumActivities.length > 0 && (
-            <>
-              <div className="px-4 mb-2">
-                <div className="flex items-center gap-2">
-                  <Star size={11} fill="var(--brand-yellow)" stroke="none" />
-                  <span
-                    className="text-[11px] font-bold tracking-wider"
-                    style={{ color: "var(--brand-yellow)" }}
-                  >
-                    PREMIUM EXPERIENCES
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-3 px-4 pb-4 overflow-x-auto scrollbar-minimal">
-                {filteredPremiumActivities.map((activity) => (
+        <main className="flex-1 overflow-y-auto scrollbar-minimal">
+          <DiscoveryHero />
+
+          <div className="sticky top-0 z-20 flex gap-2.5 bg-background px-4 py-3 shadow-sm">
+            <SortButton
+              label="Sort by Location"
+              selected={sortBy === "location"}
+              icon={MapPin}
+              tone="blue"
+              onClick={() => setSortBy("location")}
+            />
+            <SortButton
+              label="Sort by Time"
+              selected={sortBy === "time"}
+              icon={Clock3}
+              tone="green"
+              onClick={() => setSortBy("time")}
+            />
+          </div>
+
+          <TagSelector
+            tags={availableTags}
+            selectedTag={selectedTag}
+            errorMessage={tagError}
+            onSelect={(tag) =>
+              setSelectedTag((current) => (current === tag ? null : tag))
+            }
+          />
+
+          <ActivityCollections />
+
+          {visiblePremiumActivities.length > 0 && (
+            <section className="pb-4">
+              <SectionHeading
+                title="Premium activities"
+                subtitle="Elevated experiences picked for you"
+                icon={Star}
+                iconColor="#e0a11c"
+              />
+              <div className="flex gap-3 overflow-x-auto px-[18px] py-1 scrollbar-minimal">
+                {visiblePremiumActivities.map((activity) => (
                   <PremiumCard key={activity.id} activity={activity} />
                 ))}
               </div>
-            </>
+            </section>
           )}
-          {upcomingActivities.length > 0 && (
-            <div className="px-4 pb-4">
-              <div className="flex items-center gap-2 mb-1">
-                <CalendarCheck size={12} className="text-accent" />
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Upcoming Activities
-                </span>
-                <div className="flex-1 h-px bg-border" />
-                {canExpandUpcomingActivities && (
-                  <button
-                    onClick={() =>
-                      setShowAllUpcomingActivities((current) => !current)
-                    }
-                    className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={
-                      showAllUpcomingActivities
-                        ? "Show fewer upcoming activities"
-                        : "Show all upcoming activities"
-                    }
-                  >
-                    {showAllUpcomingActivities ? (
-                      <Minimize2 size={13} />
-                    ) : (
-                      <Maximize2 size={13} />
-                    )}
-                  </button>
-                )}
-              </div>
-              {visibleUpcomingActivities.map((activity) => (
+
+          <section className="pb-5">
+            <SectionHeading
+              title="All upcoming activities"
+              subtitle="Find your next thing to do"
+              icon={CalendarDays}
+              iconColor="#2852a4"
+            />
+            {visibleStandardActivities.length > 0 ? (
+              visibleStandardActivities.map((activity) => (
                 <StandardRow key={activity.id} activity={activity} />
-              ))}
-            </div>
-          )}
-          {filteredStandardActivities.length > 0 && (
-            <div className="px-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  All Activities
-                </span>
-                <div className="flex-1 h-px bg-border" />
-                <button
-                  type="button"
-                  onClick={() => navigate("/activities/calendar")}
-                  className="flex h-8 items-center gap-1.5 rounded-full bg-secondary px-3 text-[11px] font-bold text-foreground transition-colors hover:bg-secondary/80 active:scale-[0.98]"
-                  aria-label="View activities calendar"
-                >
-                  <CalendarDays size={13} className="text-accent" />
-                  View calendar
-                </button>
+              ))
+            ) : (
+              <div className="flex flex-col items-center px-8 py-10 text-center text-muted-foreground">
+                <Tag size={30} />
+                <p className="mt-2.5 text-sm">
+                  {hasActiveQuery
+                    ? "No upcoming activities match your search."
+                    : "No upcoming activities yet."}
+                </p>
               </div>
-              {filteredStandardActivities.map((activity) => (
-                <StandardRow key={activity.id} activity={activity} />
-              ))}
-            </div>
-          )}
-          {(activeSearchQuery || hasActiveFilters) && !hasSearchResults && (
-            <div className="flex min-h-40 items-center justify-center px-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No activities match your filters.
-              </p>
-            </div>
-          )}
-          <div className="h-6" />
-        </div>
+            )}
+          </section>
+        </main>
       )}
 
       {!showMap && (
@@ -533,122 +511,6 @@ export function ActivitiesPage() {
           />
         </Suspense>
       )}
-
-      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent
-          side="bottom"
-          className="gap-0 rounded-t-3xl border-border p-0 sm:mx-auto sm:max-w-md"
-        >
-          <SheetHeader className="border-b border-border px-4 pb-3 pr-12 pt-5 text-left">
-            <SheetTitle className="text-base">Filter activities</SheetTitle>
-            <SheetDescription>
-              Choose categories and rank the activity list.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="px-4 py-4">
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Categories
-                </span>
-                {selectedCategories.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCategories([])}
-                    className="text-[11px] font-semibold text-accent"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {vidaCategories.map((category) => {
-                  const selected = selectedCategories.includes(category);
-                  const color = vidaCategoryColor[category];
-
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => handleToggleCategory(category)}
-                      className="flex h-10 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-bold transition"
-                      style={{
-                        borderColor: selected ? color : "var(--border)",
-                        backgroundColor: selected ? `${color}22` : "transparent",
-                        color: selected ? color : "var(--muted-foreground)",
-                      }}
-                      aria-pressed={selected}
-                    >
-                      {categoryIcon(category, 13)}
-                      {vidaCategoryLabel[category]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Rank by
-              </span>
-              <div className="grid gap-2">
-                {rankOptions.map(({ id, label, description, Icon }) => {
-                  const selected = rankBy === id;
-
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setRankBy(id)}
-                      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors ${
-                        selected
-                          ? "border-accent bg-accent/10 text-foreground"
-                          : "border-border bg-secondary/60 text-muted-foreground"
-                      }`}
-                      aria-pressed={selected}
-                    >
-                      <span
-                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
-                          selected ? "bg-accent text-accent-foreground" : "bg-card"
-                        }`}
-                      >
-                        <Icon size={15} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[12px] font-bold">
-                          {label}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
-                          {description}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                disabled={!hasActiveFilters}
-                className="h-11 rounded-2xl bg-secondary text-sm font-bold text-foreground disabled:opacity-50"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                className="h-11 rounded-2xl bg-accent text-sm font-bold text-accent-foreground"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
