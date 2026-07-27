@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import {
-  formatActivityDateTime,
   formatActivityTime,
   primaryActivityCategory,
   vidaCategoryColor,
@@ -28,11 +27,12 @@ type CalendarMonth = {
 type CalendarSession = {
   id: string;
   activityId: number;
-  label: string;
+  activityTitle: string;
   startsAt: string;
   location: string;
   category: vidaCategory;
   isPremium: boolean;
+  isJoined: boolean;
 };
 
 type CalendarDay = {
@@ -117,7 +117,10 @@ function selectedDateLabel(key: string) {
   }).format(new Date(year, month - 1, day));
 }
 
-function toCalendarSessions(activities: Activity[]): CalendarSession[] {
+function toCalendarSessions(
+  activities: Activity[],
+  profileHandle: string,
+): CalendarSession[] {
   return activities
     .flatMap((activity) => {
       const category = primaryActivityCategory(activity.categories);
@@ -127,21 +130,27 @@ function toCalendarSessions(activities: Activity[]): CalendarSession[] {
             .map((session) => ({
               id: `${activity.id}-${String(session.id)}`,
               activityId: activity.id,
-              label: formatActivityDateTime(session.startsAt),
+              activityTitle: activity.title,
               startsAt: session.startsAt,
               location: session.location || activity.location,
               category,
               isPremium: activity.isPremium || session.isPremium,
+              isJoined: (session.participatingFriends ?? []).some(
+                (friend) => friend.handle === profileHandle,
+              ),
             }))
         : [
             {
               id: String(activity.id),
               activityId: activity.id,
-              label: formatActivityDateTime(activity.startsAt),
+              activityTitle: activity.title,
               startsAt: activity.startsAt,
               location: activity.location,
               category,
               isPremium: activity.isPremium,
+              isJoined: activity.participatingFriends.some(
+                (friend) => friend.handle === profileHandle,
+              ),
             },
           ];
 
@@ -156,7 +165,8 @@ function toCalendarSessions(activities: Activity[]): CalendarSession[] {
 
 export function ActivityCalendarPage() {
   const navigate = useNavigate();
-  const { isLoading, premiumActivities, standardActivities } = useAppState();
+  const { isLoading, premiumActivities, profile, standardActivities } =
+    useAppState();
   const todayParts = datePartsInSingapore(new Date());
   const todayKey = dateKey(todayParts.year, todayParts.month, todayParts.day);
   const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>({
@@ -164,14 +174,23 @@ export function ActivityCalendarPage() {
     month: todayParts.month,
   });
   const [selectedKey, setSelectedKey] = useState(todayKey);
+  const [sessionScope, setSessionScope] = useState<"all" | "joined">("all");
   const calendarDays = useMemo(
     () => buildCalendarDays(visibleMonth),
     [visibleMonth],
   );
-  const sessions = useMemo(
-    () => toCalendarSessions([...premiumActivities, ...standardActivities]),
-    [premiumActivities, standardActivities],
+  const allSessions = useMemo(
+    () =>
+      toCalendarSessions(
+        [...premiumActivities, ...standardActivities],
+        profile.handle,
+      ),
+    [premiumActivities, profile.handle, standardActivities],
   );
+  const sessions =
+    sessionScope === "joined"
+      ? allSessions.filter((session) => session.isJoined)
+      : allSessions;
   const sessionsByDate = useMemo(() => {
     const grouped = new Map<string, CalendarSession[]>();
 
@@ -268,6 +287,37 @@ export function ActivityCalendarPage() {
             </div>
           </div>
 
+          <div
+            className="mb-3 grid grid-cols-2 rounded-xl bg-secondary p-1"
+            role="group"
+            aria-label="Calendar session filter"
+          >
+            {(
+              [
+                { id: "all", label: "All sessions" },
+                { id: "joined", label: "Your sessions" },
+              ] as const
+            ).map((option) => {
+              const selected = sessionScope === option.id;
+
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSessionScope(option.id)}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                    selected
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground"
+                  }`}
+                  aria-pressed={selected}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="grid grid-cols-7 border-b border-border bg-secondary/45">
               {weekDays.map((day) => (
@@ -321,7 +371,7 @@ export function ActivityCalendarPage() {
                               borderLeft: `2px solid ${color}`,
                             }}
                           >
-                            {session.label}
+                            {session.activityTitle}
                           </span>
                         );
                       })}
@@ -372,7 +422,7 @@ export function ActivityCalendarPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-start justify-between gap-2">
                         <span className="truncate text-[13px] font-bold text-foreground">
-                          {session.label}
+                          {session.activityTitle}
                         </span>
                         {session.isPremium && (
                           <Star
@@ -406,7 +456,9 @@ export function ActivityCalendarPage() {
               <p className="text-xs text-muted-foreground">
                 {isLoading
                   ? "Loading activity sessions…"
-                  : "No sessions scheduled for this day."}
+                  : sessionScope === "joined"
+                    ? "You have no sessions scheduled for this day."
+                    : "No sessions scheduled for this day."}
               </p>
             </div>
           )}
