@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { CalendarPlus, Loader2 } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Loader2 } from "lucide-react";
 import {
   searchLocations,
   type LocationSearchResult,
@@ -213,6 +213,15 @@ export function CreateSessionPage({
 
   return (
     <div className="dashboard__main dashboard__main--full">
+      <button
+        type="button"
+        className="back-button"
+        onClick={() => navigate("/activities")}
+      >
+        <ArrowLeft size={16} />
+        Back to activities
+      </button>
+
       <Card title="Create Session">
         <form className="activity-form" onSubmit={handleSubmit}>
           <label>
