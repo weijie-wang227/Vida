@@ -363,6 +363,13 @@ async function seed() {
         ? [...participatingFriends, testUser._id]
         : participatingFriends;
       const activityJoiningUserIds = uniqueObjectIds(activityJoiningUsers);
+      const hostOwnerId = requireSeedValue(
+        userByName.get(activity.host),
+        `host owner "${activity.host}" for activity "${activity.title}"`,
+      );
+      const revenueParticipantUserIds = activityJoiningUserIds.filter(
+        (userId) => String(userId) !== String(hostOwnerId),
+      );
       const startsAt = new Date(activity.startsAt);
       const seededStatus = startsAt.getTime() < Date.now()
         ? "attended"
@@ -398,6 +405,7 @@ async function seed() {
         credits: activity.credits,
         isPremium: activity.isPremium,
         skillsFuturePayable: activity.skillsFuturePayable ?? false,
+        creditsAggregate: activity.credits * revenueParticipantUserIds.length,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,
         chat: chatId,
@@ -418,6 +426,8 @@ async function seed() {
         sessionId: savedSession._id,
         role: "participant",
         status: seededStatus,
+        creditsTransaction:
+          String(userId) === String(hostOwnerId) ? 0 : activity.credits,
         registeredAt: new Date(),
         attendanceMarkedAt: seededStatus === "attended" ? new Date() : undefined,
       }));

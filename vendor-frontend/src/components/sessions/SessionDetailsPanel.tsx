@@ -21,6 +21,10 @@ import type {
   UpdateSessionInput,
   UpdateVendorSessionResponse,
 } from "../../api/types";
+import {
+  convertCreditsToDollars,
+  currencyFormatter,
+} from "../../utils/currency";
 import { Card } from "../Card";
 import { SessionCreatePanel } from "./SessionCreatePanel";
 
@@ -49,10 +53,8 @@ function getSessionPaymentMethod(session: Session) {
   return "Free";
 }
 
-function formatSessionCredits(credits: number) {
-  const value = Number.isFinite(credits) && credits >= 0 ? credits : 0;
-
-  return `${value.toLocaleString()} ${value === 1 ? "credit" : "credits"}`;
+function formatSessionPrice(credits: number) {
+  return currencyFormatter.format(convertCreditsToDollars(credits));
 }
 
 type SessionDetailsPanelProps = {
@@ -232,7 +234,7 @@ export function SessionDetailsPanel({
               </span>
               <strong>{paymentMethod}</strong>
               {paymentMethod !== "Free" && (
-                <small>{formatSessionCredits(session.credits)}</small>
+                <small>{formatSessionPrice(session.credits)}</small>
               )}
             </div>
           </div>

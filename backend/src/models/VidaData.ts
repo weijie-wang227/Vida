@@ -32,7 +32,6 @@ export type SessionParticipationRole =
   (typeof sessionParticipationRoles)[number];
 
 export type SettingsPreferences = {
-  appearance: "light" | "dark";
   activityReminders: boolean;
   friendDiscovery: boolean;
   privateActivityHistory: boolean;
@@ -146,12 +145,6 @@ const userSchema = new Schema<UserDocument>(
 
 const settingsPreferencesSchema = new Schema<SettingsPreferences>(
   {
-    appearance: {
-      type: String,
-      enum: ["light", "dark"],
-      required: true,
-      default: "dark",
-    },
     activityReminders: { type: Boolean, required: true, default: true },
     friendDiscovery: { type: Boolean, required: true, default: true },
     privateActivityHistory: { type: Boolean, required: true, default: false },
@@ -434,6 +427,7 @@ const sessionSchema = new Schema(
     credits: { type: Number, required: true, default: 0, min: 0 },
     isPremium: { type: Boolean, required: true, default: false },
     skillsFuturePayable: { type: Boolean, required: true, default: false },
+    creditsAggregate: { type: Number, required: true, default: 0, min: 0 },
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
     chat: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
@@ -518,6 +512,7 @@ const sessionParticipationSchema = new Schema(
       required: true,
       default: "registered",
     },
+    creditsTransaction: { type: Number, required: true, default: 0, min: 0 },
     registeredAt: { type: Date, required: true, default: () => new Date() },
     attendanceMarkedAt: { type: Date },
     reminderSentAt: { type: Date },

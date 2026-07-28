@@ -76,8 +76,7 @@ export function ActivityBreakdown({
         </div>
       )}
       <p className="finance-breakdown-note">
-        Revenue uses the configured credits-to-dollars conversion. Per-session
-        values are total revenue divided by session count.
+        Per-session values are total revenue divided by session count.
       </p>
     </Card>
   );

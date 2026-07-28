@@ -154,33 +154,9 @@ export async function getVendorStats(
         activity: { $in: activityIds },
         startsAt: { $gte: yearStart, $lte: now },
       })
-        .select("_id activity credits")
+        .select("_id activity creditsAggregate")
         .lean()
     : [];
-  const sessionIds = sessions.map((session: Record<string, any>) => session._id);
-  const ownerId = vendor.owner?._id ?? vendor.owner;
-  const joinMatch: Record<string, any> = {
-    sessionId: { $in: sessionIds },
-    role: "participant",
-    status: { $in: countedRegistrationStatuses },
-  };
-
-  if (ownerId) {
-    joinMatch.userId = { $ne: ownerId };
-  }
-
-  const joinCounts = sessionIds.length > 0
-    ? await SessionParticipationModel.aggregate([
-        { $match: joinMatch },
-        { $group: { _id: "$sessionId", count: { $sum: 1 } } },
-      ])
-    : [];
-  const joinsBySessionId = new Map<string, number>(
-    joinCounts.map((row: Record<string, any>) => [
-      String(row._id),
-      Number(row.count) || 0,
-    ]),
-  );
   const configuredRate = Number(
     (conversionRate as Record<string, any> | null)?.rate,
   );
@@ -188,16 +164,17 @@ export async function getVendorStats(
     ? configuredRate
     : 0.7;
   const revenue = sessions.reduce((total: number, session: Record<string, any>) => {
-    const credits = Number(session.credits) || 0;
-    const attendees = joinsBySessionId.get(String(session._id)) ?? 0;
-    const revenuePerAttendee =
+    const creditsAggregate = Number(session.creditsAggregate) || 0;
+    const safeCreditsAggregate =
+      Number.isFinite(creditsAggregate) && creditsAggregate > 0
+        ? creditsAggregate
+        : 0;
+    const sessionRevenue =
       Math.round(
-        (((Number.isFinite(credits) && credits > 0 ? credits : 0) * rate) +
-          Number.EPSILON) *
-          100,
+        (safeCreditsAggregate * rate + Number.EPSILON) * 100,
       ) / 100;
 
-    return total + revenuePerAttendee * attendees;
+    return total + sessionRevenue;
   }, 0);
   const users = getConsolidatedUsers(consolidated);
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
