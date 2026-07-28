@@ -2,14 +2,16 @@ import { apiRequest } from "./client";
 import type {
   ActivityAttendeesResponse,
   ActivityReviewsResponse,
+  AttendanceStatus,
   CreateActivityInput,
-  CreateVendorActivityResponse,
   CreateSessionInput,
+  CreateVendorActivityResponse,
   CreateVendorSessionResponse,
   DeleteVendorSessionResponse,
   UpdateActivityOpenResponse,
   UpdateAttendanceResponse,
-  AttendanceStatus,
+  UpdateSessionInput,
+  UpdateVendorSessionResponse,
   VendorActivitiesResponse,
   VendorSessionsResponse,
 } from "./types";
@@ -38,6 +40,19 @@ export function createVendorSession(input: CreateSessionInput) {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function updateVendorSession(
+  sessionId: number | string,
+  input: UpdateSessionInput,
+) {
+  return apiRequest<UpdateVendorSessionResponse>(
+    `/vendors/me/sessions/${sessionId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function deleteVendorSession(sessionId: number | string) {

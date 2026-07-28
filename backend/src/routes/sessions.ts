@@ -34,6 +34,11 @@ import {
 } from "../services/sessionOperations.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import {
+  makeVolunteerSessionFree,
+  readSessionDetails,
+  validateSessionDetails,
+} from "../domain/sessionDetails.js";
+import {
   AnnouncementPayloadError,
   canPublishAnnouncementToSession,
   normalizeAnnouncementPoll,
@@ -51,18 +56,6 @@ function sendSessionOperationError(res: any, error: unknown) {
 
   res.status(error.status).json({ message: error.message, ...error.details });
   return true;
-}
-
-function getFiniteNumber(value: unknown) {
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
-
-function getDate(value: unknown) {
-  const date = value instanceof Date ? value : new Date(String(value ?? ""));
-
-  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 async function findSessionByRouteId(sessionId: string, extraFilter = {}) {
@@ -129,57 +122,24 @@ function getLinkedGroupId(value: unknown) {
   return Number.isInteger(groupId) ? groupId : Number.NaN;
 }
 
-function readSessionPayload(input: Record<string, any>) {
-  const instructor = getString(input.instructor);
-  const startsAt = getDate(input.startsAt);
-  const location = getString(input.location);
-  const lat = getFiniteNumber(input.lat ?? input.latitude);
-  const lng = getFiniteNumber(input.lng ?? input.longitude);
-  const endAt = getDate(input.endAt);
-  const spots = getFiniteNumber(input.spots);
+function readSessionPayload(
+  input: Record<string, any>,
+  isVolunteer: boolean,
+) {
   const groupId = getLinkedGroupId(input.groupId);
+  const details = readSessionDetails(input);
 
   return {
-    instructor,
-    startsAt,
-    location,
-    lat,
-    lng,
-    endAt,
-    spots,
+    ...(isVolunteer ? makeVolunteerSessionFree(details) : details),
     groupId,
   };
 }
 
 function validateSessionPayload(session: ReturnType<typeof readSessionPayload>) {
-  if (!session.startsAt || !session.endAt || !session.location) {
-    return "Session start date/time, end date/time, and location are required.";
-  }
+  const detailsError = validateSessionDetails(session);
 
-  if (session.instructor.length > 120) {
-    return "Instructor must be 120 characters or less.";
-  }
-
-  if (
-    session.lat === null ||
-    session.lng === null ||
-    session.lat < -90 ||
-    session.lat > 90 ||
-    session.lng < -180 ||
-    session.lng > 180
-  ) {
-    return "Choose a valid session location.";
-  }
-
-  if (
-    session.endAt.getTime() - session.startsAt.getTime() <
-    15 * 60 * 1000
-  ) {
-    return "Session end time must be at least 15 minutes after its start time.";
-  }
-
-  if (session.spots === null || session.spots < 1) {
-    return "Session spots must be at least 1.";
+  if (detailsError) {
+    return detailsError;
   }
 
   if (Number.isNaN(session.groupId)) {
@@ -422,7 +382,10 @@ router.post("/", requireAuth, async (req, res, next) => {
       return;
     }
 
-    const sessionPayload = readSessionPayload(req.body ?? {});
+    const sessionPayload = readSessionPayload(
+      req.body ?? {},
+      activity.isVolunteer === true,
+    );
     const errorMessage = validateSessionPayload(sessionPayload);
 
     if (errorMessage) {
@@ -457,13 +420,16 @@ router.post("/", requireAuth, async (req, res, next) => {
     const operation = await createScheduledSession({
       userId: user._id,
       activityId: activity._id,
-      activityTitle: activity.title,
       linkedChatId: linkedChat?._id,
       session: {
+        title: sessionPayload.title,
         instructor: sessionPayload.instructor,
         startsAt: sessionPayload.startsAt as Date,
         endAt: sessionPayload.endAt as Date,
         spots: Math.round(Number(sessionPayload.spots)),
+        credits: Number(sessionPayload.credits),
+        isPremium: sessionPayload.isPremium,
+        skillsFuturePayable: sessionPayload.skillsFuturePayable,
         location: sessionPayload.location,
         lat: Number(sessionPayload.lat),
         lng: Number(sessionPayload.lng),

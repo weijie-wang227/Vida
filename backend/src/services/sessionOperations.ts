@@ -38,13 +38,16 @@ export class SessionOperationError extends Error {
 type ScheduledSessionInput = {
   userId: unknown;
   activityId: unknown;
-  activityTitle: string;
   linkedChatId?: unknown;
   session: {
+    title: string;
     instructor: string;
     startsAt: Date;
     endAt: Date;
     spots: number;
+    credits: number;
+    isPremium: boolean;
+    skillsFuturePayable: boolean;
     location: string;
     lat: number;
     lng: number;
@@ -63,6 +66,24 @@ type DeleteScheduledSessionInput = {
   activityId: unknown;
 };
 
+type UpdateScheduledSessionInput = {
+  sessionId: unknown;
+  activityId: unknown;
+  details: {
+    title: string;
+    instructor: string;
+    startsAt: Date;
+    endAt: Date;
+    spots: number;
+    location: string;
+    lat: number;
+    lng: number;
+    credits: number;
+    isPremium: boolean;
+    skillsFuturePayable: boolean;
+  };
+};
+
 async function nextMockId(
   model: typeof ChatModel | typeof SessionModel,
   dbSession: ClientSession,
@@ -76,8 +97,8 @@ async function nextMockId(
   return (lastItem?.mockId ?? 0) + 1;
 }
 
-function getCreditCost(activity: Record<string, any>) {
-  const credits = Number(activity.credits);
+function getCreditCost(session: Record<string, any>) {
+  const credits = Number(session.credits);
 
   return Number.isFinite(credits) && credits > 0 ? credits : 0;
 }
@@ -108,10 +129,7 @@ async function findEligibleAccount(
 
 export async function createScheduledSession(input: ScheduledSessionInput) {
   return mongoose.connection.transaction(async (dbSession) => {
-    const chatName = formatSessionChatName(
-      input.activityTitle,
-      input.session.startsAt,
-    );
+    const chatName = formatSessionChatName(input.session.title);
     const chat = input.linkedChatId
       ? await ChatModel.findById(input.linkedChatId).session(dbSession)
       : (
@@ -149,10 +167,14 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
         {
           mockId: await nextMockId(SessionModel, dbSession),
           activity: input.activityId,
+          title: input.session.title,
           instructor: input.session.instructor,
           startsAt: input.session.startsAt,
           endAt: input.session.endAt,
           spots: input.session.spots,
+          credits: input.session.credits,
+          isPremium: input.session.isPremium,
+          skillsFuturePayable: input.session.skillsFuturePayable,
           registeredCount: 0,
           attendedCount: 0,
           chat: chat._id,
@@ -193,6 +215,74 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
   });
 }
 
+export async function updateScheduledSession(
+  input: UpdateScheduledSessionInput,
+) {
+  const conversionRate = await getCreditsToDollarsRate();
+
+  return mongoose.connection.transaction(async (dbSession) => {
+    const scheduledSession = await SessionModel.findOne({
+      _id: input.sessionId,
+      activity: input.activityId,
+    }).session(dbSession);
+
+    if (!scheduledSession) {
+      throw new SessionOperationError("Session not found.", 404);
+    }
+
+    const registeredCount = Math.max(
+      0,
+      Number(scheduledSession.registeredCount) || 0,
+    );
+    const previousRevenue =
+      convertCreditsToDollars(
+        getCreditCost(scheduledSession),
+        conversionRate,
+      ) * registeredCount;
+
+    Object.assign(scheduledSession, input.details);
+    await scheduledSession.save({ session: dbSession });
+
+    const updatedRevenue =
+      convertCreditsToDollars(
+        getCreditCost(scheduledSession),
+        conversionRate,
+      ) * registeredCount;
+    const revenueDelta = updatedRevenue - previousRevenue;
+    const activity = await ActivityModel.findByIdAndUpdate(
+      input.activityId,
+      [
+        {
+          $set: {
+            totalRevenue: {
+              $max: [
+                0,
+                {
+                  $add: [
+                    { $ifNull: ["$totalRevenue", 0] },
+                    revenueDelta,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ],
+      {
+        returnDocument: "after",
+        session: dbSession,
+        updatePipeline: true,
+      },
+    );
+
+    if (!activity) {
+      throw new SessionOperationError("Activity not found.", 404);
+    }
+
+    return { session: scheduledSession, activity };
+  });
+}
+
 export async function deleteScheduledSession(
   input: DeleteScheduledSessionInput,
 ) {
@@ -208,14 +298,6 @@ export async function deleteScheduledSession(
       throw new SessionOperationError("Session not found.", 404);
     }
 
-    const activityPricing = await ActivityModel.findById(input.activityId)
-      .select("credits")
-      .session(dbSession);
-
-    if (!activityPricing) {
-      throw new SessionOperationError("Activity not found.", 404);
-    }
-
     const registeredCount = Math.max(
       0,
       Number(scheduledSession.registeredCount) || 0,
@@ -226,7 +308,7 @@ export async function deleteScheduledSession(
     );
     const sessionRevenue =
       convertCreditsToDollars(
-        getCreditCost(activityPricing),
+        getCreditCost(scheduledSession),
         conversionRate,
       ) * registeredCount;
     const attendedParticipations = await SessionParticipationModel.find({
@@ -343,7 +425,11 @@ export async function deleteScheduledSession(
           },
         },
       ],
-      { returnDocument: "after", session: dbSession },
+      {
+        returnDocument: "after",
+        session: dbSession,
+        updatePipeline: true,
+      },
     );
 
     if (!activity) {
@@ -444,7 +530,7 @@ export async function registerForSession(
       });
     }
 
-    const creditCost = getCreditCost(activity);
+    const creditCost = getCreditCost(currentSession);
     const account = await findEligibleAccount(userId, creditCost, dbSession);
 
     if (creditCost > 0 && !account) {

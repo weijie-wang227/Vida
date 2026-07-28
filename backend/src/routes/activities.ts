@@ -150,14 +150,18 @@ async function getParticipatingUsersBySessionId(sessions: Record<string, any>[])
 }
 
 async function getSerializedOpenActivities(
-  activityFilter: Record<string, any> = {},
+  filters: {
+    activityFilter?: Record<string, any>;
+    sessionFilter?: Record<string, any>;
+  } = {},
 ) {
   const openSessions = await SessionModel.find({
     ...openSessionFilter,
+    ...(filters.sessionFilter ?? {}),
   })
     .populate({
       path: "activity",
-      match: activityFilter,
+      match: filters.activityFilter ?? {},
       populate: [{ path: "host" }, { path: "tags" }],
     })
     .populate("chat")
@@ -592,12 +596,6 @@ router.post("/", requireAuth, async (req, res, next) => {
     const requestedTagIds = getTagIds(req.body?.tagIds);
     const isVolunteer = req.body?.isVolunteer === true;
     const isAAC = req.body?.isAAC === true;
-    const requestedCredits = Number(req.body?.credits ?? 0);
-    const credits = isVolunteer ? 0 : requestedCredits;
-    const isPremium = isVolunteer ? false : req.body?.isPremium === true;
-    const skillsFuturePayable = isVolunteer
-      ? false
-      : req.body?.skillsFuturePayable === true;
 
     if (!title) {
       res.status(400).json({ message: "Activity title is required." });
@@ -613,11 +611,6 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     if (suitability.length > 500) {
       res.status(400).json({ message: "Suitability must be 500 characters or less." });
-      return;
-    }
-
-    if (!Number.isFinite(credits) || credits < 0) {
-      res.status(400).json({ message: "Activity credits cannot be negative." });
       return;
     }
 
@@ -654,9 +647,6 @@ router.post("/", requireAuth, async (req, res, next) => {
       tags: await resolveTagIds(requestedTagIds),
       isVolunteer,
       isAAC,
-      credits,
-      isPremium,
-      skillsFuturePayable,
     });
 
     await VendorModel.findByIdAndUpdate(vendor._id, {

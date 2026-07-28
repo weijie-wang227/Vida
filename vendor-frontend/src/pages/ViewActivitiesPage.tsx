@@ -32,11 +32,14 @@ function getSessionRouteId(session: Session) {
   return session.mockId;
 }
 
-function getSessionDetailsPath(session: Session) {
+function getActivitySessionPath(session: Session) {
   const activityId =
     session.activity?.mockId ?? session.activityMockId ?? session.activityId;
+  const sessionId = getSessionRouteId(session);
 
-  return `/activities/${activityId}/sessions/${getSessionRouteId(session)}`;
+  return `/activities/${activityId}?selectedSession=${encodeURIComponent(
+    String(sessionId),
+  )}`;
 }
 
 function getSessionAttendancePath(session: Session) {
@@ -179,14 +182,10 @@ export function ViewActivitiesPage({
                             type="button"
                             className="activity-title-button"
                             onClick={() =>
-                              navigate(getSessionDetailsPath(session), {
-                                state: {
-                                  sessionDetailsReturnTo: "/activities",
-                                },
-                              })
+                              navigate(getActivitySessionPath(session))
                             }
                           >
-                            {formatActivityDate(session.startsAt)}
+                            {session.title}
                           </button>
                         </td>
                         <td>{formatActivityDate(session.startsAt)}</td>
@@ -205,9 +204,7 @@ export function ViewActivitiesPage({
                               aria-checked={session.isOpen}
                               aria-label={`${
                                 session.isOpen ? "Close" : "Open"
-                              } signups for ${formatActivityDate(
-                                session.startsAt,
-                              )}`}
+                              } signups for ${session.title}`}
                               className={`session-signup-switch ${
                                 session.isOpen
                                   ? "session-signup-switch--open"
@@ -287,14 +284,10 @@ export function ViewActivitiesPage({
                         type="button"
                         className="activity-title-button"
                         onClick={() =>
-                          navigate(getSessionDetailsPath(session), {
-                            state: {
-                              sessionDetailsReturnTo: "/activities",
-                            },
-                          })
+                          navigate(getActivitySessionPath(session))
                         }
                       >
-                        {formatActivityDate(session.startsAt)}
+                        {session.title}
                       </button>
                     </td>
                     <td>{formatActivityDate(session.startsAt)}</td>

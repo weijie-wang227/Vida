@@ -271,9 +271,8 @@ function buildPeriod(
   sessions.forEach((session) => {
     const sessionId = String(session._id);
     const attendees = joinsBySessionId.get(sessionId) ?? 0;
-    const activity = activityById.get(String(session.activity));
     const revenue =
-      convertCreditsToDollars(Number(activity?.credits), rate) * attendees;
+      convertCreditsToDollars(Number(session.credits), rate) * attendees;
 
     revenueBySessionId.set(sessionId, roundCurrency(revenue));
   });
@@ -368,12 +367,12 @@ export async function getVendorFinance(
     isVolunteer: { $ne: true },
     $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }],
   })
-    .select("_id title credits sessionsNum registeredCount totalRevenue")
+    .select("_id title sessionsNum registeredCount totalRevenue")
     .lean();
   const activityIds = activities.map((activity: Record<string, any>) => activity._id);
   const sessions = activityIds.length > 0
     ? await SessionModel.find({ activity: { $in: activityIds } })
-        .select("_id activity startsAt")
+        .select("_id activity startsAt credits")
         .lean()
     : [];
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -427,7 +426,7 @@ export async function getVendorFinanceActivity(
       { isVolunteer: { $ne: true } },
     ],
   })
-    .select("_id title credits")
+    .select("_id title")
     .lean()) as Record<string, any> | null;
 
   if (!activity) {
@@ -442,7 +441,7 @@ export async function getVendorFinanceActivity(
   const sessions = await SessionModel.find({
     activity: activity._id,
   })
-    .select("_id mockId title startsAt")
+    .select("_id mockId title startsAt credits")
     .sort({ startsAt: -1, mockId: -1 })
     .lean();
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -475,13 +474,13 @@ export async function getVendorFinanceActivity(
   const sessionRows = sessions.map((session: Record<string, any>) => {
     const registeredCount = attendeesBySessionId.get(String(session._id)) ?? 0;
     const revenue = roundCurrency(
-      convertCreditsToDollars(Number(activity.credits), rate) * registeredCount,
+      convertCreditsToDollars(Number(session.credits), rate) * registeredCount,
     );
 
     return {
       id: String(session._id),
       mockId: String(session.mockId),
-      title: formatSessionDateTime(session.startsAt),
+      title: session.title || formatSessionDateTime(session.startsAt),
       startsAt:
         session.startsAt instanceof Date
           ? session.startsAt.toISOString()

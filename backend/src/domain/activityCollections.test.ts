@@ -7,20 +7,28 @@ import {
 
 test("activity collections filter activity-owned fields", () => {
   assert.deepEqual(getActivityCollectionFilters("free"), {
-    isPremium: false,
-    credits: 0,
+    activityFilter: {},
+    sessionFilter: {
+      isPremium: false,
+      skillsFuturePayable: false,
+      credits: 0,
+    },
   });
   assert.deepEqual(getActivityCollectionFilters("premium"), {
-    isPremium: true,
+    activityFilter: {},
+    sessionFilter: { isPremium: true },
   });
   assert.deepEqual(getActivityCollectionFilters("skillsfuture"), {
-    skillsFuturePayable: true,
+    activityFilter: {},
+    sessionFilter: { skillsFuturePayable: true },
   });
   assert.deepEqual(getActivityCollectionFilters("volunteer"), {
-    isVolunteer: true,
+    activityFilter: { isVolunteer: true },
+    sessionFilter: {},
   });
   assert.deepEqual(getActivityCollectionFilters("aac"), {
-    isAAC: true,
+    activityFilter: { isAAC: true },
+    sessionFilter: {},
   });
 });
 

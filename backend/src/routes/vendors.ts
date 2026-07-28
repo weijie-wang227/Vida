@@ -36,7 +36,13 @@ import {
   markSessionAttendance,
   reviewVolunteerParticipation,
   SessionOperationError,
+  updateScheduledSession,
 } from "../services/sessionOperations.js";
+import {
+  makeVolunteerSessionFree,
+  readSessionDetails,
+  validateSessionDetails,
+} from "../domain/sessionDetails.js";
 import {
   getPagination,
   getPaginationResponse,
@@ -78,9 +84,6 @@ function serializeVendorActivityRow(
     imageUrls: Array.isArray(activity.imageUrls) ? activity.imageUrls : [],
     tags: serializeTagNames(activity.tags),
     isVolunteer: Boolean(activity.isVolunteer),
-    credits: Number(activity.credits) || 0,
-    isPremium: Boolean(activity.isPremium),
-    skillsFuturePayable: Boolean(activity.skillsFuturePayable),
     rating: Number.isFinite(rating) ? rating : 0,
     isOpen: true,
     sessionsNum: Number(activity.sessionsNum) || 0,
@@ -114,11 +117,16 @@ function serializeVendorSessionRow(
     activity: activityRow,
     activityId,
     activityMockId: activity.mockId,
-    title: formatSessionDateTime(session.startsAt),
+    title: session.title || formatSessionDateTime(session.startsAt),
     instructor: session.instructor ?? "",
     startsAt: session.startsAt,
     endAt: session.endAt,
     spots: session.spots,
+    credits: Number(session.credits ?? activity.credits) || 0,
+    isPremium: Boolean(session.isPremium ?? activity.isPremium),
+    skillsFuturePayable: Boolean(
+      session.skillsFuturePayable ?? activity.skillsFuturePayable,
+    ),
     location: session.location,
     lat: session.lat,
     lng: session.lng,
@@ -279,7 +287,7 @@ async function getVendorChatRows(vendor: Record<string, any>) {
         session: {
           id: String(session._id),
           mockId: String(session.mockId),
-          title: formatSessionDateTime(session.startsAt),
+          title: session.title || formatSessionDateTime(session.startsAt),
           startsAt: session.startsAt,
           location: String(session.location ?? ""),
           registeredCount: Number(session.registeredCount) || 0,
@@ -364,7 +372,7 @@ async function getVendorAnnouncementRows(vendor: Record<string, any>) {
         session: {
           id: String(session._id),
           mockId: String(session.mockId),
-          title: formatSessionDateTime(session.startsAt),
+          title: session.title || formatSessionDateTime(session.startsAt),
           startsAt: session.startsAt,
           location: String(session.location ?? ""),
           registeredCount: Number(session.registeredCount) || 0,
@@ -512,7 +520,7 @@ async function getVolunteerOverview(vendor: Record<string, any>) {
         mockId: String(session.mockId),
         activityId: String(activity?._id ?? session.activity),
         activityMockId: activity?.mockId,
-        title: formatSessionDateTime(session.startsAt),
+        title: session.title || formatSessionDateTime(session.startsAt),
         activityTitle: String(activity?.title ?? "Volunteer activity"),
         startsAt:
           !Number.isNaN(startsAt.getTime()) ? startsAt.toISOString() : "",
@@ -570,7 +578,7 @@ async function getVolunteerRoster(
     session: {
       id: String(session._id),
       mockId: String(session.mockId),
-      title: formatSessionDateTime(session.startsAt),
+      title: session.title || formatSessionDateTime(session.startsAt),
       activityTitle: String(activity.title ?? "Volunteer activity"),
     },
     volunteers: participations.map((participationValue: Record<string, any>) => {
@@ -713,6 +721,81 @@ router.get("/me/sessions", requireVendorAuth, async (_req, res, next) => {
   }
 });
 
+// Updates the editable details and payment options for one managed session.
+router.patch(
+  "/me/sessions/:sessionId",
+  requireVendorAuth,
+  async (req, res, next) => {
+    try {
+      const sessionId = String(req.params.sessionId ?? "");
+      const session = await findVendorSession(res.locals.vendor, sessionId);
+
+      if (!session) {
+        const hasValidSelector = getSessionSelector(sessionId).length > 0;
+
+        if (!hasValidSelector) {
+          res.status(400).json({ message: "Choose a valid session." });
+          return;
+        }
+
+        res.status(404).json({ message: "Session not found." });
+        return;
+      }
+
+      const activity = asObject(session.activity ?? {});
+      const requestedDetails = readSessionDetails(req.body ?? {});
+      const details =
+        activity.isVolunteer === true
+          ? makeVolunteerSessionFree(requestedDetails)
+          : requestedDetails;
+      const minimumSpots = Math.max(
+        1,
+        Number(session.registeredCount) || 0,
+      );
+      const errorMessage = validateSessionDetails(details, minimumSpots);
+
+      if (errorMessage) {
+        res.status(400).json({ message: errorMessage });
+        return;
+      }
+
+      const operation = await updateScheduledSession({
+        sessionId: session._id,
+        activityId: activity._id,
+        details: {
+          title: details.title,
+          instructor: details.instructor,
+          startsAt: details.startsAt as Date,
+          endAt: details.endAt as Date,
+          spots: Number(details.spots),
+          location: details.location,
+          lat: Number(details.lat),
+          lng: Number(details.lng),
+          credits: Number(details.credits),
+          isPremium: details.isPremium,
+          skillsFuturePayable: details.skillsFuturePayable,
+        },
+      });
+      const updatedActivity = asObject(operation.activity);
+
+      res.json({
+        session: serializeVendorSessionRow(operation.session, activity),
+        activity: {
+          id: String(updatedActivity._id),
+          mockId: updatedActivity.mockId,
+          totalRevenue: Number(updatedActivity.totalRevenue) || 0,
+        },
+      });
+    } catch (error) {
+      if (sendSessionOperationError(res, error)) {
+        return;
+      }
+
+      next(error);
+    }
+  },
+);
+
 // Deletes one managed session and all participation records attached to it.
 router.delete(
   "/me/sessions/:sessionId",
@@ -748,7 +831,9 @@ router.delete(
         session: {
           id: String(deletedSession._id),
           mockId: deletedSession.mockId,
-          title: formatSessionDateTime(deletedSession.startsAt),
+          title:
+            deletedSession.title ||
+            formatSessionDateTime(deletedSession.startsAt),
         },
         activity: {
           id: String(updatedActivity._id),
@@ -1009,7 +1094,7 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
       session: {
         id: String(session._id),
         mockId: session.mockId,
-        title: formatSessionDateTime(session.startsAt),
+        title: session.title || formatSessionDateTime(session.startsAt),
       },
       attendees: participations.map((participation: Record<string, any>) => {
         const item = asObject(participation);
@@ -1072,7 +1157,7 @@ router.patch("/me/sessions/:sessionId/open", requireVendorAuth, async (req, res,
       session: {
         id: String(session._id),
         mockId: session.mockId,
-        title: formatSessionDateTime(session.startsAt),
+        title: session.title || formatSessionDateTime(session.startsAt),
         isOpen: session.isOpen !== false,
       },
     });

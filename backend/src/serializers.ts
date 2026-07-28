@@ -20,9 +20,10 @@ function formatChatTime(value: unknown) {
   }).format(date);
 }
 
-function getActivityCredits(activity: AnyDoc) {
+function getSessionCredits(session: AnyDoc, activity?: AnyDoc) {
+  const sessionItem = asObject(session ?? {});
   const item = asObject(activity ?? {});
-  const credits = Number(item.credits);
+  const credits = Number(sessionItem.credits ?? item.credits);
 
   return Number.isFinite(credits) ? credits : 0;
 }
@@ -309,14 +310,16 @@ export function serializeActivity(
       primarySession.registeredCount ?? participatingFriends.length,
     ),
     attendedCount: Number(primarySession.attendedCount ?? 0),
-    credits: getActivityCredits(item),
+    credits: getSessionCredits(primarySession, item),
     rating: item.rating,
     categories: (item.categories ?? []) as vidaCategory[],
     tags: serializeTagNames(item.tags),
     isVolunteer: Boolean(item.isVolunteer),
     isAAC: Boolean(item.isAAC),
-    isPremium: Boolean(item.isPremium),
-    skillsFuturePayable: Boolean(item.skillsFuturePayable),
+    isPremium: Boolean(primarySession.isPremium ?? item.isPremium),
+    skillsFuturePayable: Boolean(
+      primarySession.skillsFuturePayable ?? item.skillsFuturePayable,
+    ),
     isOpen: primarySession.isOpen !== false,
     isActive: primarySession.isActive !== false,
     imageUrls: Array.isArray(item.imageUrls)
@@ -348,11 +351,16 @@ export function serializeSession(session: AnyDoc) {
     id: item.mockId ?? String(item._id ?? ""),
     objectId: String(item._id ?? ""),
     activityId: activity?.mockId ?? String(activity?._id ?? item.activity ?? ""),
-    title: formatSessionDateTime(item.startsAt),
+    title: item.title || formatSessionDateTime(item.startsAt),
     instructor: item.instructor ?? "",
     startsAt: getActivityStartsAt(activity ?? item, item),
     endAt: item.endAt ? toIsoString(item.endAt) : "",
     spots: item.spots,
+    credits: getSessionCredits(item, activity),
+    isPremium: Boolean(item.isPremium ?? activity?.isPremium),
+    skillsFuturePayable: Boolean(
+      item.skillsFuturePayable ?? activity?.skillsFuturePayable,
+    ),
     registeredCount: Number(item.registeredCount ?? 0),
     attendedCount: Number(item.attendedCount ?? 0),
     chat: chat?._id ? String(chat._id) : String(item.chat ?? ""),
@@ -392,7 +400,7 @@ export function serializeMapPin(pin: AnyDoc) {
     x: 0,
     y: 0,
     label: formatSessionDateTime(item.startsAt),
-    premium: activity.isPremium ?? activity.premium,
+    premium: item.isPremium ?? activity.isPremium ?? activity.premium,
     categories: (activity.categories ?? []) as vidaCategory[],
   };
 }

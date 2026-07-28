@@ -5,7 +5,7 @@ export const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const categoryColors: Record<VidaCategory, string> = {
   physical: "#4bd178",
-  social: "#e8a82f",
+  social: "#f6a784",
   cognitive: "#dc4aa7",
   creative: "#6577ff",
 };

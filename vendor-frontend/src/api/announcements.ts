@@ -6,9 +6,9 @@ import type {
 } from "./types";
 
 export function fetchVendorAnnouncementSessions() {
-  return apiRequest<VendorAnnouncementsResponse>("/vendors/me/announcements").then(
-    (response) => response.sessions,
-  );
+  return apiRequest<VendorAnnouncementsResponse>(
+    "/vendors/me/announcements",
+  ).then((response) => response.sessions);
 }
 
 export function fetchSessionAnnouncements(sessionId: string) {

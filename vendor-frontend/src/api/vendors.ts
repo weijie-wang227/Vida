@@ -25,9 +25,9 @@ export function fetchMyVendor() {
 }
 
 export function fetchVendorUsersPageStats() {
-  return apiRequest<VendorUsersPageStatsResponse>("/vendors/me/users/stats").then(
-    (response) => response.stats,
-  );
+  return apiRequest<VendorUsersPageStatsResponse>(
+    "/vendors/me/users/stats",
+  ).then((response) => response.stats);
 }
 
 export function fetchVendorFinances() {
@@ -56,7 +56,9 @@ export function updateVolunteerApplication(
   status: "approved" | "rejected",
 ) {
   return apiRequest<UpdateVolunteerApplicationResponse>(
-    `/vendors/me/volunteers/sessions/${encodeURIComponent(sessionId)}/roster/${encodeURIComponent(userId)}`,
+    `/vendors/me/volunteers/sessions/${encodeURIComponent(
+      sessionId,
+    )}/roster/${encodeURIComponent(userId)}`,
     {
       method: "PATCH",
       body: JSON.stringify({ status }),

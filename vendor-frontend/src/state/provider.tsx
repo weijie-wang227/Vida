@@ -12,6 +12,7 @@ import {
   fetchVendorActivities,
   fetchVendorSessions,
   updateSessionOpen,
+  updateVendorSession,
 } from "../api/activities";
 import type { AuthMode } from "../api/auth";
 import { fetchCurrentUser, signIn, signUp } from "../api/auth";
@@ -25,6 +26,8 @@ import type {
   CreateVendorSessionResponse,
   Onboarded,
   Session,
+  UpdateSessionInput,
+  UpdateVendorSessionResponse,
   Vendor,
   VendorStats,
 } from "../api/types";
@@ -274,6 +277,56 @@ export function VendorStateProvider({
     }
   };
 
+  const updateSessionDetails = async (
+    sessionId: number | string,
+    input: UpdateSessionInput,
+  ): Promise<UpdateVendorSessionResponse> => {
+    setActivityError(null);
+    setUpdatingSessionId(String(sessionId));
+
+    try {
+      const response = await updateVendorSession(sessionId, input);
+      const updatedIds = new Set(
+        [
+          response.session.id,
+          response.session.objectId,
+          response.session.mockId,
+          sessionId,
+        ].map(String),
+      );
+
+      setSessions((current) =>
+        current.map((row) =>
+          [row.id, row.objectId, row.mockId].some(
+            (value) =>
+              value !== undefined && updatedIds.has(String(value)),
+          )
+            ? response.session
+            : row,
+        ),
+      );
+      setActivities((current) =>
+        current.map((activity) =>
+          activity.id === response.activity.id ||
+          activity.mockId === response.activity.mockId
+            ? { ...activity, totalRevenue: response.activity.totalRevenue }
+            : activity,
+        ),
+      );
+
+      return response;
+    } catch (submissionError) {
+      setActivityError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to update session.",
+      );
+      throw submissionError;
+    } finally {
+      setUpdatingSessionId(null);
+    }
+  };
+
   const deleteSession = async (sessionId: number | string) => {
     setActivityError(null);
     setDeletingSessionId(String(sessionId));
@@ -339,6 +392,7 @@ export function VendorStateProvider({
       signOut,
       createActivity,
       createSession,
+      updateSessionDetails,
       updateVendorProfile: saveVendorProfile,
       toggleSessionOpen,
       deleteSession,

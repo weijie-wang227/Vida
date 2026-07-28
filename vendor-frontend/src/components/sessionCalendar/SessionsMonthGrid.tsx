@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import type { Session } from "../../api/types";
-import { formatSessionDateTime } from "../../utils/sessionDateTime";
 import {
   fullDateLabel,
   getSessionColor,
@@ -66,8 +65,8 @@ export function SessionsMonthGrid({
                       }`}
                       style={{ "--event-color": color } as CSSProperties}
                     >
-                      <strong>{formatSessionTime(session.startsAt)}</strong>
-                      <em>{formatSessionDateTime(session.startsAt)}</em>
+                      <strong>{session.title}</strong>
+                      <em>{formatSessionTime(session.startsAt)}</em>
                     </span>
                   );
                 })}

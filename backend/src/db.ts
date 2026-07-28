@@ -69,10 +69,6 @@ export async function connectDB() {
     { cover: { $exists: true } },
     { $unset: { cover: "" } },
   );
-  await SessionModel.collection.updateMany(
-    { title: { $exists: true } },
-    { $unset: { title: "" } },
-  );
   await Promise.all([
     AnnouncementModel.createIndexes(),
     AnnouncementVoteModel.createIndexes(),
