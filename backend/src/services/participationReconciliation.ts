@@ -3,6 +3,7 @@ import {
   SessionModel,
   SessionParticipationModel,
   UserModel,
+  VendorModel,
 } from "../models/VidaData.js";
 import {
   convertCreditsToDollars,
@@ -13,45 +14,117 @@ import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 type SessionCounts = {
   registeredCount: number;
   attendedCount: number;
+  creditsAggregate: number;
 };
 
 export async function reconcileParticipationCounters() {
   const conversionRate = await getCreditsToDollarsRate();
-  const [sessionCountRows, userCountRows, sessions, activities, users] =
-    await Promise.all([
-      SessionParticipationModel.aggregate([
-        {
-          $match: {
-            role: "participant",
-            status: { $in: countedRegistrationStatuses },
+  const [sessions, activities, users, vendors] = await Promise.all([
+    SessionModel.find({}).select("_id activity credits").lean(),
+    ActivityModel.find({}).select("_id host").lean(),
+    UserModel.find({}).select("_id").lean(),
+    VendorModel.find({}).select("_id owner").lean(),
+  ]);
+  const ownerByVendorId = new Map(
+    vendors.map((vendor: Record<string, any>) => [
+      String(vendor._id),
+      vendor.owner,
+    ]),
+  );
+  const ownerByActivityId = new Map(
+    activities.map((activity: Record<string, any>) => [
+      String(activity._id),
+      ownerByVendorId.get(String(activity.host)),
+    ]),
+  );
+
+  if (sessions.length > 0) {
+    await SessionParticipationModel.bulkWrite(
+      sessions.map((session: Record<string, any>) => {
+        const ownerId = ownerByActivityId.get(String(session.activity));
+
+        return {
+          updateMany: {
+            filter: {
+              sessionId: session._id,
+              role: "participant",
+              status: { $in: countedRegistrationStatuses },
+              creditsTransaction: { $exists: false },
+              ...(ownerId ? { userId: { $ne: ownerId } } : {}),
+            },
+            update: {
+              $set: {
+                creditsTransaction: Math.max(0, Number(session.credits) || 0),
+              },
+            },
           },
-        },
-        {
-          $group: {
-            _id: "$sessionId",
-            registeredCount: { $sum: 1 },
-            attendedCount: {
-              $sum: { $cond: [{ $eq: ["$status", "attended"] }, 1, 0] },
+        };
+      }),
+    );
+  }
+
+  await SessionParticipationModel.updateMany(
+    { creditsTransaction: { $exists: false } },
+    { $set: { creditsTransaction: 0 } },
+  );
+
+  const [sessionCountRows, userCountRows] = await Promise.all([
+    SessionParticipationModel.aggregate([
+      {
+        $group: {
+          _id: "$sessionId",
+          registeredCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$role", "participant"] },
+                    { $in: ["$status", countedRegistrationStatuses] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          attendedCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$role", "participant"] },
+                    { $eq: ["$status", "attended"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          creditsAggregate: {
+            $sum: {
+              $cond: [
+                { $eq: ["$role", "participant"] },
+                { $ifNull: ["$creditsTransaction", 0] },
+                0,
+              ],
             },
           },
         },
-      ]),
-      SessionParticipationModel.aggregate([
-        { $match: { role: "participant", status: "attended" } },
-        { $group: { _id: "$userId", attendedSessionsCount: { $sum: 1 } } },
-      ]),
-      SessionModel.find({})
-        .select("_id activity credits")
-        .lean(),
-      ActivityModel.find({}).select("_id").lean(),
-      UserModel.find({}).select("_id").lean(),
-    ]);
+      },
+    ]),
+    SessionParticipationModel.aggregate([
+      { $match: { role: "participant", status: "attended" } },
+      { $group: { _id: "$userId", attendedSessionsCount: { $sum: 1 } } },
+    ]),
+  ]);
   const countsBySessionId = new Map<string, SessionCounts>(
     sessionCountRows.map((row: Record<string, any>) => [
       String(row._id),
       {
         registeredCount: Number(row.registeredCount) || 0,
         attendedCount: Number(row.attendedCount) || 0,
+        creditsAggregate: Number(row.creditsAggregate) || 0,
       },
     ]),
   );
@@ -62,6 +135,7 @@ export async function reconcileParticipationCounters() {
         const counts = countsBySessionId.get(String(session._id)) ?? {
           registeredCount: 0,
           attendedCount: 0,
+          creditsAggregate: 0,
         };
 
         return {
@@ -97,6 +171,7 @@ export async function reconcileParticipationCounters() {
     const counts = countsBySessionId.get(String(session._id)) ?? {
       registeredCount: 0,
       attendedCount: 0,
+      creditsAggregate: 0,
     };
     const totals = totalsByActivityId.get(activityId) ?? {
       sessionsNum: 0,
@@ -110,10 +185,9 @@ export async function reconcileParticipationCounters() {
     totals.attendedCount += counts.attendedCount;
     totals.totalRevenue +=
       convertCreditsToDollars(
-        Number(session.credits) || 0,
+        counts.creditsAggregate,
         conversionRate,
-      ) *
-      counts.registeredCount;
+      );
     totalsByActivityId.set(activityId, totals);
   });
 

@@ -123,6 +123,7 @@ function serializeVendorSessionRow(
     endAt: session.endAt,
     spots: session.spots,
     credits: Number(session.credits ?? activity.credits) || 0,
+    creditsAggregate: Number(session.creditsAggregate) || 0,
     isPremium: Boolean(session.isPremium ?? activity.isPremium),
     skillsFuturePayable: Boolean(
       session.skillsFuturePayable ?? activity.skillsFuturePayable,
@@ -1106,6 +1107,7 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
           handle: attendee.handle ?? "",
           avatar: attendee.avatarUrl ?? "",
           status: item.status,
+          creditsTransaction: Number(item.creditsTransaction) || 0,
           signedUpAt: item.registeredAt ?? item.createdAt,
         };
       }),

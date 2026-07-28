@@ -175,6 +175,7 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
           credits: input.session.credits,
           isPremium: input.session.isPremium,
           skillsFuturePayable: input.session.skillsFuturePayable,
+          creditsAggregate: 0,
           registeredCount: 0,
           attendedCount: 0,
           chat: chat._id,
@@ -205,6 +206,7 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
           sessionId: scheduledSession._id,
           role: "organizer",
           status: "registered",
+          creditsTransaction: 0,
           registeredAt: new Date(),
         },
       ],
@@ -218,8 +220,6 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
 export async function updateScheduledSession(
   input: UpdateScheduledSessionInput,
 ) {
-  const conversionRate = await getCreditsToDollarsRate();
-
   return mongoose.connection.transaction(async (dbSession) => {
     const scheduledSession = await SessionModel.findOne({
       _id: input.sessionId,
@@ -230,49 +230,11 @@ export async function updateScheduledSession(
       throw new SessionOperationError("Session not found.", 404);
     }
 
-    const registeredCount = Math.max(
-      0,
-      Number(scheduledSession.registeredCount) || 0,
-    );
-    const previousRevenue =
-      convertCreditsToDollars(
-        getCreditCost(scheduledSession),
-        conversionRate,
-      ) * registeredCount;
-
     Object.assign(scheduledSession, input.details);
     await scheduledSession.save({ session: dbSession });
 
-    const updatedRevenue =
-      convertCreditsToDollars(
-        getCreditCost(scheduledSession),
-        conversionRate,
-      ) * registeredCount;
-    const revenueDelta = updatedRevenue - previousRevenue;
-    const activity = await ActivityModel.findByIdAndUpdate(
-      input.activityId,
-      [
-        {
-          $set: {
-            totalRevenue: {
-              $max: [
-                0,
-                {
-                  $add: [
-                    { $ifNull: ["$totalRevenue", 0] },
-                    revenueDelta,
-                  ],
-                },
-              ],
-            },
-          },
-        },
-      ],
-      {
-        returnDocument: "after",
-        session: dbSession,
-        updatePipeline: true,
-      },
+    const activity = await ActivityModel.findById(input.activityId).session(
+      dbSession,
     );
 
     if (!activity) {
@@ -306,11 +268,17 @@ export async function deleteScheduledSession(
       0,
       Number(scheduledSession.attendedCount) || 0,
     );
-    const sessionRevenue =
-      convertCreditsToDollars(
-        getCreditCost(scheduledSession),
-        conversionRate,
-      ) * registeredCount;
+    const storedCreditsAggregate = Number(scheduledSession.creditsAggregate);
+    const creditsAggregate = Math.max(
+      0,
+      Number.isFinite(storedCreditsAggregate)
+        ? storedCreditsAggregate
+        : getCreditCost(scheduledSession) * registeredCount,
+    );
+    const sessionRevenue = convertCreditsToDollars(
+      creditsAggregate,
+      conversionRate,
+    );
     const attendedParticipations = await SessionParticipationModel.find({
       sessionId: scheduledSession._id,
       role: "participant",
@@ -513,6 +481,7 @@ export async function registerForSession(
       };
     }
 
+    const creditCost = getCreditCost(currentSession);
     const reservedSession = await SessionModel.findOneAndUpdate(
       {
         _id: currentSession._id,
@@ -520,7 +489,12 @@ export async function registerForSession(
         isActive: true,
         $expr: { $lt: ["$registeredCount", "$spots"] },
       },
-      { $inc: { registeredCount: 1 } },
+      {
+        $inc: {
+          registeredCount: 1,
+          creditsAggregate: creditCost,
+        },
+      },
       { returnDocument: "after", session: dbSession },
     );
 
@@ -530,7 +504,6 @@ export async function registerForSession(
       });
     }
 
-    const creditCost = getCreditCost(currentSession);
     const account = await findEligibleAccount(userId, creditCost, dbSession);
 
     if (creditCost > 0 && !account) {
@@ -546,6 +519,7 @@ export async function registerForSession(
     if (existing) {
       existing.role = "participant";
       existing.status = "registered";
+      existing.creditsTransaction = creditCost;
       existing.registeredAt = now;
       existing.attendanceMarkedAt = undefined;
       existing.reviewPromptSentAt = undefined;
@@ -558,6 +532,7 @@ export async function registerForSession(
             sessionId: currentSession._id,
             role: "participant",
             status: "registered",
+            creditsTransaction: creditCost,
             registeredAt: now,
           },
         ],

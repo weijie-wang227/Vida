@@ -83,7 +83,7 @@ export function FinancesPage() {
       <div className="finance-toolbar">
         <div>
           <strong>Revenue overview</strong>
-          <span>{finance.conversionRate.toFixed(2)} dollars per credit</span>
+          <span>All amounts are shown in SGD</span>
         </div>
         <PeriodToggle value={period} onChange={setPeriod} />
       </div>

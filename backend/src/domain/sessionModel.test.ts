@@ -8,6 +8,7 @@ test("sessions persist their own title and payment details", () => {
   for (const field of [
     "title",
     "credits",
+    "creditsAggregate",
     "isPremium",
     "skillsFuturePayable",
   ]) {
@@ -31,6 +32,7 @@ test("session end time must be at least 15 minutes after its start time", async 
     credits: 0,
     isPremium: false,
     skillsFuturePayable: false,
+    creditsAggregate: 0,
     registeredCount: 0,
     attendedCount: 0,
     chat: new Types.ObjectId(),

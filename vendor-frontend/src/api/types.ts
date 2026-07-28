@@ -89,6 +89,7 @@ export type Session = BaseSession &{
   mockId: string;
   isOpen: boolean;
   isActive: boolean;
+  creditsAggregate: number;
   registeredCount: number;
   attendedCount: number;
   rating: number;
@@ -353,6 +354,7 @@ export type ActivityAttendee = {
   handle: string;
   avatar: string;
   status: AttendanceStatus;
+  creditsTransaction: number;
   signedUpAt: string;
 };
 

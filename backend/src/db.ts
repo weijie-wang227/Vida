@@ -3,6 +3,7 @@ import {
   ActivityModel,
   AnnouncementModel,
   AnnouncementVoteModel,
+  SettingsModel,
   SessionModel,
   SessionParticipationModel,
 } from "./models/VidaData.js";
@@ -68,6 +69,10 @@ export async function connectDB() {
   await ActivityModel.collection.updateMany(
     { cover: { $exists: true } },
     { $unset: { cover: "" } },
+  );
+  await SettingsModel.collection.updateMany(
+    { "preferences.appearance": { $exists: true } },
+    { $unset: { "preferences.appearance": "" } },
   );
   await Promise.all([
     AnnouncementModel.createIndexes(),

@@ -25,6 +25,28 @@ test("session pricing fields are owned by sessions", () => {
   }
 });
 
+test("participations store charged credits and sessions store their aggregate", async () => {
+  const participation = new SessionParticipationModel();
+  const session = new SessionModel();
+
+  assert.ok(SessionParticipationModel.schema.path("creditsTransaction"));
+  assert.equal(participation.creditsTransaction, 0);
+  assert.ok(SessionModel.schema.path("creditsAggregate"));
+  assert.equal(session.creditsAggregate, 0);
+
+  await assert.rejects(
+    SessionParticipationModel.validate(
+      { creditsTransaction: -1 },
+      ["creditsTransaction"],
+    ),
+    (error: any) => Boolean(error?.errors?.creditsTransaction),
+  );
+  await assert.rejects(
+    SessionModel.validate({ creditsAggregate: -1 }, ["creditsAggregate"]),
+    (error: any) => Boolean(error?.errors?.creditsAggregate),
+  );
+});
+
 test("activities and sessions expose their new text fields with safe defaults", () => {
   const activity = new ActivityModel();
   const session = new SessionModel();

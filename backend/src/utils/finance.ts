@@ -253,7 +253,7 @@ function buildPeriod(
   now: Date,
   activities: Record<string, any>[],
   sessions: Record<string, any>[],
-  joinsBySessionId: Map<string, number>,
+  bookingsBySessionId: Map<string, number>,
   rate: number,
 ): FinancePeriod {
   const window = getPeriodWindow(period, now);
@@ -270,9 +270,10 @@ function buildPeriod(
 
   sessions.forEach((session) => {
     const sessionId = String(session._id);
-    const attendees = joinsBySessionId.get(sessionId) ?? 0;
-    const revenue =
-      convertCreditsToDollars(Number(session.credits), rate) * attendees;
+    const revenue = convertCreditsToDollars(
+      Number(session.creditsAggregate),
+      rate,
+    );
 
     revenueBySessionId.set(sessionId, roundCurrency(revenue));
   });
@@ -282,7 +283,7 @@ function buildPeriod(
       (totals, session) => {
         const sessionId = String(session._id);
 
-        totals.bookings += joinsBySessionId.get(sessionId) ?? 0;
+        totals.bookings += bookingsBySessionId.get(sessionId) ?? 0;
         totals.revenue += revenueBySessionId.get(sessionId) ?? 0;
         return totals;
       },
@@ -315,7 +316,7 @@ function buildPeriod(
     };
 
     row.sessionsNum += 1;
-    row.registeredCount += joinsBySessionId.get(sessionId) ?? 0;
+    row.registeredCount += bookingsBySessionId.get(sessionId) ?? 0;
     row.totalRevenue += revenueBySessionId.get(sessionId) ?? 0;
     breakdownByActivityId.set(activityId, row);
   });
@@ -372,7 +373,7 @@ export async function getVendorFinance(
   const activityIds = activities.map((activity: Record<string, any>) => activity._id);
   const sessions = activityIds.length > 0
     ? await SessionModel.find({ activity: { $in: activityIds } })
-        .select("_id activity startsAt credits")
+        .select("_id activity startsAt creditsAggregate")
         .lean()
     : [];
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -386,7 +387,7 @@ export async function getVendorFinance(
         .lean()
     : [];
   const vendorOwnerId = String(vendor.owner?._id ?? vendor.owner ?? "");
-  const joinsBySessionId = new Map<string, number>();
+  const bookingsBySessionId = new Map<string, number>();
 
   participations.forEach((participation: Record<string, any>) => {
     if (vendorOwnerId && String(participation.userId) === vendorOwnerId) {
@@ -395,7 +396,10 @@ export async function getVendorFinance(
 
     const sessionId = String(participation.sessionId);
 
-    joinsBySessionId.set(sessionId, (joinsBySessionId.get(sessionId) ?? 0) + 1);
+    bookingsBySessionId.set(
+      sessionId,
+      (bookingsBySessionId.get(sessionId) ?? 0) + 1,
+    );
   });
   const rate = await getCreditsToDollarsRate();
   const now = new Date();
@@ -404,8 +408,22 @@ export async function getVendorFinance(
     currency: "SGD",
     conversionRate: rate,
     periods: {
-      ytd: buildPeriod("ytd", now, activities, sessions, joinsBySessionId, rate),
-      mtd: buildPeriod("mtd", now, activities, sessions, joinsBySessionId, rate),
+      ytd: buildPeriod(
+        "ytd",
+        now,
+        activities,
+        sessions,
+        bookingsBySessionId,
+        rate,
+      ),
+      mtd: buildPeriod(
+        "mtd",
+        now,
+        activities,
+        sessions,
+        bookingsBySessionId,
+        rate,
+      ),
     },
   };
 }
@@ -441,7 +459,7 @@ export async function getVendorFinanceActivity(
   const sessions = await SessionModel.find({
     activity: activity._id,
   })
-    .select("_id mockId title startsAt credits")
+    .select("_id mockId title startsAt creditsAggregate")
     .sort({ startsAt: -1, mockId: -1 })
     .lean();
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -473,8 +491,9 @@ export async function getVendorFinanceActivity(
   const rate = await getCreditsToDollarsRate();
   const sessionRows = sessions.map((session: Record<string, any>) => {
     const registeredCount = attendeesBySessionId.get(String(session._id)) ?? 0;
-    const revenue = roundCurrency(
-      convertCreditsToDollars(Number(session.credits), rate) * registeredCount,
+    const revenue = convertCreditsToDollars(
+      Number(session.creditsAggregate),
+      rate,
     );
 
     return {

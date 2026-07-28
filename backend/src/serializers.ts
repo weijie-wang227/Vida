@@ -357,6 +357,7 @@ export function serializeSession(session: AnyDoc) {
     endAt: item.endAt ? toIsoString(item.endAt) : "",
     spots: item.spots,
     credits: getSessionCredits(item, activity),
+    creditsAggregate: Number(item.creditsAggregate ?? 0),
     isPremium: Boolean(item.isPremium ?? activity?.isPremium),
     skillsFuturePayable: Boolean(
       item.skillsFuturePayable ?? activity?.skillsFuturePayable,

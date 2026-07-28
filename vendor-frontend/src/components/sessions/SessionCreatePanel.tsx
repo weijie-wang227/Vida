@@ -21,6 +21,10 @@ import type {
   UpdateVendorSessionResponse,
   Vendor,
 } from "../../api/types";
+import {
+  convertCreditsToDollars,
+  convertDollarsToCredits,
+} from "../../utils/currency";
 import { Card } from "../Card";
 
 type PaymentMode = "free" | "premium" | "skillsfuture";
@@ -117,7 +121,9 @@ export function SessionCreatePanel({
     session ? String(session.lng) : "",
   );
   const [spots, setSpots] = useState(String(session?.spots ?? 10));
-  const [credits, setCredits] = useState(String(session?.credits ?? 0));
+  const [price, setPrice] = useState(
+    String(convertCreditsToDollars(session?.credits ?? 0)),
+  );
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(
     session?.skillsFuturePayable
       ? "skillsfuture"
@@ -144,7 +150,7 @@ export function SessionCreatePanel({
 
   useEffect(() => {
     if (isVolunteer || paymentMode === "free") {
-      setCredits("0");
+      setPrice("0");
     }
   }, [isVolunteer, paymentMode]);
 
@@ -229,8 +235,8 @@ export function SessionCreatePanel({
     const latitudeValue = Number(latitude);
     const longitudeValue = Number(longitude);
     const spotsValue = Number(spots);
-    const creditsValue =
-      isVolunteer || paymentMode === "free" ? 0 : Number(credits);
+    const priceValue =
+      isVolunteer || paymentMode === "free" ? 0 : Number(price);
 
     if (!titleValue) {
       setLocalError("Enter a session title.");
@@ -267,8 +273,8 @@ export function SessionCreatePanel({
       return;
     }
 
-    if (!Number.isFinite(creditsValue) || creditsValue < 0) {
-      setLocalError("Credits cannot be negative.");
+    if (!Number.isFinite(priceValue) || priceValue < 0) {
+      setLocalError("Price cannot be negative.");
       return;
     }
 
@@ -281,7 +287,7 @@ export function SessionCreatePanel({
       lat: latitudeValue,
       lng: longitudeValue,
       spots: spotsValue,
-      credits: creditsValue,
+      credits: convertDollarsToCredits(priceValue),
       isPremium: !isVolunteer && paymentMode === "premium",
       skillsFuturePayable:
         !isVolunteer && paymentMode === "skillsfuture",
@@ -506,13 +512,14 @@ export function SessionCreatePanel({
                 </span>
               </label>
             </div>
-            <label className="activity-form__wide activity-credits-field">
-              <span>Credits</span>
+            <label className="activity-form__wide activity-price-field">
+              <span>Price (SGD)</span>
               <input
                 type="number"
                 min={0}
-                value={credits}
-                onChange={(event) => setCredits(event.target.value)}
+                step="0.01"
+                value={price}
+                onChange={(event) => setPrice(event.target.value)}
                 disabled={paymentMode === "free"}
                 required
               />
