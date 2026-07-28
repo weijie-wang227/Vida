@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { IndexDefinition, IndexOptions } from "mongoose";
 import { FavouriteModel } from "../models/VidaData.js";
 
 test("favourites store one user with activity references", () => {
@@ -14,10 +15,8 @@ test("favourites store one user with activity references", () => {
     FavouriteModel.schema
       .indexes()
       .some(
-        ([fields, options]: [
-          Record<string, number>,
-          Record<string, unknown>,
-        ]) => fields.user === 1 && options.unique === true,
+        ([fields, options]: [IndexDefinition, IndexOptions]) =>
+          fields.user === 1 && options.unique === true,
       ),
   );
 });
