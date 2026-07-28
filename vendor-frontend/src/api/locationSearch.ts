@@ -54,7 +54,9 @@ export async function searchLocations(query: string) {
     lon: String(singaporeCenter.longitude),
     q: query,
   });
-  const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
+  const response = await fetch(
+    `https://photon.komoot.io/api/?${params.toString()}`,
+  );
 
   if (!response.ok) {
     throw new Error("Unable to search places right now.");

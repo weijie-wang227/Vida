@@ -8,6 +8,8 @@ import type {
   CreateVendorSessionResponse,
   Onboarded,
   Session,
+  UpdateSessionInput,
+  UpdateVendorSessionResponse,
   Vendor,
   VendorStats,
 } from "../api/types";
@@ -50,6 +52,10 @@ export type VendorState = {
   createSession: (
     input: CreateSessionInput,
   ) => Promise<CreateVendorSessionResponse>;
+  updateSessionDetails: (
+    sessionId: number | string,
+    input: UpdateSessionInput,
+  ) => Promise<UpdateVendorSessionResponse>;
   updateVendorProfile: (input: UpdateVendorProfileInput) => Promise<void>;
   toggleSessionOpen: (
     sessionId: number | string,

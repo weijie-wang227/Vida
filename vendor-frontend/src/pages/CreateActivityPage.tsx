@@ -3,13 +3,10 @@ import { useNavigate, useSearchParams } from "react-router";
 import {
   CalendarPlus,
   ChevronDown,
-  CircleDollarSign,
-  GraduationCap,
   HandHeart,
   Image,
   Loader2,
   RotateCcw,
-  Star,
 } from "lucide-react";
 import type {
   AvailableTag,
@@ -29,7 +26,6 @@ const categories: Array<{ value: VidaCategory; label: string }> = [
   { value: "creative", label: "Creative" },
 ];
 
-type PaymentMode = "free" | "premium" | "skillsfuture";
 type SelectedActivityImage = {
   file: File;
   previewUrl: string;
@@ -70,8 +66,6 @@ export function CreateActivityPage({
   const [isVolunteer, setIsVolunteer] = useState(
     searchParams.get("volunteer") === "true",
   );
-  const [credits, setCredits] = useState("0");
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>("free");
   const [localError, setLocalError] = useState<string | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const selectedActivityImages = activityImages.filter(
@@ -97,12 +91,6 @@ export function CreateActivityPage({
       });
     };
   }, []);
-
-  useEffect(() => {
-    if (isVolunteer || paymentMode === "free") {
-      setCredits("0");
-    }
-  }, [isVolunteer, paymentMode]);
 
   useEffect(() => {
     let isActive = true;
@@ -196,8 +184,6 @@ export function CreateActivityPage({
     setActivityImages(createEmptyActivityImageSlots());
     setSelectedCategories([]);
     setIsVolunteer(searchParams.get("volunteer") === "true");
-    setCredits("0");
-    setPaymentMode("free");
     setLocalError(null);
   };
 
@@ -215,14 +201,6 @@ export function CreateActivityPage({
       return;
     }
 
-    const creditsValue =
-      isVolunteer || paymentMode === "free" ? 0 : Number(credits);
-
-    if (!Number.isFinite(creditsValue) || creditsValue < 0) {
-      setLocalError("Credits cannot be negative.");
-      return;
-    }
-
     const payload: CreateActivityInput = {
       title: title.trim(),
       description: description.trim(),
@@ -233,9 +211,6 @@ export function CreateActivityPage({
       isVolunteer,
       vendorId: vendor.id,
       createAsVendor: true,
-      credits: creditsValue,
-      isPremium: !isVolunteer && paymentMode === "premium",
-      skillsFuturePayable: !isVolunteer && paymentMode === "skillsfuture",
     };
 
     try {
@@ -451,85 +426,6 @@ export function CreateActivityPage({
               ))}
             </div>
           </fieldset>
-
-          {isVolunteer ? (
-            <div className="activity-form__wide volunteer-activity-payment-note">
-              <HandHeart size={18} />
-              <div>
-                <strong>Volunteer activity</strong>
-                <span>Payment is disabled and this activity will be free.</span>
-              </div>
-            </div>
-          ) : (
-            <fieldset className="activity-form__wide activity-toggle-fieldset">
-              <legend>Payment options</legend>
-              <div>
-                <label
-                  className={`activity-toggle-card ${
-                    paymentMode === "free" ? "activity-toggle-card--active" : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="activity-payment-mode"
-                    checked={paymentMode === "free"}
-                    onChange={() => setPaymentMode("free")}
-                  />
-                  <span>
-                    <CircleDollarSign size={15} />
-                    Free
-                  </span>
-                </label>
-                <label
-                  className={`activity-toggle-card ${
-                    paymentMode === "premium"
-                      ? "activity-toggle-card--active"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="activity-payment-mode"
-                    checked={paymentMode === "premium"}
-                    onChange={() => setPaymentMode("premium")}
-                  />
-                  <span>
-                    <Star size={15} />
-                    Premium
-                  </span>
-                </label>
-                <label
-                  className={`activity-toggle-card ${
-                    paymentMode === "skillsfuture"
-                      ? "activity-toggle-card--active"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="activity-payment-mode"
-                    checked={paymentMode === "skillsfuture"}
-                    onChange={() => setPaymentMode("skillsfuture")}
-                  />
-                  <span>
-                    <GraduationCap size={15} />
-                    SkillsFuture Payable
-                  </span>
-                </label>
-              </div>
-              <label className="activity-form__wide activity-credits-field">
-                <span>Credits</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={credits}
-                  onChange={(event) => setCredits(event.target.value)}
-                  disabled={paymentMode === "free"}
-                  required
-                />
-              </label>
-            </fieldset>
-          )}
 
           {(localError || error) && (
             <p className="form-error activity-form__wide">

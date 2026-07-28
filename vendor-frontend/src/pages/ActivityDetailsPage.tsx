@@ -1,21 +1,26 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import {
-  ArrowLeft,
-  CircleDollarSign,
-  ClipboardList,
-  GraduationCap,
-  Star,
-} from "lucide-react";
-import { Card } from "../components/Card";
-import { SessionDateCalendar } from "../components/sessionCalendar";
+import { ArrowLeft, ClipboardList, Star } from "lucide-react";
 import type {
+  Activity,
   CreateSessionInput,
   CreateVendorSessionResponse,
-  Activity,
   Session,
+  UpdateSessionInput,
+  UpdateVendorSessionResponse,
   Vendor,
 } from "../api/types";
+import { Card } from "../components/Card";
+import { SessionDateCalendar } from "../components/sessionCalendar";
+import {
+  SessionCreatePanel,
+  SessionDetailsPanel,
+} from "../components/sessions";
+
+type InlineSessionPanel =
+  | { mode: "create"; date: string }
+  | { mode: "details"; sessionId: string }
+  | null;
 
 function getActivityByRouteId(
   activities: Activity[],
@@ -27,7 +32,8 @@ function getActivityByRouteId(
 
   return (
     activities.find(
-      (activity) => String(activity.mockId) === activityId || activity.id === activityId,
+      (activity) =>
+        String(activity.mockId) === activityId || activity.id === activityId,
     ) ?? null
   );
 }
@@ -88,55 +94,86 @@ function getDuplicatedSessionRange(
   };
 }
 
-function getActivityPaymentMethod(activity: Activity) {
-  if (activity.skillsFuturePayable) {
-    return "SkillsFuture Payable";
-  }
-
-  if (activity.isPremium) {
-    return "Premium";
-  }
-
-  return "Free";
-}
-
-function formatActivityCredits(credits: number) {
-  const value = Number.isFinite(credits) && credits >= 0 ? credits : 0;
-
-  return `${value.toLocaleString()} ${value === 1 ? "credit" : "credits"}`;
-}
-
 export function ActivityDetailsPage({
   vendor,
   activities,
   sessions,
   error,
   isCreatingSession,
+  updatingSessionId,
+  deletingSessionId,
   onCreateSession,
+  onToggleSessionOpen,
+  onUpdateSession,
+  onDeleteSession,
 }: {
   vendor: Vendor | null;
   activities: Activity[];
   sessions: Session[];
   error: string | null;
   isCreatingSession: boolean;
+  updatingSessionId: string | null;
+  deletingSessionId: string | null;
   onCreateSession: (
     input: CreateSessionInput,
   ) => Promise<CreateVendorSessionResponse>;
+  onToggleSessionOpen: (
+    sessionId: number | string,
+    isOpen: boolean,
+  ) => Promise<void>;
+  onUpdateSession: (
+    sessionId: number | string,
+    input: UpdateSessionInput,
+  ) => Promise<UpdateVendorSessionResponse>;
+  onDeleteSession: (sessionId: number | string) => Promise<void>;
 }) {
   const navigate = useNavigate();
   const { activityId } = useParams();
   const [searchParams] = useSearchParams();
   const duplicateSessionId = searchParams.get("duplicateSession");
+  const selectedSessionId = searchParams.get("selectedSession");
   const activity = getActivityByRouteId(activities, activityId);
   const activitySessions = sessions.filter(
     (session) =>
-      String(session.activity?.mockId ?? session.activityMockId ?? "") === activityId ||
+      String(session.activity?.mockId ?? session.activityMockId ?? "") ===
+        activityId ||
       session.activity?.id === activityId ||
       String(session.activityId) === activityId,
   );
-  const duplicateSource = getSessionByRouteId(activitySessions, duplicateSessionId);
+  const duplicateSource = getSessionByRouteId(
+    activitySessions,
+    duplicateSessionId,
+  );
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [inlinePanel, setInlinePanel] = useState<InlineSessionPanel>(null);
+  const inlinePanelRef = useRef<HTMLDivElement>(null);
   const activityRouteId = activity?.mockId ?? activityId ?? "";
+  const selectedSession =
+    inlinePanel?.mode === "details"
+      ? getSessionByRouteId(activitySessions, inlinePanel.sessionId)
+      : null;
+
+  useEffect(() => {
+    if (!selectedSessionId) {
+      return;
+    }
+
+    setInlinePanel((currentPanel) =>
+      currentPanel?.mode === "details" &&
+      currentPanel.sessionId === selectedSessionId
+        ? currentPanel
+        : { mode: "details", sessionId: selectedSessionId },
+    );
+  }, [selectedSessionId]);
+
+  useEffect(() => {
+    if (inlinePanel) {
+      inlinePanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [inlinePanel, selectedSession]);
 
   const stopDuplicating = () => {
     setDuplicateError(null);
@@ -163,6 +200,7 @@ export function ActivityDetailsPage({
 
     const response = await onCreateSession({
       activityId: activity.mockId,
+      title: duplicateSource.title,
       instructor: duplicateSource.instructor,
       startsAt: duplicatedRange.startsAt,
       endAt: duplicatedRange.endAt,
@@ -170,23 +208,23 @@ export function ActivityDetailsPage({
       lat: Number(duplicateSource.lat ?? 0),
       lng: Number(duplicateSource.lng ?? 0),
       spots: Number(duplicateSource.spots),
+      credits: duplicateSource.credits,
+      isPremium: duplicateSource.isPremium,
+      skillsFuturePayable: duplicateSource.skillsFuturePayable,
       vendorId: vendor.id,
       createAsVendor: true,
     });
-    const createdSessionId = response.session?.id;
+    const createdSessionId =
+      response.session?.id ?? response.session?.mockId;
 
-    navigate(
-      createdSessionId
-        ? `/activities/${activity.mockId}/sessions/${createdSessionId}`
-        : `/activities/${activity.mockId}`,
-      createdSessionId
-        ? {
-            state: {
-              sessionDetailsReturnTo: `/activities/${activity.mockId}`,
-            },
-          }
-        : undefined,
-    );
+    navigate(`/activities/${activity.mockId}`, { replace: true });
+
+    if (createdSessionId !== undefined) {
+      setInlinePanel({
+        mode: "details",
+        sessionId: String(createdSessionId),
+      });
+    }
   };
 
   if (!activity) {
@@ -212,8 +250,6 @@ export function ActivityDetailsPage({
     );
   }
 
-  const paymentMethod = getActivityPaymentMethod(activity);
-
   return (
     <div className="dashboard__main dashboard__main--full">
       <button
@@ -225,9 +261,7 @@ export function ActivityDetailsPage({
         Back to activities
       </button>
 
-      <Card
-        title="Activity Details"
-      >
+      <Card title="Activity Details">
         <div className="activity-details">
           <div className="activity-details__header">
             <div>
@@ -261,23 +295,7 @@ export function ActivityDetailsPage({
             </div>
           )}
 
-          <div className="activity-details__grid activity-details__grid--two">
-            <div className="activity-detail-tile">
-              <span>
-                {paymentMethod === "SkillsFuture Payable" ? (
-                  <GraduationCap size={16} />
-                ) : paymentMethod === "Premium" ? (
-                  <Star size={16} />
-                ) : (
-                  <CircleDollarSign size={16} />
-                )}
-                Payment method
-              </span>
-              <strong>{paymentMethod}</strong>
-              {paymentMethod !== "Free" && (
-                <small>{formatActivityCredits(activity.credits)}</small>
-              )}
-            </div>
+          <div className="activity-details__grid activity-details__grid--single">
             <div className="activity-detail-tile">
               <span>
                 <Star size={16} />
@@ -296,6 +314,9 @@ export function ActivityDetailsPage({
         duplicateError={duplicateError || error}
         isDuplicating={Boolean(duplicateSessionId)}
         isCreatingSession={isCreatingSession}
+        selectedSessionId={
+          inlinePanel?.mode === "details" ? inlinePanel.sessionId : null
+        }
         onStopDuplicating={stopDuplicating}
         onSelectDate={(dateValue) => {
           if (duplicateSessionId && !duplicateSource) {
@@ -314,25 +335,93 @@ export function ActivityDetailsPage({
             return;
           }
 
-          navigate(
-            `/create-session?date=${encodeURIComponent(
-              dateValue,
-            )}&activityId=${encodeURIComponent(String(activity.mockId))}`,
-          );
+          setInlinePanel({ mode: "create", date: dateValue });
         }}
         onSelectSession={(session) =>
-          navigate(
-            `/activities/${activity.mockId}/sessions/${getSessionRouteId(
-              session,
-            )}`,
-            {
-              state: {
-                sessionDetailsReturnTo: `/activities/${activity.mockId}`,
-              },
-            },
-          )
+          setInlinePanel({
+            mode: "details",
+            sessionId: String(getSessionRouteId(session)),
+          })
         }
       />
+
+      {inlinePanel && (
+        <div ref={inlinePanelRef}>
+          {inlinePanel.mode === "create" ? (
+            <SessionCreatePanel
+              key={`${activity.id}-${inlinePanel.date}`}
+              activity={activity}
+              activityId={activity.mockId}
+              vendor={vendor}
+              selectedDate={inlinePanel.date}
+              error={error}
+              isSubmitting={isCreatingSession}
+              onCreateSession={onCreateSession}
+              onCreated={(response) => {
+                const createdSessionId =
+                  response.session?.id ?? response.session?.mockId;
+
+                if (createdSessionId !== undefined) {
+                  setInlinePanel({
+                    mode: "details",
+                    sessionId: String(createdSessionId),
+                  });
+                }
+              }}
+            />
+          ) : selectedSession ? (
+            <SessionDetailsPanel
+              activity={activity}
+              session={selectedSession}
+              isUpdating={
+                updatingSessionId ===
+                String(getSessionRouteId(selectedSession))
+              }
+              isDeleting={
+                deletingSessionId === String(getSessionRouteId(selectedSession))
+              }
+              onToggleSessionOpen={onToggleSessionOpen}
+              onUpdateSession={onUpdateSession}
+              onDeleteSession={onDeleteSession}
+              onDeleted={() => setInlinePanel(null)}
+              onDuplicate={() => {
+                setInlinePanel(null);
+                navigate(
+                  `/activities/${activity.mockId}?duplicateSession=${encodeURIComponent(
+                    String(getSessionRouteId(selectedSession)),
+                  )}`,
+                );
+              }}
+              onAttendance={() =>
+                navigate(
+                  `/sessions/${String(
+                    getSessionRouteId(selectedSession),
+                  )}/attendance`,
+                )
+              }
+              onAnnouncements={() =>
+                navigate(
+                  `/announcements/${encodeURIComponent(
+                    String(
+                      selectedSession.id ??
+                        selectedSession.objectId ??
+                        selectedSession.mockId,
+                    ),
+                  )}`,
+                )
+              }
+            />
+          ) : (
+            <Card title="Session Details" className="session-inline-panel">
+              <div className="empty-state">
+                <ClipboardList size={28} />
+                <strong>Session not found</strong>
+                <span>Select another session from the calendar.</span>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }

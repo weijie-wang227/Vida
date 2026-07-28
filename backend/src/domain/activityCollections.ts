@@ -17,14 +17,24 @@ export function isActivityCollectionType(
 export function getActivityCollectionFilters(collection: ActivityCollectionType) {
   switch (collection) {
     case "free":
-      return { isPremium: false, credits: 0 };
+      return {
+        activityFilter: {},
+        sessionFilter: {
+          isPremium: false,
+          skillsFuturePayable: false,
+          credits: 0,
+        },
+      };
     case "premium":
-      return { isPremium: true };
+      return { activityFilter: {}, sessionFilter: { isPremium: true } };
     case "skillsfuture":
-      return { skillsFuturePayable: true };
+      return {
+        activityFilter: {},
+        sessionFilter: { skillsFuturePayable: true },
+      };
     case "volunteer":
-      return { isVolunteer: true };
+      return { activityFilter: { isVolunteer: true }, sessionFilter: {} };
     case "aac":
-      return { isAAC: true };
+      return { activityFilter: { isAAC: true }, sessionFilter: {} };
   }
 }

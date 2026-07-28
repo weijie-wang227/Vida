@@ -70,6 +70,7 @@ export type BaseSession = {
   activity?: Activity;
   activityId?: number | string;
   activityMockId?: number;
+  title: string;
   instructor?: string;
   startsAt: string;
   endAt: string;
@@ -77,10 +78,12 @@ export type BaseSession = {
   location: string;
   lat: number;
   lng: number;
+  credits: number;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
 }
 
 export type Session = BaseSession &{
-  title: string;
   id?: string;
   objectId?: string;
   mockId: string;
@@ -96,6 +99,21 @@ export type CreateSessionInput = BaseSession & {
   createAsVendor: true;
 };
 
+export type UpdateSessionInput = Pick<
+  BaseSession,
+  | "title"
+  | "instructor"
+  | "startsAt"
+  | "endAt"
+  | "spots"
+  | "location"
+  | "lat"
+  | "lng"
+  | "credits"
+  | "isPremium"
+  | "skillsFuturePayable"
+>;
+
 export type BaseActivity = {
   title: string;
   description?: string;
@@ -104,9 +122,6 @@ export type BaseActivity = {
   imageUrls: string[];
   tags?: string[];
   isVolunteer: boolean;
-  credits: number;
-  isPremium: boolean;
-  skillsFuturePayable: boolean;
 }
 
 export type CreateActivityInput = Omit<BaseActivity, "tags"> & {
@@ -426,4 +441,13 @@ export type CreateVendorSessionResponse = {
     isOpen?: boolean;
   };
   sessions?: Session[];
+};
+
+export type UpdateVendorSessionResponse = {
+  session: Session;
+  activity: {
+    id: string;
+    mockId: number;
+    totalRevenue: number;
+  };
 };

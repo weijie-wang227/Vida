@@ -55,7 +55,10 @@ export async function apiRequest<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const url = new URL(path.replace(/^\//, ""), `${apiBaseUrl.replace(/\/$/, "")}/`);
+  const url = new URL(
+    path.replace(/^\//, ""),
+    `${apiBaseUrl.replace(/\/$/, "")}/`,
+  );
   const headers = new Headers(init?.headers);
   const token = getAuthToken();
 

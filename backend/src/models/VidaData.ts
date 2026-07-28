@@ -393,9 +393,6 @@ const activitySchema = new Schema(
     tags: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
     isVolunteer: { type: Boolean, required: true, default: false },
     isAAC: { type: Boolean, required: true, default: false },
-    credits: { type: Number, required: true, default: 0, min: 0 },
-    isPremium: { type: Boolean, required: true, default: false },
-    skillsFuturePayable: { type: Boolean, required: true, default: false },
     sessionsNum: { type: Number, required: true, default: 0, min: 0 },
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
@@ -410,6 +407,13 @@ const sessionSchema = new Schema(
   {
     mockId: { type: Number, required: true, unique: true },
     activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 160,
+      default: "Session",
+    },
     instructor: { type: String, trim: true, default: "", maxlength: 120 },
     startsAt: { type: Date, required: true },
     endAt: {
@@ -427,6 +431,9 @@ const sessionSchema = new Schema(
       },
     },
     spots: { type: Number, required: true, min: 1 },
+    credits: { type: Number, required: true, default: 0, min: 0 },
+    isPremium: { type: Boolean, required: true, default: false },
+    skillsFuturePayable: { type: Boolean, required: true, default: false },
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
     chat: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },

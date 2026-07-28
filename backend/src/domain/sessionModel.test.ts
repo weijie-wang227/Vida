@@ -4,8 +4,15 @@ import { Types } from "mongoose";
 import { SessionModel } from "../models/VidaData.js";
 import { formatSessionChatName } from "../utils/date.js";
 
-test("sessions do not persist a title field", () => {
-  assert.equal(SessionModel.schema.path("title"), undefined);
+test("sessions persist their own title and payment details", () => {
+  for (const field of [
+    "title",
+    "credits",
+    "isPremium",
+    "skillsFuturePayable",
+  ]) {
+    assert.notEqual(SessionModel.schema.path(field), undefined);
+  }
 });
 
 test("sessions persist an end time instead of a duration", () => {
@@ -18,8 +25,12 @@ test("session end time must be at least 15 minutes after its start time", async 
   const session = {
     mockId: 1,
     activity: new Types.ObjectId(),
+    title: "Morning Yoga",
     startsAt,
     spots: 10,
+    credits: 0,
+    isPremium: false,
+    skillsFuturePayable: false,
     registeredCount: 0,
     attendedCount: 0,
     chat: new Types.ObjectId(),
@@ -45,12 +56,6 @@ test("session end time must be at least 15 minutes after its start time", async 
   );
 });
 
-test("new session chats use the activity title and Singapore date-time", () => {
-  assert.equal(
-    formatSessionChatName(
-      "Morning Yoga",
-      new Date("2026-08-01T01:00:00.000Z"),
-    ),
-    "Morning Yoga • 1 Aug 2026, 9:00 am",
-  );
+test("new session chats use the session title", () => {
+  assert.equal(formatSessionChatName("Saturday Morning Yoga"), "Saturday Morning Yoga");
 });

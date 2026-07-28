@@ -90,6 +90,7 @@ export function AppShell() {
     deletingSessionId,
     createActivity,
     createSession,
+    updateSessionDetails,
     toggleSessionOpen,
     deleteSession,
   } = useVendorState();
@@ -116,6 +117,7 @@ export function AppShell() {
             element={
               <CreateSessionPage
                 vendor={vendor}
+                activities={activities}
                 error={activityError}
                 isSubmitting={isCreatingActivity}
                 onCreateSession={createSession}
@@ -147,7 +149,12 @@ export function AppShell() {
                 sessions={sessions}
                 error={activityError}
                 isCreatingSession={isCreatingActivity}
+                updatingSessionId={updatingSessionId}
+                deletingSessionId={deletingSessionId}
                 onCreateSession={createSession}
+                onUpdateSession={updateSessionDetails}
+                onToggleSessionOpen={toggleSessionOpen}
+                onDeleteSession={deleteSession}
               />
             }
           />
@@ -160,6 +167,7 @@ export function AppShell() {
                 updatingActivityId={updatingSessionId}
                 deletingSessionId={deletingSessionId}
                 onToggleActivityOpen={toggleSessionOpen}
+                onUpdateSession={updateSessionDetails}
                 onDeleteSession={deleteSession}
               />
             }

@@ -20,11 +20,6 @@ export function formatSessionDateTime(value: unknown) {
   }).format(date);
 }
 
-export function formatSessionChatName(
-  activityTitle: unknown,
-  startsAt: unknown,
-) {
-  const title = String(activityTitle ?? "").trim() || "Activity";
-
-  return `${title} • ${formatSessionDateTime(startsAt)}`;
+export function formatSessionChatName(sessionTitle: unknown) {
+  return String(sessionTitle ?? "").trim() || "Session";
 }

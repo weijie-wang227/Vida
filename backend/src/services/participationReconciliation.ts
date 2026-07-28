@@ -41,9 +41,9 @@ export async function reconcileParticipationCounters() {
         { $group: { _id: "$userId", attendedSessionsCount: { $sum: 1 } } },
       ]),
       SessionModel.find({})
-        .select("_id activity")
+        .select("_id activity credits")
         .lean(),
-      ActivityModel.find({}).select("_id credits").lean(),
+      ActivityModel.find({}).select("_id").lean(),
       UserModel.find({}).select("_id").lean(),
     ]);
   const countsBySessionId = new Map<string, SessionCounts>(
@@ -87,13 +87,6 @@ export async function reconcileParticipationCounters() {
       totalRevenue: number;
     }
   >();
-  const creditsByActivityId = new Map(
-    activities.map((activity: Record<string, any>) => [
-      String(activity._id),
-      Number(activity.credits) || 0,
-    ]),
-  );
-
   sessions.forEach((session: Record<string, any>) => {
     const activityId = String(session.activity ?? "");
 
@@ -117,7 +110,7 @@ export async function reconcileParticipationCounters() {
     totals.attendedCount += counts.attendedCount;
     totals.totalRevenue +=
       convertCreditsToDollars(
-        creditsByActivityId.get(activityId) ?? 0,
+        Number(session.credits) || 0,
         conversionRate,
       ) *
       counts.registeredCount;

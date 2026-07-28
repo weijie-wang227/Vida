@@ -25,6 +25,7 @@ type SessionDateCalendarProps = {
   duplicateError: string | null;
   isDuplicating: boolean;
   isCreatingSession: boolean;
+  selectedSessionId?: string | null;
   onStopDuplicating: () => void;
   onSelectDate: (dateValue: string) => void;
   onSelectSession: (session: Session) => void;
@@ -37,6 +38,7 @@ export function SessionDateCalendar({
   duplicateError,
   isDuplicating,
   isCreatingSession,
+  selectedSessionId = null,
   onStopDuplicating,
   onSelectDate,
   onSelectSession,
@@ -169,15 +171,19 @@ export function SessionDateCalendar({
                         type="button"
                         className={`session-calendar__event${
                           session.isOpen ? "" : " session-calendar__event--closed"
+                        }${
+                          String(getSessionRouteId(session)) === selectedSessionId
+                            ? " session-calendar__event--selected"
+                            : ""
                         }`}
                         style={{ "--event-color": color } as CSSProperties}
                         onClick={() => onSelectSession(session)}
-                        aria-label={`Open ${formatSessionDateTime(
+                        aria-label={`Open ${session.title}, ${formatSessionDateTime(
                           session.startsAt,
                         )}`}
                       >
-                        <strong>{formatSessionTime(session.startsAt)}</strong>
-                        <span>{formatSessionDateTime(session.startsAt)}</span>
+                        <strong>{session.title}</strong>
+                        <span>{formatSessionTime(session.startsAt)}</span>
                       </button>
                     );
                   })}

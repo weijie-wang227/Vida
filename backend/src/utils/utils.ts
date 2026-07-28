@@ -140,18 +140,12 @@ export async function getVendorStats(
       isVolunteer: { $ne: true },
       $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }],
     })
-      .select("_id credits")
+      .select("_id")
       .lean(),
     ConversionRateModel.findOne({ key: "creditsToDollars" }).select("rate").lean(),
   ]);
   const activityIds = activities.map(
     (activity: Record<string, any>) => activity._id,
-  );
-  const creditsByActivityId = new Map(
-    activities.map((activity: Record<string, any>) => [
-      String(activity._id),
-      Number(activity.credits) || 0,
-    ]),
   );
   const now = new Date();
   const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
@@ -160,7 +154,7 @@ export async function getVendorStats(
         activity: { $in: activityIds },
         startsAt: { $gte: yearStart, $lte: now },
       })
-        .select("_id activity")
+        .select("_id activity credits")
         .lean()
     : [];
   const sessionIds = sessions.map((session: Record<string, any>) => session._id);
@@ -194,7 +188,7 @@ export async function getVendorStats(
     ? configuredRate
     : 0.7;
   const revenue = sessions.reduce((total: number, session: Record<string, any>) => {
-    const credits = creditsByActivityId.get(String(session.activity)) ?? 0;
+    const credits = Number(session.credits) || 0;
     const attendees = joinsBySessionId.get(String(session._id)) ?? 0;
     const revenuePerAttendee =
       Math.round(
@@ -312,7 +306,7 @@ export async function getVendorUsersPageStats(
     return {
       sessionId,
       sessionMockId: String(session.mockId),
-      title: formatSessionDateTime(session.startsAt),
+      title: session.title || formatSessionDateTime(session.startsAt),
       startsAt: toSessionStartsAt(session.startsAt),
       label: formatSessionLabel(session),
       booked,
