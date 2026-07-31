@@ -7,6 +7,7 @@ import {
   SessionModel,
   SessionParticipationModel,
 } from "./models/VidaData.js";
+import { PaymentModel } from "./models/Payment.js";
 
 const databaseName = "vida";
 const serverSelectionTimeoutMS = 30000;
@@ -79,6 +80,7 @@ export async function connectDB() {
     AnnouncementVoteModel.createIndexes(),
     SessionModel.createIndexes(),
     SessionParticipationModel.createIndexes(),
+    PaymentModel.createIndexes(),
   ]);
 
   return true;

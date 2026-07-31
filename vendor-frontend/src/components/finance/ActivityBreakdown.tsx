@@ -13,7 +13,7 @@ export function ActivityBreakdown({
   onActivityClick,
 }: ActivityBreakdownProps) {
   const maximum = Math.max(
-    ...data.activities.map((activity) => activity.totalRevenue),
+    ...data.activities.map((activity) => activity.netRevenue),
     0,
   );
 
@@ -33,7 +33,7 @@ export function ActivityBreakdown({
         <div className="finance-activity-list">
           {data.activities.map((activity) => {
             const width =
-              maximum > 0 ? (activity.totalRevenue / maximum) * 100 : 0;
+              maximum > 0 ? (activity.netRevenue / maximum) * 100 : 0;
             const isPositive = activity.deltaVsAveragePercent >= 0;
 
             return (
@@ -46,7 +46,9 @@ export function ActivityBreakdown({
               >
                 <div className="finance-activity__heading">
                   <strong>{activity.title}</strong>
-                  <strong>{currencyFormatter.format(activity.totalRevenue)}</strong>
+                  <strong>
+                    {currencyFormatter.format(activity.netRevenue)} net
+                  </strong>
                 </div>
                 <div className="finance-activity__bar-track" aria-hidden="true">
                   <span style={{ width: `${width}%` }} />
@@ -57,7 +59,8 @@ export function ActivityBreakdown({
                     <i aria-hidden="true" />
                     {integerFormatter.format(activity.registeredCount)} attendees
                     <i aria-hidden="true" />
-                    {currencyFormatter.format(activity.revenuePerSession)} / session
+                    {currencyFormatter.format(activity.netRevenuePerSession)} net
+                    / session
                   </span>
                   <span
                     className={
@@ -76,7 +79,7 @@ export function ActivityBreakdown({
         </div>
       )}
       <p className="finance-breakdown-note">
-        Per-session values are total revenue divided by session count.
+        Net revenue is gross revenue less the 10% Vida commission.
       </p>
     </Card>
   );

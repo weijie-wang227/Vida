@@ -36,7 +36,7 @@ import { FriendAvatar } from "../components/FriendAvatars";
 import { AnnouncementItem } from "../components/AnnouncementItem";
 import { ChatMessageItem } from "../components/chat/ChatMessageItem";
 import {
-  fetchSessionAnnouncements,
+  fetchChatAnnouncements,
   voteOnAnnouncementPoll,
 } from "../api";
 import type { Announcement, GroupMember } from "../lib/types";
@@ -58,11 +58,9 @@ export function GroupDetailPage() {
     isLoading,
     leaveGroup,
     loadGroupMessages,
-    premiumActivities,
     profile,
     removeGroupMember,
     sendGroupMessage,
-    standardActivities,
     voteOnPoll,
   } = useAppState();
   const navigate = useNavigate();
@@ -93,23 +91,6 @@ export function GroupDetailPage() {
   const endRef = useRef<HTMLDivElement | null>(null);
   const group = groupChats.find((chat) => chat.id === groupId);
   const messages = Number.isFinite(groupId) ? chatMessages[groupId] ?? [] : [];
-  const sessionFromActivities = [...premiumActivities, ...standardActivities]
-    .flatMap((activity) => activity.sessions ?? [])
-    .find((session) => Number(session.groupId) === groupId);
-  const sessionFromInvite = messages.find(
-    (message) => message.type === "activity_invite",
-  );
-  const resolvedSessionId =
-    group?.sessionId ??
-    (sessionFromActivities
-      ? String(sessionFromActivities.objectId ?? sessionFromActivities.id)
-      : undefined) ??
-    (sessionFromInvite?.type === "activity_invite"
-      ? String(
-          sessionFromInvite.payload.session.objectId ??
-            sessionFromInvite.payload.session.id,
-        )
-      : undefined);
   const announcementMessageKeys = new Set(
     announcements.map((announcement) =>
       `${announcement.type === "poll" ? "poll" : "text"}:${announcement.content.trim()}`,
@@ -153,9 +134,7 @@ export function GroupDetailPage() {
   }, [messages.length]);
 
   useEffect(() => {
-    const sessionId = resolvedSessionId;
-
-    if (!sessionId) {
+    if (!Number.isFinite(groupId)) {
       setAnnouncements([]);
       setAnnouncementError(null);
       setIsLoadingAnnouncements(false);
@@ -166,7 +145,7 @@ export function GroupDetailPage() {
     setIsLoadingAnnouncements(true);
     setAnnouncementError(null);
 
-    fetchSessionAnnouncements(sessionId)
+    fetchChatAnnouncements(groupId)
       .then((items) => {
         if (!ignore) {
           setAnnouncements(items);
@@ -190,7 +169,7 @@ export function GroupDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [resolvedSessionId]);
+  }, [groupId]);
 
   const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -243,7 +222,9 @@ export function GroupDetailPage() {
     announcementId: string,
     optionId: string,
   ) => {
-    const sessionId = resolvedSessionId;
+    const sessionId = announcements.find(
+      (announcement) => announcement.id === announcementId,
+    )?.sessionId;
 
     if (!sessionId) {
       return;
@@ -694,13 +675,6 @@ export function GroupDetailPage() {
           {isLoadingAnnouncements ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 size={25} className="animate-spin text-[#2852a4]" />
-            </div>
-          ) : !resolvedSessionId ? (
-            <div className="flex h-full items-center justify-center px-8 text-center">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Announcements are unavailable because this group is not linked
-                to a session.
-              </p>
             </div>
           ) : announcements.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-8 text-center">

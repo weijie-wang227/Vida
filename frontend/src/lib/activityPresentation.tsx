@@ -4,7 +4,7 @@ import {
   Lightbulb,
   Users,
 } from "lucide-react";
-import type { vidaCategory } from "./types";
+import type { Activity, ActivitySession, vidaCategory } from "./types";
 
 export const vidaCategories: vidaCategory[] = [
   "physical",
@@ -29,6 +29,12 @@ export const vidaCategoryLabel: Record<vidaCategory, string> = {
 
 const defaultActivityCategories: vidaCategory[] = ["social"];
 const activityTimeZone = "Asia/Singapore";
+const sgdFormatter = new Intl.NumberFormat("en-SG", {
+  style: "currency",
+  currency: "SGD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 
 export function categoryIcon(category: vidaCategory, size = 14) {
   const iconProps = { size, strokeWidth: 2 };
@@ -74,12 +80,57 @@ export function formatDuration(minutes: number) {
   return `${hours} hr ${remainingMinutes} min`;
 }
 
-export function formatCredits(credits: number) {
-  if (credits === 0) {
+export function formatSgdPrice(priceSgd: number) {
+  const resolvedPrice = Number(priceSgd);
+
+  return Number.isFinite(resolvedPrice) && resolvedPrice > 0
+    ? sgdFormatter.format(resolvedPrice)
+    : "Free";
+}
+
+function activeSessions(activity: Activity) {
+  return (activity.sessions ?? []).filter(
+    (session) => session.isActive !== false,
+  );
+}
+
+export function hasPremiumSession(activity: Activity) {
+  return activeSessions(activity).some((session) => session.isPremium);
+}
+
+export function formatActivitySessionPrice(activity: Activity) {
+  const prices = activeSessions(activity).map(
+    (session) => Number(session.priceSgd) || 0,
+  );
+
+  if (prices.length === 0 || prices.every((price) => price <= 0)) {
     return "Free";
   }
 
-  return `${credits} credits`;
+  const paidPrices = prices.filter((price) => price > 0);
+  const minimumPaidPrice = Math.min(...paidPrices);
+  const maximumPaidPrice = Math.max(...paidPrices);
+
+  if (prices.some((price) => price <= 0)) {
+    return `Free or ${formatSgdPrice(minimumPaidPrice)}`;
+  }
+
+  if (minimumPaidPrice === maximumPaidPrice) {
+    return formatSgdPrice(minimumPaidPrice);
+  }
+
+  return `From ${formatSgdPrice(minimumPaidPrice)}`;
+}
+
+export function getSessionDurationMinutes(session: ActivitySession) {
+  const startsAt = new Date(session.startsAt).getTime();
+  const endAt = new Date(session.endAt).getTime();
+
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endAt) || endAt <= startsAt) {
+    return null;
+  }
+
+  return Math.round((endAt - startsAt) / 60_000);
 }
 
 function getActivityDate(startsAt: string) {

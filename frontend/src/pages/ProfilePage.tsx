@@ -477,26 +477,6 @@ export function ProfilePage() {
               </div>
             ))}
           </div>
-          {profile.account && (
-            <div className="mt-3 grid w-full grid-cols-2 gap-2">
-              <div className="rounded-xl border border-border bg-card px-3 py-2 text-center">
-                <span className="block text-[10px] text-muted-foreground">
-                  Membership
-                </span>
-                <span className="mt-0.5 block truncate text-xs font-bold text-foreground">
-                  {profile.account.membershipName}
-                </span>
-              </div>
-              <div className="rounded-xl border border-border bg-card px-3 py-2 text-center">
-                <span className="block text-[10px] text-muted-foreground">
-                  Credits left
-                </span>
-                <span className="mt-0.5 block text-xs font-bold text-foreground">
-                  {profile.account.creditsLeft}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="px-4 pb-4">

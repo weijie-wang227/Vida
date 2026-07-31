@@ -3,12 +3,12 @@ import { Card } from "../Card";
 import { currencyFormatter } from "./formatters";
 
 export function RevenueChart({ data }: { data: FinancePeriod }) {
-  const maximum = Math.max(...data.trend.map((point) => point.revenue), 0);
+  const maximum = Math.max(...data.trend.map((point) => point.netRevenue), 0);
 
   return (
     <Card
       className="finance-chart-card"
-      title="Revenue trend"
+      title="Net revenue trend"
       action={
         <span className="finance-range-label">
           {data.period === "ytd"
@@ -20,24 +20,26 @@ export function RevenueChart({ data }: { data: FinancePeriod }) {
       <div
         className="finance-chart"
         role="img"
-        aria-label={`${data.label} revenue bar chart`}
+        aria-label={`${data.label} net revenue bar chart`}
       >
         {data.trend.map((point) => {
           const height =
-            maximum > 0 ? Math.max((point.revenue / maximum) * 100, 3) : 2;
+            maximum > 0
+              ? Math.max((point.netRevenue / maximum) * 100, 3)
+              : 2;
 
           return (
             <div className="finance-bar-column" key={point.label}>
               <div className="finance-bar-value">
-                {point.revenue > 0
-                  ? currencyFormatter.format(point.revenue)
+                {point.netRevenue > 0
+                  ? currencyFormatter.format(point.netRevenue)
                   : ""}
               </div>
               <div className="finance-bar-track">
                 <div
                   className="finance-bar"
                   style={{ height: `${height}%` }}
-                  title={`${point.label}: ${currencyFormatter.format(point.revenue)}`}
+                  title={`${point.label}: ${currencyFormatter.format(point.netRevenue)} net`}
                 />
               </div>
               <span>{point.label}</span>

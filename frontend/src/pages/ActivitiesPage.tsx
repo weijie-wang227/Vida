@@ -17,7 +17,6 @@ import {
   Heart,
   MapPin,
   Navigation,
-  Plus,
   Search,
   Sparkles,
   Star,
@@ -27,9 +26,12 @@ import { useNavigate } from "react-router";
 import { fetchAvailableTags } from "../api";
 import { BaseSearchBar } from "../components/BaseSearchBar";
 import { PremiumCard, StandardRow } from "../components/ActivityCards";
-import { FloatingActionButton } from "../components/FloatingActionButton";
 import { activityCollections } from "../lib/activityCollections";
-import { formatActivityDate, formatActivityTime } from "../lib/activityPresentation";
+import {
+  formatActivityDate,
+  formatActivityTime,
+  hasPremiumSession,
+} from "../lib/activityPresentation";
 import type { Activity, AvailableTag } from "../lib/types";
 import { useAppState } from "../state";
 
@@ -38,12 +40,6 @@ const ActivityMap = lazy(() =>
     default: module.ActivityMap,
   })),
 );
-const CreateActivityModal = lazy(() =>
-  import("../components/CreateActivityModal").then((module) => ({
-    default: module.CreateActivityModal,
-  })),
-);
-
 type ActivitySort = "location" | "time";
 
 const collectionIcons = {
@@ -292,7 +288,6 @@ export function ActivitiesPage() {
     showMap,
     standardActivities,
   } = useAppState();
-  const [createActivityOpen, setCreateActivityOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<ActivitySort>("time");
@@ -359,10 +354,10 @@ export function ActivitiesPage() {
     standardActivities,
   ]);
   const visiblePremiumActivities = visibleActivities.filter(
-    (activity) => activity.isPremium,
+    hasPremiumSession,
   );
   const visibleStandardActivities = visibleActivities.filter(
-    (activity) => !activity.isPremium,
+    (activity) => !hasPremiumSession(activity),
   );
   const hasActiveQuery = searchQuery.trim() !== "" || selectedTag !== null;
 
@@ -494,23 +489,7 @@ export function ActivitiesPage() {
         </main>
       )}
 
-      {!showMap && (
-        <FloatingActionButton
-          onClick={() => setCreateActivityOpen(true)}
-          aria-label="Add activity"
-        >
-          <Plus size={22} color="var(--accent-foreground)" strokeWidth={2.5} />
-        </FloatingActionButton>
-      )}
-
-      {createActivityOpen && (
-        <Suspense fallback={null}>
-          <CreateActivityModal
-            open={createActivityOpen}
-            onClose={() => setCreateActivityOpen(false)}
-          />
-        </Suspense>
-      )}
+      {/* Participant activity creation is temporarily disabled. */}
     </div>
   );
 }

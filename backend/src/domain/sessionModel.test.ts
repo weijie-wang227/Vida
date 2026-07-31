@@ -7,8 +7,9 @@ import { formatSessionChatName } from "../utils/date.js";
 test("sessions persist their own title and payment details", () => {
   for (const field of [
     "title",
-    "credits",
-    "creditsAggregate",
+    "priceSgd",
+    "grossRevenueMinor",
+    "pendingPaymentCount",
     "isPremium",
     "skillsFuturePayable",
   ]) {
@@ -29,10 +30,11 @@ test("session end time must be at least 15 minutes after its start time", async 
     title: "Morning Yoga",
     startsAt,
     spots: 10,
-    credits: 0,
+    priceSgd: 0,
     isPremium: false,
     skillsFuturePayable: false,
-    creditsAggregate: 0,
+    grossRevenueMinor: 0,
+    pendingPaymentCount: 0,
     registeredCount: 0,
     attendedCount: 0,
     chat: new Types.ObjectId(),

@@ -14,7 +14,9 @@ function getDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function readSessionDetails(input: Record<string, any>) {
+export function readSessionDetails(input: Record<string, unknown>) {
+  const priceSgd = getFiniteNumber(input.priceSgd);
+
   return {
     title: getString(input.title),
     instructor: getString(input.instructor),
@@ -24,7 +26,7 @@ export function readSessionDetails(input: Record<string, any>) {
     lat: getFiniteNumber(input.lat ?? input.latitude),
     lng: getFiniteNumber(input.lng ?? input.longitude),
     spots: getFiniteNumber(input.spots),
-    credits: getFiniteNumber(input.credits),
+    priceSgd,
     isPremium: input.isPremium === true,
     skillsFuturePayable: input.skillsFuturePayable === true,
   };
@@ -35,7 +37,7 @@ export function makeVolunteerSessionFree(
 ) {
   return {
     ...session,
-    credits: 0,
+    priceSgd: 0,
     isPremium: false,
     skillsFuturePayable: false,
   };
@@ -89,8 +91,12 @@ export function validateSessionDetails(
       : "Session spots must be a whole number of at least 1.";
   }
 
-  if (session.credits === null || session.credits < 0) {
-    return "Session credits cannot be negative.";
+  if (session.priceSgd === null || session.priceSgd < 0) {
+    return "Session price cannot be negative.";
+  }
+
+  if (session.priceSgd > 0 && session.priceSgd < 0.3) {
+    return "Paid sessions must cost at least S$0.30.";
   }
 
   if (session.isPremium && session.skillsFuturePayable) {
@@ -100,11 +106,10 @@ export function validateSessionDetails(
   if (
     !session.isPremium &&
     !session.skillsFuturePayable &&
-    session.credits !== 0
+    session.priceSgd !== 0
   ) {
-    return "Free sessions must use 0 credits.";
+    return "Free sessions must use an SGD 0 price.";
   }
 
   return null;
 }
-

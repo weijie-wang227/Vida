@@ -1,6 +1,16 @@
 import mongoose, { Schema, Types } from "mongoose";
-import { chatMessageTypes } from "../chatMessages.js";
-import { announcementTypes } from "../announcements.js";
+import {
+  chatMessageTypes,
+  type ChatMessageType,
+  type StoredMessagePayload,
+} from "../domain/chatMessages.js";
+import {
+  announcementTypes,
+  type AnnouncementPoll,
+  type AnnouncementType,
+} from "../domain/announcements.js";
+
+export type EntityId = Types.ObjectId | string;
 
 export type UserDocument = {
   _id: Types.ObjectId;
@@ -14,6 +24,8 @@ export type UserDocument = {
   bio?: string;
   stats?: { label: string; value: string }[];
   attendedSessionsCount: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export const sessionParticipationStatuses = [
@@ -41,6 +53,8 @@ export type SettingsDocument = {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   preferences: SettingsPreferences;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type NotificationDocument = {
@@ -51,6 +65,8 @@ export type NotificationDocument = {
   content: string;
   link?: string;
   read: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type VendorDocument = {
@@ -61,6 +77,8 @@ export type VendorDocument = {
   description?: string;
   numAttended: number;
   allActivities: Types.ObjectId[];
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type RatingDocument = {
@@ -69,34 +87,24 @@ export type RatingDocument = {
   activity: Types.ObjectId;
   sender?: Types.ObjectId;
   review?: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type TagDocument = {
   _id: Types.ObjectId;
   name: string;
   imageUrl: string;
-};
-
-export type MembershipDocument = {
-  _id: Types.ObjectId;
-  name: string;
-  description?: string;
-  price: number;
-  credits: number;
-};
-
-export type AccountDocument = {
-  _id: Types.ObjectId;
-  membership: Types.ObjectId;
-  user: Types.ObjectId;
-  startAt: Date;
-  creditsLeft: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type FavouriteDocument = {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   activities: Types.ObjectId[];
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type ConsolidatedUser = {
@@ -104,16 +112,190 @@ export type ConsolidatedUser = {
   joinedAt: Date;
 };
 
-export type ConversionRateDocument = {
-  _id: Types.ObjectId;
-  key: "creditsToDollars";
-  rate: number;
-};
-
 export type ConsolidatedDocument = {
   _id: Types.ObjectId;
   vendor: Types.ObjectId;
   users: ConsolidatedUser[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FriendshipDocument = {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  friendId: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ChatDocument = {
+  _id: Types.ObjectId;
+  mockId: number;
+  name: string;
+  avatar: string;
+  members: Types.ObjectId[];
+  lastMessage: string;
+  time: string;
+  unread: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AdminDocument = {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  group: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BlacklistDocument = {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  group: Types.ObjectId;
+  blacklistedBy?: Types.ObjectId;
+  reason: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ChatMessageDocument = {
+  _id: Types.ObjectId;
+  chat: Types.ObjectId;
+  sender: Types.ObjectId;
+  type: ChatMessageType;
+  schemaVersion: number;
+  payload: StoredMessagePayload;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ActivityDocument = {
+  _id: Types.ObjectId;
+  mockId: number;
+  title: string;
+  description: string;
+  suitability: string;
+  host?: Types.ObjectId;
+  rating: number;
+  categories: string[];
+  imageUrls: string[];
+  tags: Types.ObjectId[];
+  isVolunteer: boolean;
+  isAAC: boolean;
+  sessionsNum: number;
+  registeredCount: number;
+  attendedCount: number;
+  totalRevenue: number;
+  grossRevenueMinor: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type SessionDocument = {
+  _id: Types.ObjectId;
+  mockId: number;
+  activity: Types.ObjectId;
+  title: string;
+  instructor: string;
+  startsAt: Date;
+  endAt: Date;
+  spots: number;
+  priceSgd: number;
+  isPremium: boolean;
+  skillsFuturePayable: boolean;
+  grossRevenueMinor: number;
+  pendingPaymentCount: number;
+  registeredCount: number;
+  attendedCount: number;
+  chat: Types.ObjectId;
+  isOpen: boolean;
+  isActive: boolean;
+  location: string;
+  lat: number;
+  lng: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AnnouncementDocument = {
+  _id: Types.ObjectId;
+  sessionId: Types.ObjectId;
+  chatId: Types.ObjectId;
+  content: string;
+  type: AnnouncementType;
+  poll?: AnnouncementPoll;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AnnouncementVoteDocument = {
+  _id: Types.ObjectId;
+  announcementId: Types.ObjectId;
+  userId: Types.ObjectId;
+  optionId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type SessionParticipationDocument = {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  sessionId: Types.ObjectId;
+  role: SessionParticipationRole;
+  status: SessionParticipationStatus;
+  paymentId?: Types.ObjectId;
+  amountPaidMinor: number;
+  currency: "SGD";
+  registeredAt: Date;
+  attendanceMarkedAt?: Date;
+  reminderSentAt?: Date;
+  reviewPromptSentAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type PollVoteDocument = {
+  _id: Types.ObjectId;
+  message: Types.ObjectId;
+  user: Types.ObjectId;
+  optionIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FeedPostDocument = {
+  _id: Types.ObjectId;
+  mockId: number;
+  user: Types.ObjectId;
+  activity?: Types.ObjectId;
+  group?: Types.ObjectId;
+  caption: string;
+  image?: string;
+  durationMinutes?: number;
+  categories: string[];
+  comments: Types.ObjectId[];
+  likesCount: number;
+  commentsNum: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CommentDocument = {
+  _id: Types.ObjectId;
+  post: Types.ObjectId;
+  user: Types.ObjectId;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type LikeDocument = {
+  _id: Types.ObjectId;
+  post: Types.ObjectId;
+  user: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 const userSchema = new Schema<UserDocument>(
@@ -178,33 +360,6 @@ const notificationSchema = new Schema<NotificationDocument>(
 );
 notificationSchema.index({ user: 1, dateReceived: -1 });
 
-const membershipSchema = new Schema<MembershipDocument>(
-  {
-    name: { type: String, required: true, trim: true },
-    description: { type: String, trim: true, default: "" },
-    price: { type: Number, required: true, min: 0 },
-    credits: { type: Number, required: true, min: 0 },
-  },
-  { timestamps: true },
-);
-membershipSchema.index({ name: 1 }, { unique: true });
-
-const accountSchema = new Schema<AccountDocument>(
-  {
-    membership: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: "Membership",
-    },
-    user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
-    startAt: { type: Date, required: true, default: () => new Date() },
-    creditsLeft: { type: Number, required: true, min: 0 },
-  },
-  { timestamps: true },
-);
-accountSchema.index({ user: 1 });
-accountSchema.index({ membership: 1 });
-
 const favouriteSchema = new Schema<FavouriteDocument>(
   {
     user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
@@ -218,20 +373,6 @@ const favouriteSchema = new Schema<FavouriteDocument>(
 );
 favouriteSchema.index({ user: 1 }, { unique: true });
 favouriteSchema.index({ activities: 1 });
-
-const conversionRateSchema = new Schema<ConversionRateDocument>(
-  {
-    key: {
-      type: String,
-      required: true,
-      enum: ["creditsToDollars"],
-      default: "creditsToDollars",
-    },
-    rate: { type: Number, required: true, min: 0, default: 0.7 },
-  },
-  { timestamps: true },
-);
-conversionRateSchema.index({ key: 1 }, { unique: true });
 
 const consolidatedUserSchema = new Schema<ConsolidatedUser>(
   {
@@ -251,7 +392,7 @@ const consolidatedSchema = new Schema<ConsolidatedDocument>(
 consolidatedSchema.index({ vendor: 1 }, { unique: true });
 consolidatedSchema.index({ "users.user": 1 });
 
-const friendshipSchema = new Schema(
+const friendshipSchema = new Schema<FriendshipDocument>(
   {
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
     friendId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
@@ -260,7 +401,7 @@ const friendshipSchema = new Schema(
 );
 friendshipSchema.index({ userId: 1, friendId: 1 }, { unique: true });
 
-const chatSchema = new Schema(
+const chatSchema = new Schema<ChatDocument>(
   {
     mockId: { type: Number, required: true, unique: true },
     name: { type: String, required: true },
@@ -274,7 +415,7 @@ const chatSchema = new Schema(
 );
 chatSchema.index({ members: 1 });
 
-const adminSchema = new Schema(
+const adminSchema = new Schema<AdminDocument>(
   {
     user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
     group: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
@@ -284,7 +425,7 @@ const adminSchema = new Schema(
 adminSchema.index({ user: 1, group: 1 }, { unique: true });
 adminSchema.index({ group: 1 });
 
-const blacklistSchema = new Schema(
+const blacklistSchema = new Schema<BlacklistDocument>(
   {
     user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
     group: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
@@ -300,7 +441,7 @@ const blacklistSchema = new Schema(
 blacklistSchema.index({ user: 1, group: 1 }, { unique: true });
 blacklistSchema.index({ group: 1 });
 
-const chatMessageSchema = new Schema(
+const chatMessageSchema = new Schema<ChatMessageDocument>(
   {
     chat: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
     sender: { type: Schema.Types.ObjectId, required: true, ref: "User" },
@@ -316,7 +457,7 @@ const chatMessageSchema = new Schema(
 );
 chatMessageSchema.index({ chat: 1, createdAt: 1 });
 
-const pollVoteSchema = new Schema(
+const pollVoteSchema = new Schema<PollVoteDocument>(
   {
     message: {
       type: Schema.Types.ObjectId,
@@ -365,7 +506,7 @@ const tagSchema = new Schema<TagDocument>(
 );
 tagSchema.index({ name: 1 }, { unique: true });
 
-const activitySchema = new Schema(
+const activitySchema = new Schema<ActivityDocument>(
   {
     mockId: { type: Number, required: true, unique: true },
     title: { type: String, required: true, trim: true },
@@ -390,13 +531,14 @@ const activitySchema = new Schema(
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
     totalRevenue: { type: Number, required: true, default: 0, min: 0 },
+    grossRevenueMinor: { type: Number, required: true, default: 0, min: 0 },
   },
   { timestamps: true },
 );
 activitySchema.index({ host: 1 });
 activitySchema.index({ isAAC: 1 });
 
-const sessionSchema = new Schema(
+const sessionSchema = new Schema<SessionDocument>(
   {
     mockId: { type: Number, required: true, unique: true },
     activity: { type: Schema.Types.ObjectId, required: true, ref: "Activity" },
@@ -413,21 +555,30 @@ const sessionSchema = new Schema(
       type: Date,
       required: true,
       validate: {
-        validator(this: { startsAt?: Date }, value: Date) {
+        validator(
+          this:
+            | (mongoose.Document & SessionDocument)
+            | mongoose.Query<unknown, SessionDocument>,
+          value: Date,
+        ) {
+          const startsAt =
+            this instanceof mongoose.Query ? this.get("startsAt") : this.startsAt;
+
           return (
-            this.startsAt instanceof Date &&
+            startsAt instanceof Date &&
             value instanceof Date &&
-            value.getTime() - this.startsAt.getTime() >= 15 * 60 * 1000
+            value.getTime() - startsAt.getTime() >= 15 * 60 * 1000
           );
         },
         message: "Session end time must be at least 15 minutes after its start time.",
       },
     },
     spots: { type: Number, required: true, min: 1 },
-    credits: { type: Number, required: true, default: 0, min: 0 },
+    priceSgd: { type: Number, required: true, default: 0, min: 0 },
     isPremium: { type: Boolean, required: true, default: false },
     skillsFuturePayable: { type: Boolean, required: true, default: false },
-    creditsAggregate: { type: Number, required: true, default: 0, min: 0 },
+    grossRevenueMinor: { type: Number, required: true, default: 0, min: 0 },
+    pendingPaymentCount: { type: Number, required: true, default: 0, min: 0 },
     registeredCount: { type: Number, required: true, default: 0, min: 0 },
     attendedCount: { type: Number, required: true, default: 0, min: 0 },
     chat: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
@@ -444,12 +595,17 @@ sessionSchema.index({ chat: 1 });
 sessionSchema.index({ isOpen: 1, isActive: 1, startsAt: 1 });
 sessionSchema.index({ isActive: 1, endAt: 1 });
 
-const announcementSchema = new Schema(
+const announcementSchema = new Schema<AnnouncementDocument>(
   {
     sessionId: {
       type: Schema.Types.ObjectId,
       required: true,
       ref: "Session",
+    },
+    chatId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: "Chat",
     },
     content: {
       type: String,
@@ -477,8 +633,9 @@ const announcementSchema = new Schema(
   { timestamps: true },
 );
 announcementSchema.index({ sessionId: 1, createdAt: 1 });
+announcementSchema.index({ chatId: 1, createdAt: 1 });
 
-const announcementVoteSchema = new Schema(
+const announcementVoteSchema = new Schema<AnnouncementVoteDocument>(
   {
     announcementId: {
       type: Schema.Types.ObjectId,
@@ -496,7 +653,7 @@ announcementVoteSchema.index(
 );
 announcementVoteSchema.index({ announcementId: 1 });
 
-const sessionParticipationSchema = new Schema(
+const sessionParticipationSchema = new Schema<SessionParticipationDocument>(
   {
     userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
     sessionId: { type: Schema.Types.ObjectId, required: true, ref: "Session" },
@@ -512,7 +669,14 @@ const sessionParticipationSchema = new Schema(
       required: true,
       default: "registered",
     },
-    creditsTransaction: { type: Number, required: true, default: 0, min: 0 },
+    paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
+    amountPaidMinor: { type: Number, required: true, default: 0, min: 0 },
+    currency: {
+      type: String,
+      enum: ["SGD"],
+      required: true,
+      default: "SGD",
+    },
     registeredAt: { type: Date, required: true, default: () => new Date() },
     attendanceMarkedAt: { type: Date },
     reminderSentAt: { type: Date },
@@ -527,7 +691,7 @@ sessionParticipationSchema.index(
 sessionParticipationSchema.index({ sessionId: 1, status: 1, createdAt: 1 });
 sessionParticipationSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
-const feedPostSchema = new Schema(
+const feedPostSchema = new Schema<FeedPostDocument>(
   {
     mockId: { type: Number, required: true, unique: true },
     user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
@@ -544,7 +708,7 @@ const feedPostSchema = new Schema(
   { timestamps: true },
 );
 
-const commentSchema = new Schema(
+const commentSchema = new Schema<CommentDocument>(
   {
     post: { type: Schema.Types.ObjectId, required: true, ref: "FeedPost" },
     user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
@@ -555,7 +719,7 @@ const commentSchema = new Schema(
 commentSchema.index({ post: 1, createdAt: 1, _id: 1 });
 commentSchema.index({ user: 1, createdAt: -1 });
 
-const likeSchema = new Schema(
+const likeSchema = new Schema<LikeDocument>(
   {
     post: { type: Schema.Types.ObjectId, required: true, ref: "FeedPost" },
     user: { type: Schema.Types.ObjectId, required: true, ref: "User" },
@@ -565,100 +729,102 @@ const likeSchema = new Schema(
 likeSchema.index({ post: 1, user: 1 }, { unique: true });
 likeSchema.index({ user: 1, createdAt: -1 });
 
-export const UserModel = mongoose.model<any>("User", userSchema, "users");
-export const SettingsModel = mongoose.model<any>(
+export const UserModel = mongoose.model<UserDocument>("User", userSchema, "users");
+export const SettingsModel = mongoose.model<SettingsDocument>(
   "Settings",
   settingsSchema,
   "settings",
 );
-export const NotificationModel = mongoose.model<any>(
+export const NotificationModel = mongoose.model<NotificationDocument>(
   "Notification",
   notificationSchema,
   "notifications",
-);
-export const MembershipModel = mongoose.model<any>(
-  "Membership",
-  membershipSchema,
-  "memberships",
-);
-export const AccountModel = mongoose.model<any>(
-  "Account",
-  accountSchema,
-  "accounts",
 );
 export const FavouriteModel = mongoose.model<FavouriteDocument>(
   "Favourite",
   favouriteSchema,
   "favourites",
 );
-export const ConsolidatedModel = mongoose.model<any>(
+export const ConsolidatedModel = mongoose.model<ConsolidatedDocument>(
   "Consolidated",
   consolidatedSchema,
   "consolidated",
 );
-export const ConversionRateModel = mongoose.model<any>(
-  "ConversionRate",
-  conversionRateSchema,
-  "conversionRates",
-);
-export const FriendshipModel = mongoose.model(
+export const FriendshipModel = mongoose.model<FriendshipDocument>(
   "Friendship",
   friendshipSchema,
   "friendships",
 );
-export const ChatModel = mongoose.model<any>("Chat", chatSchema, "chats");
-export const AdminModel = mongoose.model<any>("Admin", adminSchema, "admins");
-export const BlacklistModel = mongoose.model<any>(
+export const ChatModel = mongoose.model<ChatDocument>(
+  "Chat",
+  chatSchema,
+  "chats",
+);
+export const AdminModel = mongoose.model<AdminDocument>(
+  "Admin",
+  adminSchema,
+  "admins",
+);
+export const BlacklistModel = mongoose.model<BlacklistDocument>(
   "Blacklist",
   blacklistSchema,
   "blacklists",
 );
-export const ChatMessageModel = mongoose.model<any>(
+export const ChatMessageModel = mongoose.model<ChatMessageDocument>(
   "ChatMessage",
   chatMessageSchema,
   "chatMessages",
 );
-export const VendorModel = mongoose.model<any>("Vendor", vendorSchema, "vendors");
-export const RatingModel = mongoose.model<any>("Rating", ratingSchema, "ratings");
+export const VendorModel = mongoose.model<VendorDocument>(
+  "Vendor",
+  vendorSchema,
+  "vendors",
+);
+export const RatingModel = mongoose.model<RatingDocument>(
+  "Rating",
+  ratingSchema,
+  "ratings",
+);
 export const TagModel = mongoose.model<TagDocument>("Tag", tagSchema, "tags");
-export const ActivityModel = mongoose.model<any>(
+export const ActivityModel = mongoose.model<ActivityDocument>(
   "Activity",
   activitySchema,
   "activities",
 );
-export const SessionModel = mongoose.model<any>(
+export const SessionModel = mongoose.model<SessionDocument>(
   "Session",
   sessionSchema,
   "sessions",
 );
-export const AnnouncementModel = mongoose.model<any>(
+export const AnnouncementModel = mongoose.model<AnnouncementDocument>(
   "Announcement",
   announcementSchema,
   "announcements",
 );
-export const AnnouncementVoteModel = mongoose.model<any>(
+export const AnnouncementVoteModel = mongoose.model<AnnouncementVoteDocument>(
   "AnnouncementVote",
   announcementVoteSchema,
   "announcementVotes",
 );
-export const SessionParticipationModel = mongoose.model<any>(
-  "SessionParticipation",
-  sessionParticipationSchema,
-  "sessionParticipations",
-);
-export const PollVoteModel = mongoose.model<any>(
+export const SessionParticipationModel =
+  mongoose.model<SessionParticipationDocument>(
+    "SessionParticipation",
+    sessionParticipationSchema,
+    "sessionParticipations",
+  );
+export const PollVoteModel = mongoose.model<PollVoteDocument>(
   "PollVote",
   pollVoteSchema,
   "pollVotes",
 );
-export const FeedPostModel = mongoose.model<any>(
+export const FeedPostModel = mongoose.model<FeedPostDocument>(
   "FeedPost",
   feedPostSchema,
   "feedPosts",
 );
-export const CommentModel = mongoose.model<any>(
+export const CommentModel = mongoose.model<CommentDocument>(
   "Comment",
   commentSchema,
   "comments",
 );
-export const LikeModel = mongoose.model<any>("Like", likeSchema, "likes");
+export const LikeModel = mongoose.model<LikeDocument>("Like", likeSchema, "likes");

@@ -15,7 +15,7 @@ test("settings keep only server-authoritative preferences", async () => {
   });
 
   assert.equal(SettingsModel.schema.path("preferences.appearance"), undefined);
-  assert.equal(settings.preferences.appearance, undefined);
+  assert.equal("appearance" in settings.preferences, false);
   assert.equal(settings.preferences.activityReminders, false);
   assert.equal(settings.preferences.friendDiscovery, false);
   assert.equal(settings.preferences.privateActivityHistory, true);

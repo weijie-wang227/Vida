@@ -22,7 +22,7 @@ export function getActivityCollectionFilters(collection: ActivityCollectionType)
         sessionFilter: {
           isPremium: false,
           skillsFuturePayable: false,
-          credits: 0,
+          priceSgd: 0,
         },
       };
     case "premium":

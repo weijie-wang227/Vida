@@ -3,15 +3,15 @@ import { Types } from "mongoose";
 import {
   createAvatarUrl,
   normalizeHandle,
-} from "../auth.js";
+} from "../services/auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
-  AccountModel,
   FeedPostModel,
   FriendshipModel,
   NotificationModel,
   SettingsModel,
   UserModel,
+  type EntityId,
 } from "../models/VidaData.js";
 import { serializeFriend, serializeProfile } from "../serializers.js";
 import { getString } from "../utils/input.js";
@@ -38,7 +38,7 @@ function isDuplicateKeyError(error: unknown) {
   );
 }
 
-async function findHandleOverlap(handle: string, userId: unknown) {
+async function findHandleOverlap(handle: string, userId: EntityId) {
   return UserModel.exists({
     _id: { $ne: userId },
     handle,
@@ -66,7 +66,7 @@ function serializeFriendSearchUser(user: Record<string, any>) {
   };
 }
 
-async function isFriendDiscoverable(userId: unknown) {
+async function isFriendDiscoverable(userId: EntityId) {
   const settings = await SettingsModel.findOne({ user: userId }).select(
     "preferences.friendDiscovery",
   );
@@ -103,36 +103,14 @@ async function getLiveProfileStats(userId: Types.ObjectId) {
   ];
 }
 
-async function getProfileAccount(userId: unknown) {
-  const account = await AccountModel.findOne({ user: userId })
-    .populate("membership")
-    .sort({ startAt: -1, createdAt: -1 });
-
-  if (!account) {
-    return null;
-  }
-
-  const item = asObject(account);
-  const membership = asObject(item.membership);
-
-  return {
-    membershipName: membership.name ?? "Membership",
-    creditsLeft: Number(item.creditsLeft ?? 0),
-  };
-}
-
 async function serializeCurrentProfile(user: Record<string, any>) {
-  const [stats, account] = await Promise.all([
-    getLiveProfileStats(user._id),
-    getProfileAccount(user._id),
-  ]);
+  const stats = await getLiveProfileStats(user._id);
 
   return {
     ...serializeProfile({
       ...asObject(user),
       stats,
     }),
-    account,
   };
 }
 

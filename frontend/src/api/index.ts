@@ -5,6 +5,7 @@ export * from "./client";
 export * from "./feed";
 export * from "./groups";
 export * from "./notifications";
+export * from "./payments";
 export * from "./profile";
 export * from "./settings";
 export * from "./uploads";

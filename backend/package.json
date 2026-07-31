@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "seed": "tsx src/seed.ts",
-    "reconcile": "tsx src/reconcile.ts",
+    "migrate:payments": "tsx src/migratePayments.ts",
+    "migrate:payments:apply": "tsx src/migratePayments.ts --apply",
     "test": "tsx --test src/domain/*.test.ts",
     "db:check": "tsx src/check-db.ts",
     "build": "tsc",

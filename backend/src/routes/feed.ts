@@ -249,7 +249,7 @@ router.post("/", async (req, res, next) => {
       categories,
       durationMinutes,
       likesCount: 0,
-      comments: 0,
+      commentsNum: 0,
     });
     const savedPost = await FeedPostModel.findById(post._id)
       .populate("user")

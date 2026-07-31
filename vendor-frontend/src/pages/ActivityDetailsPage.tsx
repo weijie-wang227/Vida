@@ -208,7 +208,7 @@ export function ActivityDetailsPage({
       lat: Number(duplicateSource.lat ?? 0),
       lng: Number(duplicateSource.lng ?? 0),
       spots: Number(duplicateSource.spots),
-      credits: duplicateSource.credits,
+      priceSgd: duplicateSource.priceSgd,
       isPremium: duplicateSource.isPremium,
       skillsFuturePayable: duplicateSource.skillsFuturePayable,
       vendorId: vendor.id,

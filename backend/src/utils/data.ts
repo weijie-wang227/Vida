@@ -1,9 +1,9 @@
 import type { ClientSession } from "mongoose";
-import { ConsolidatedModel } from "../models/VidaData.js";
+import { ConsolidatedModel, type EntityId } from "../models/VidaData.js";
 
 export async function addUserToVendorConsolidated(
-  vendorId: unknown,
-  userId: unknown,
+  vendorId: EntityId | null | undefined,
+  userId: EntityId | null | undefined,
   joinedAt: Date,
   dbSession?: ClientSession,
 ) {

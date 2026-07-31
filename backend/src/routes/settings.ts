@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import {
   SettingsModel,
+  type EntityId,
+  type SettingsDocument,
   type SettingsPreferences,
 } from "../models/VidaData.js";
 
@@ -17,8 +19,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function serializePreferences(settings: Record<string, any> | null | undefined) {
-  const preferences = settings?.preferences ?? {};
+function serializePreferences(
+  settings: Pick<SettingsDocument, "preferences"> | null | undefined,
+) {
+  const preferences: Partial<SettingsPreferences> = settings?.preferences ?? {};
 
   return {
     activityReminders:
@@ -47,7 +51,7 @@ function readBoolean(
   return value;
 }
 
-async function findOrCreateSettings(userId: unknown) {
+async function findOrCreateSettings(userId: EntityId) {
   return SettingsModel.findOneAndUpdate(
     { user: userId },
     {
@@ -57,7 +61,8 @@ async function findOrCreateSettings(userId: unknown) {
       },
     },
     {
-      returnDocument: 'after',
+      returnDocument: "after" as const,
+      includeResultMetadata: false as const,
       upsert: true,
       setDefaultsOnInsert: true,
       runValidators: true,

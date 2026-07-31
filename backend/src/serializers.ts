@@ -1,9 +1,9 @@
-import type { ChatPreview } from "./chatPreviews.js";
+import type { ChatPreview } from "./services/chatPreviews.js";
 import {
   getChatMessageType,
   normalizeChatMessagePayload,
   type ChatMessageType,
-} from "./chatMessages.js";
+} from "./domain/chatMessages.js";
 import { formatSessionDateTime, toIsoString } from "./utils/date.js";
 import { asObject } from "./utils/mongoose.js";
 
@@ -20,12 +20,15 @@ function formatChatTime(value: unknown) {
   }).format(date);
 }
 
-function getSessionCredits(session: AnyDoc, activity?: AnyDoc) {
+function getSessionPriceSgd(session: AnyDoc) {
   const sessionItem = asObject(session ?? {});
-  const item = asObject(activity ?? {});
-  const credits = Number(sessionItem.credits ?? item.credits);
+  const storedPriceSgd = Number(sessionItem.priceSgd);
 
-  return Number.isFinite(credits) ? credits : 0;
+  if (Number.isFinite(storedPriceSgd) && storedPriceSgd >= 0) {
+    return storedPriceSgd;
+  }
+
+  return 0;
 }
 
 function getActivitySessions(activity: AnyDoc) {
@@ -310,7 +313,7 @@ export function serializeActivity(
       primarySession.registeredCount ?? participatingFriends.length,
     ),
     attendedCount: Number(primarySession.attendedCount ?? 0),
-    credits: getSessionCredits(primarySession, item),
+    priceSgd: getSessionPriceSgd(primarySession),
     rating: item.rating,
     categories: (item.categories ?? []) as vidaCategory[],
     tags: serializeTagNames(item.tags),
@@ -356,8 +359,9 @@ export function serializeSession(session: AnyDoc) {
     startsAt: getActivityStartsAt(activity ?? item, item),
     endAt: item.endAt ? toIsoString(item.endAt) : "",
     spots: item.spots,
-    credits: getSessionCredits(item, activity),
-    creditsAggregate: Number(item.creditsAggregate ?? 0),
+    priceSgd: getSessionPriceSgd(item),
+    grossRevenueMinor: Number(item.grossRevenueMinor ?? 0),
+    pendingPaymentCount: Number(item.pendingPaymentCount ?? 0),
     isPremium: Boolean(item.isPremium ?? activity?.isPremium),
     skillsFuturePayable: Boolean(
       item.skillsFuturePayable ?? activity?.skillsFuturePayable,

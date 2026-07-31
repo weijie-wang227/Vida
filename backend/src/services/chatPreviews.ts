@@ -1,6 +1,6 @@
-import { ChatMessageModel } from "./models/VidaData.js";
-import { getChatMessagePreviewText } from "./chatMessages.js";
-import { asObject } from "./utils/mongoose.js";
+import { ChatMessageModel } from "../models/VidaData.js";
+import { getChatMessagePreviewText } from "../domain/chatMessages.js";
+import { asObject } from "../utils/mongoose.js";
 
 type AnyDoc = Record<string, any>;
 

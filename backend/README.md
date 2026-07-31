@@ -23,14 +23,6 @@ Express/MongoDB API backend for vida. It serves the real API used by `new-fronte
 - Attendance must be marked explicitly. An unmarked registration is not treated as a no-show.
 - Full participant rosters and user histories are paginated. Public joining-user previews are capped.
 
-Run a counter audit/rebuild after manual data maintenance or if a failed legacy write is suspected:
-
-```bash
-npm run reconcile
-```
-
-The reconciliation command treats participation documents as authoritative and rebuilds all derived counters. It does not modify participation status.
-
 ## Still Mockup Or Demo Behavior
 
 - `src/data.ts` is demo seed data used by `npm run seed`.
@@ -92,3 +84,33 @@ npm run dev
 - `GET /api/groups/:id/messages`
 - `POST /api/groups/:id/messages`
 - `POST /api/uploads/presigned-url`
+# HitPay sandbox payments
+
+Paid session checkout is isolated under `src/services/payments`. Configure the
+backend process with:
+
+- `VIDA_COMMISSION_PERCENT`: required Vida commission percentage used for
+  vendor revenue reporting, for example `10`
+- `HITPAY_API_KEY`: sandbox business API key
+- `HITPAY_WEBHOOK_SALT`: salt from the sandbox webhook endpoint
+- `HITPAY_API_URL`: HitPay API origin; use
+  `https://api.sandbox.hit-pay.com` for sandbox. The client adds `/v1` to API
+  request paths. The legacy `HITPAY_URL_BASE` name is temporarily supported.
+- `FRONTEND_URL`: participant frontend origin, default
+  `http://localhost:5173`
+
+Register this JSON webhook URL in the HitPay sandbox dashboard and subscribe to
+`payment_request.completed` and `payment_request.failed`:
+
+`https://<backend-host>/api/payments/webhook/hitpay`
+
+Preview the one-time credits-to-SGD migration with:
+
+`npm run migrate:payments`
+
+After reviewing the counts, apply it explicitly with:
+
+`npm run migrate:payments:apply`
+
+The apply form removes the legacy `accounts`, `memberships`, and
+`conversionRates` collections after backfilling SGD payment amounts.
