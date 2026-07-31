@@ -8,18 +8,53 @@ import {
   AnnouncementPayloadError,
   canPublishAnnouncementToSession,
   normalizeAnnouncementPoll,
-} from "../announcements.js";
+} from "./announcements.js";
+import { serializeAnnouncement } from "../services/announcementResponses.js";
 
-test("announcements reference sessions and store chat-sized text content", () => {
+test("announcements reference sessions and chats and store chat-sized text content", () => {
   assert.equal(
     AnnouncementModel.schema.path("sessionId")?.options.ref,
     "Session",
+  );
+  assert.equal(
+    AnnouncementModel.schema.path("chatId")?.options.ref,
+    "Chat",
+  );
+  assert.equal(
+    AnnouncementModel.schema.path("chatId")?.options.required,
+    true,
   );
   assert.equal(
     AnnouncementModel.schema.path("content")?.options.maxlength,
     1000,
   );
   assert.equal(AnnouncementModel.schema.path("createdAt") !== undefined, true);
+});
+
+test("announcement responses include their direct chat link", () => {
+  assert.deepEqual(
+    serializeAnnouncement(
+      {
+        _id: "announcement-1",
+        sessionId: "session-1",
+        chatId: "chat-1",
+        type: "message",
+        content: "Session update",
+        createdAt: new Date("2026-07-29T00:00:00.000Z"),
+      },
+      undefined,
+      { _id: "chat-1", mockId: 42 },
+    ),
+    {
+      id: "announcement-1",
+      sessionId: "session-1",
+      chatId: "chat-1",
+      groupId: 42,
+      type: "message",
+      content: "Session update",
+      createdAt: "2026-07-29T00:00:00.000Z",
+    },
+  );
 });
 
 test("announcement polls normalize unique options with stable ids", () => {

@@ -21,10 +21,6 @@ import type {
   UpdateVendorSessionResponse,
   Vendor,
 } from "../../api/types";
-import {
-  convertCreditsToDollars,
-  convertDollarsToCredits,
-} from "../../utils/currency";
 import { Card } from "../Card";
 
 type PaymentMode = "free" | "premium" | "skillsfuture";
@@ -121,9 +117,7 @@ export function SessionCreatePanel({
     session ? String(session.lng) : "",
   );
   const [spots, setSpots] = useState(String(session?.spots ?? 10));
-  const [price, setPrice] = useState(
-    String(convertCreditsToDollars(session?.credits ?? 0)),
-  );
+  const [price, setPrice] = useState(String(session?.priceSgd ?? 0));
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(
     session?.skillsFuturePayable
       ? "skillsfuture"
@@ -287,7 +281,7 @@ export function SessionCreatePanel({
       lat: latitudeValue,
       lng: longitudeValue,
       spots: spotsValue,
-      credits: convertDollarsToCredits(priceValue),
+      priceSgd: priceValue,
       isPremium: !isVolunteer && paymentMode === "premium",
       skillsFuturePayable:
         !isVolunteer && paymentMode === "skillsfuture",

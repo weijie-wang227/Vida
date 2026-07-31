@@ -21,10 +21,7 @@ import type {
   UpdateSessionInput,
   UpdateVendorSessionResponse,
 } from "../../api/types";
-import {
-  convertCreditsToDollars,
-  currencyFormatter,
-} from "../../utils/currency";
+import { currencyFormatter } from "../../utils/currency";
 import { Card } from "../Card";
 import { SessionCreatePanel } from "./SessionCreatePanel";
 
@@ -50,11 +47,11 @@ function getSessionPaymentMethod(session: Session) {
     return "Premium";
   }
 
-  return "Free";
+  return session.priceSgd > 0 ? "Paid" : "Free";
 }
 
-function formatSessionPrice(credits: number) {
-  return currencyFormatter.format(convertCreditsToDollars(credits));
+function formatSessionPrice(session: Session) {
+  return currencyFormatter.format(session.priceSgd);
 }
 
 type SessionDetailsPanelProps = {
@@ -234,7 +231,7 @@ export function SessionDetailsPanel({
               </span>
               <strong>{paymentMethod}</strong>
               {paymentMethod !== "Free" && (
-                <small>{formatSessionPrice(session.credits)}</small>
+                <small>{formatSessionPrice(session)}</small>
               )}
             </div>
           </div>

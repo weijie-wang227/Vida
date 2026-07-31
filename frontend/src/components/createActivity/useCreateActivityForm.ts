@@ -140,7 +140,7 @@ export function useCreateActivityForm({
       location: template.location,
       durationMinutes: String(template.durationMinutes),
       spots: String(template.spots),
-      credits: String(template.credits),
+      priceSgd: String(template.priceSgd),
       categories:
         template.categories.length > 0 ? template.categories : current.categories,
       linkedGroupId:
@@ -287,7 +287,7 @@ export function useCreateActivityForm({
 
     const durationMinutes = Number(form.durationMinutes);
     const spots = Number(form.spots);
-    const credits = Number(form.credits);
+    const priceSgd = Number(form.priceSgd);
     const startsAt = `${form.date}T${form.time}:00+08:00`;
 
     if (!selectedPosition) {
@@ -315,8 +315,8 @@ export function useCreateActivityForm({
       return;
     }
 
-    if (!Number.isFinite(credits) || credits < 0) {
-      setError("Credits cannot be negative.");
+    if (!Number.isFinite(priceSgd) || priceSgd < 0) {
+      setError("Price cannot be negative.");
       return;
     }
 
@@ -328,7 +328,7 @@ export function useCreateActivityForm({
       longitude: selectedPosition[1],
       durationMinutes,
       spots,
-      credits,
+      priceSgd,
       categories: form.categories,
       tagIds: form.tagIds,
       groupId: form.linkedGroupId ? Number(form.linkedGroupId) : undefined,

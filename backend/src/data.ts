@@ -18,7 +18,7 @@ export type ActivitySeed = {
   lng: number;
   durationMinutes: number;
   spots: number;
-  credits: number;
+  priceSgd: number;
   rating: number;
   categories: vidaCategory[];
   isPremium: boolean;
@@ -118,7 +118,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.8465,
     durationMinutes: 60,
     spots: 6,
-    credits: 18,
+    priceSgd: 12.6,
     rating: 4.9,
     categories: ["physical", "cognitive"],
     tags: ["Guided", "All levels"],
@@ -140,7 +140,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.8433,
     durationMinutes: 150,
     spots: 4,
-    credits: 35,
+    priceSgd: 24.5,
     rating: 5,
     categories: ["physical", "social", "creative"],
     tags: ["Tasting included", "Small group"],
@@ -163,7 +163,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.8159,
     durationMinutes: 90,
     spots: 8,
-    credits: 25,
+    priceSgd: 17.5,
     rating: 4.8,
     categories: ["physical", "cognitive", "creative"],
     tags: ["Camera tips", "Print included"],
@@ -182,7 +182,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.9122,
     durationMinutes: 75,
     spots: 15,
-    credits: 0,
+    priceSgd: 0,
     rating: 4.7,
     categories: ["physical", "social"],
     tags: [],
@@ -201,7 +201,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.8485,
     durationMinutes: 120,
     spots: 12,
-    credits: 0,
+    priceSgd: 0,
     rating: 4.6,
     categories: ["social", "cognitive"],
     tags: [],
@@ -221,7 +221,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.8563,
     durationMinutes: 120,
     spots: 10,
-    credits: 22,
+    priceSgd: 15.4,
     rating: 4.9,
     categories: ["social", "cognitive", "creative"],
     tags: [],
@@ -233,14 +233,14 @@ export const activities: ActivitySeed[] = [
     description:
       "A day trip for fishing, shared lunch, and stories by the water.",
     host: "Uncle Ravi",
-    isPremium: false,
+    isPremium: true,
     startsAt: "2026-06-27T06:00:00+08:00",
     location: "Pulau Ubin Jetty",
     lat: 1.4022,
     lng: 103.9605,
     durationMinutes: 360,
     spots: 6,
-    credits: 45,
+    priceSgd: 31.5,
     rating: 4.8,
     categories: ["physical", "social", "cognitive"],
     tags: [],
@@ -259,7 +259,7 @@ export const activities: ActivitySeed[] = [
     lng: 103.8329,
     durationMinutes: 90,
     spots: 10,
-    credits: 0,
+    priceSgd: 0,
     rating: 4.7,
     categories: ["social", "cognitive"],
     tags: [],

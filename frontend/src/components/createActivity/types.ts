@@ -12,7 +12,7 @@ export type CreateActivityFormState = {
   location: string;
   durationMinutes: string;
   spots: string;
-  credits: string;
+  priceSgd: string;
   coverFile: File | null;
   coverPreview: string;
   categories: vidaCategory[];
@@ -58,7 +58,7 @@ export const initialFormState: CreateActivityFormState = {
   location: "",
   durationMinutes: "60",
   spots: "8",
-  credits: "0",
+  priceSgd: "0",
   coverFile: null,
   coverPreview: "",
   categories: ["social"],

@@ -60,6 +60,11 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 );
+const PaymentReturnPage = lazy(() =>
+  import("../pages/PaymentReturnPage").then((module) => ({
+    default: module.PaymentReturnPage,
+  })),
+);
 
 export function AppShell() {
   const location = useLocation();
@@ -72,6 +77,7 @@ export function AppShell() {
     /^\/activities\/collections\/[^/]+$/.test(location.pathname) ||
     /^\/activities\/[^/]+$/.test(location.pathname) ||
     /^\/groups\/[^/]+$/.test(location.pathname) ||
+    location.pathname === "/payments/return" ||
     location.pathname === "/settings";
 
   const advanceLogoFill = () => {
@@ -130,6 +136,7 @@ export function AppShell() {
               <Route path="/groups" element={<ChatPage />} />
               <Route path="/groups/:groupId" element={<GroupDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/payments/return" element={<PaymentReturnPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/activities" replace />} />
             </Routes>

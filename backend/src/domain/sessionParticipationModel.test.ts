@@ -19,31 +19,33 @@ test("legacy participation counters are not part of current schemas", () => {
 });
 
 test("session pricing fields are owned by sessions", () => {
-  for (const field of ["credits", "isPremium", "skillsFuturePayable"]) {
+  for (const field of ["priceSgd", "isPremium", "skillsFuturePayable"]) {
     assert.equal(ActivityModel.schema.path(field), undefined);
     assert.ok(SessionModel.schema.path(field));
   }
 });
 
-test("participations store charged credits and sessions store their aggregate", async () => {
+test("participations and sessions store immutable SGD minor amounts", async () => {
   const participation = new SessionParticipationModel();
   const session = new SessionModel();
 
-  assert.ok(SessionParticipationModel.schema.path("creditsTransaction"));
-  assert.equal(participation.creditsTransaction, 0);
-  assert.ok(SessionModel.schema.path("creditsAggregate"));
-  assert.equal(session.creditsAggregate, 0);
+  assert.ok(SessionParticipationModel.schema.path("amountPaidMinor"));
+  assert.equal(participation.amountPaidMinor, 0);
+  assert.ok(SessionModel.schema.path("grossRevenueMinor"));
+  assert.equal(session.grossRevenueMinor, 0);
+  assert.ok(SessionModel.schema.path("pendingPaymentCount"));
+  assert.equal(session.pendingPaymentCount, 0);
 
   await assert.rejects(
     SessionParticipationModel.validate(
-      { creditsTransaction: -1 },
-      ["creditsTransaction"],
+      { amountPaidMinor: -1 },
+      ["amountPaidMinor"],
     ),
-    (error: any) => Boolean(error?.errors?.creditsTransaction),
+    (error: any) => Boolean(error?.errors?.amountPaidMinor),
   );
   await assert.rejects(
-    SessionModel.validate({ creditsAggregate: -1 }, ["creditsAggregate"]),
-    (error: any) => Boolean(error?.errors?.creditsAggregate),
+    SessionModel.validate({ grossRevenueMinor: -1 }, ["grossRevenueMinor"]),
+    (error: any) => Boolean(error?.errors?.grossRevenueMinor),
   );
 });
 

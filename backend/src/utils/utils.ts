@@ -1,9 +1,11 @@
 import {
   ActivityModel,
   ConsolidatedModel,
-  ConversionRateModel,
   SessionParticipationModel,
   SessionModel,
+  type ConsolidatedDocument,
+  type SessionDocument,
+  type VendorDocument,
 } from "../models/VidaData.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import { formatSessionDateTime } from "./date.js";
@@ -37,12 +39,16 @@ export type VendorUsersPageStats = {
   sessionFillRates: VendorUsersPageSessionFillRate[];
 };
 
-export function getLinkedActivityIds(vendor: Record<string, any>) {
+export function getLinkedActivityIds(vendor: VendorDocument) {
   if (Array.isArray(vendor.allActivities)) {
     return vendor.allActivities;
   }
 
-  return Array.isArray(vendor.allEvents) ? vendor.allEvents : [];
+  const legacyAllEvents = (
+    vendor as VendorDocument & { allEvents?: VendorDocument["allActivities"] }
+  ).allEvents;
+
+  return Array.isArray(legacyAllEvents) ? legacyAllEvents : [];
 }
 
 function getPercent(numerator: number, denominator: number) {
@@ -71,7 +77,7 @@ function getSessionFillStatus(
   return fillRate >= 40 ? "warning" : "low";
 }
 
-function formatSessionLabel(session: Record<string, any>) {
+function formatSessionLabel(session: SessionDocument) {
   const startsAt = new Date(String(session.startsAt ?? ""));
 
   if (Number.isNaN(startsAt.getTime())) {
@@ -91,12 +97,12 @@ function toSessionStartsAt(value: unknown) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
-function getConsolidatedUsers(consolidated: Record<string, any> | null) {
+function getConsolidatedUsers(consolidated: ConsolidatedDocument | null) {
   const rows = Array.isArray(consolidated?.users) ? consolidated.users : [];
   const usersById = new Map<string, { userId: string; joinedAt: number }>();
 
-  rows.forEach((item: Record<string, any>) => {
-    const userId = String(item.user?._id ?? item.user ?? "");
+  rows.forEach((item) => {
+    const userId = String(item.user ?? "");
     const joinedAt = new Date(String(item.joinedAt ?? "")).getTime();
 
     if (!userId || !Number.isFinite(joinedAt)) {
@@ -113,14 +119,14 @@ function getConsolidatedUsers(consolidated: Record<string, any> | null) {
   return Array.from(usersById.values());
 }
 
-async function getVendorSessions(vendor: Record<string, any>) {
+async function getVendorSessions(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
   })
     .select("_id")
     .lean();
-  const activityIds = activities.map((activity: Record<string, any>) => activity._id);
+  const activityIds = activities.map((activity) => activity._id);
 
   return activityIds.length > 0
     ? SessionModel.find({ activity: { $in: activityIds } })
@@ -131,10 +137,10 @@ async function getVendorSessions(vendor: Record<string, any>) {
 }
 
 export async function getVendorStats(
-  vendor: Record<string, any>,
+  vendor: VendorDocument,
 ): Promise<VendorStats> {
   const linkedActivityIds = getLinkedActivityIds(vendor);
-  const [consolidated, activities, conversionRate] = await Promise.all([
+  const [consolidated, activities] = await Promise.all([
     ConsolidatedModel.findOne({ vendor: vendor._id }).select("users").lean(),
     ActivityModel.find({
       isVolunteer: { $ne: true },
@@ -142,11 +148,8 @@ export async function getVendorStats(
     })
       .select("_id")
       .lean(),
-    ConversionRateModel.findOne({ key: "creditsToDollars" }).select("rate").lean(),
   ]);
-  const activityIds = activities.map(
-    (activity: Record<string, any>) => activity._id,
-  );
+  const activityIds = activities.map((activity) => activity._id);
   const now = new Date();
   const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
   const sessions = activityIds.length > 0
@@ -154,25 +157,12 @@ export async function getVendorStats(
         activity: { $in: activityIds },
         startsAt: { $gte: yearStart, $lte: now },
       })
-        .select("_id activity creditsAggregate")
+        .select("_id activity grossRevenueMinor")
         .lean()
     : [];
-  const configuredRate = Number(
-    (conversionRate as Record<string, any> | null)?.rate,
-  );
-  const rate = Number.isFinite(configuredRate) && configuredRate >= 0
-    ? configuredRate
-    : 0.7;
-  const revenue = sessions.reduce((total: number, session: Record<string, any>) => {
-    const creditsAggregate = Number(session.creditsAggregate) || 0;
-    const safeCreditsAggregate =
-      Number.isFinite(creditsAggregate) && creditsAggregate > 0
-        ? creditsAggregate
-        : 0;
+  const revenue = sessions.reduce((total, session) => {
     const sessionRevenue =
-      Math.round(
-        (safeCreditsAggregate * rate + Number.EPSILON) * 100,
-      ) / 100;
+      Math.max(0, Number(session.grossRevenueMinor) || 0) / 100;
 
     return total + sessionRevenue;
   }, 0);
@@ -188,10 +178,10 @@ export async function getVendorStats(
 }
 
 export async function getVendorUsersPageStats(
-  vendor: Record<string, any>,
+  vendor: VendorDocument,
 ): Promise<VendorUsersPageStats> {
   const sessions = await getVendorSessions(vendor);
-  const sessionIds = sessions.map((session: Record<string, any>) => session._id);
+  const sessionIds = sessions.map((session) => session._id);
   const joins = sessionIds.length
     ? await SessionParticipationModel.find({
         sessionId: { $in: sessionIds },
@@ -204,14 +194,14 @@ export async function getVendorUsersPageStats(
   const now = Date.now();
   const currentPeriodStart = now - 30 * 24 * 60 * 60 * 1000;
   const previousPeriodStart = now - 60 * 24 * 60 * 60 * 1000;
-  const currentPeriodJoins = joins.filter((join: Record<string, any>) => {
+  const currentPeriodJoins = joins.filter((join) => {
     const createdAt = new Date(
       String(join.registeredAt ?? join.createdAt ?? ""),
     ).getTime();
 
     return Number.isFinite(createdAt) && createdAt >= currentPeriodStart;
   });
-  const previousPeriodJoins = joins.filter((join: Record<string, any>) => {
+  const previousPeriodJoins = joins.filter((join) => {
     const createdAt = new Date(
       String(join.registeredAt ?? join.createdAt ?? ""),
     ).getTime();
@@ -223,24 +213,24 @@ export async function getVendorUsersPageStats(
     );
   });
   const startsAtBySessionId = new Map(
-    sessions.map((session: Record<string, any>) => [
+    sessions.map((session) => [
       String(session._id),
       new Date(String(session.startsAt ?? "")).getTime(),
     ]),
   );
   const attendanceOutcomes = joins.filter(
-    (join: Record<string, any>) =>
+    (join) =>
       join.status === "attended" || join.status === "no_show",
   );
   const currentAttendanceOutcomes = attendanceOutcomes.filter(
-    (join: Record<string, any>) => {
+    (join) => {
       const startsAt = startsAtBySessionId.get(String(join.sessionId));
 
       return startsAt !== undefined && startsAt >= currentPeriodStart && startsAt <= now;
     },
   );
   const previousAttendanceOutcomes = attendanceOutcomes.filter(
-    (join: Record<string, any>) => {
+    (join) => {
       const startsAt = startsAtBySessionId.get(String(join.sessionId));
 
       return (
@@ -251,18 +241,18 @@ export async function getVendorUsersPageStats(
     },
   );
   const noShowCount = attendanceOutcomes.filter(
-    (join: Record<string, any>) => join.status === "no_show",
+    (join) => join.status === "no_show",
   ).length;
   const currentNoShowCount = currentAttendanceOutcomes.filter(
-    (join: Record<string, any>) => join.status === "no_show",
+    (join) => join.status === "no_show",
   ).length;
   const previousNoShowCount = previousAttendanceOutcomes.filter(
-    (join: Record<string, any>) => join.status === "no_show",
+    (join) => join.status === "no_show",
   ).length;
   const bookingsByUserId = new Map<string, number>();
   const bookingsBySessionId = new Map<string, number>();
 
-  joins.forEach((join: Record<string, any>) => {
+  joins.forEach((join) => {
     const userId = String(join.userId ?? "");
     const sessionId = String(join.sessionId ?? "");
 
@@ -271,10 +261,10 @@ export async function getVendorUsersPageStats(
   });
 
   const repeatBookingCount = joins.filter(
-    (join: Record<string, any>) =>
+    (join) =>
       (bookingsByUserId.get(String(join.userId ?? "")) ?? 0) > 1,
   ).length;
-  const sessionFillRates = sessions.map((session: Record<string, any>) => {
+  const sessionFillRates = sessions.map((session) => {
     const sessionId = String(session._id);
     const booked = bookingsBySessionId.get(sessionId) ?? 0;
     const capacity = Number(session.spots) || 0;

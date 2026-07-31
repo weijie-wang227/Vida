@@ -134,7 +134,7 @@ function toCalendarSessions(
               startsAt: session.startsAt,
               location: session.location || activity.location,
               category,
-              isPremium: activity.isPremium || session.isPremium,
+              isPremium: session.isPremium,
               isJoined: (session.participatingFriends ?? []).some(
                 (friend) => friend.handle === profileHandle,
               ),
@@ -147,7 +147,7 @@ function toCalendarSessions(
               startsAt: activity.startsAt,
               location: activity.location,
               category,
-              isPremium: activity.isPremium,
+              isPremium: false,
               isJoined: activity.participatingFriends.some(
                 (friend) => friend.handle === profileHandle,
               ),

@@ -7,19 +7,13 @@ import {
   normalizeEmail,
   normalizeHandle,
   verifyPassword,
-} from "../auth.js";
+} from "../services/auth.js";
 import { requireAuth } from "../middleware/auth.js";
-import {
-  AccountModel,
-  MembershipModel,
-  UserModel,
-} from "../models/VidaData.js";
+import { UserModel } from "../models/VidaData.js";
 import { serializeAuthUser } from "../serializers.js";
 import { getString } from "../utils/input.js";
 
 const router = Router();
-const defaultMembershipName = "Free";
-
 async function nextMockId() {
   const lastUser = await UserModel.findOne().sort({ mockId: -1 }).select("mockId");
 
@@ -37,46 +31,6 @@ async function uniqueHandle(handle: string) {
   }
 
   return candidate;
-}
-
-async function ensureDefaultMembership() {
-  return MembershipModel.findOneAndUpdate(
-    { name: defaultMembershipName },
-    {
-      $setOnInsert: {
-        name: defaultMembershipName,
-        description: "Default Vida account membership.",
-        price: 0,
-        credits: 0,
-      },
-    },
-    {
-      returnDocument: 'after',
-      upsert: true,
-      setDefaultsOnInsert: true,
-    },
-  );
-}
-
-async function attachDefaultAccount(userId: unknown) {
-  const membership = await ensureDefaultMembership();
-
-  return AccountModel.findOneAndUpdate(
-    { user: userId, membership: membership._id },
-    {
-      $setOnInsert: {
-        user: userId,
-        membership: membership._id,
-        startAt: new Date(),
-        creditsLeft: Number(membership.credits ?? 0),
-      },
-    },
-    {
-      returnDocument: 'after',
-      upsert: true,
-      setDefaultsOnInsert: true,
-    },
-  );
 }
 
 // Creates a user account and returns an auth token for the new session.
@@ -128,8 +82,6 @@ router.post("/signup", async (req, res, next) => {
       ],
       ...createPasswordRecord(password),
     });
-    await attachDefaultAccount(user._id);
-
     res.status(201).json({
       token: createAuthToken(user),
       user: serializeAuthUser(user),

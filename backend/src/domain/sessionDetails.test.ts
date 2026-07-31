@@ -15,7 +15,7 @@ const validInput = {
   lat: 1.3521,
   lng: 103.8198,
   spots: 10,
-  credits: 8,
+  priceSgd: 8,
   isPremium: true,
   skillsFuturePayable: false,
 };
@@ -24,7 +24,7 @@ test("validates editable session details and payment ownership", () => {
   assert.equal(validateSessionDetails(readSessionDetails(validInput)), null);
   assert.equal(
     validateSessionDetails(
-      readSessionDetails({ ...validInput, title: "", credits: 0 }),
+      readSessionDetails({ ...validInput, title: "", priceSgd: 0 }),
     ),
     "Session title is required.",
   );
@@ -40,6 +40,17 @@ test("validates editable session details and payment ownership", () => {
   );
 });
 
+test("rejects missing and sub-minimum paid prices", () => {
+  assert.equal(
+    validateSessionDetails(readSessionDetails({ ...validInput, priceSgd: undefined })),
+    "Session price cannot be negative.",
+  );
+  assert.equal(
+    validateSessionDetails(readSessionDetails({ ...validInput, priceSgd: 0.2 })),
+    "Paid sessions must cost at least S$0.30.",
+  );
+});
+
 test("prevents capacity from dropping below current registrations", () => {
   assert.equal(
     validateSessionDetails(readSessionDetails(validInput), 11),
@@ -52,7 +63,7 @@ test("volunteer sessions are normalized to free", () => {
     makeVolunteerSessionFree(readSessionDetails(validInput)),
     {
       ...readSessionDetails(validInput),
-      credits: 0,
+      priceSgd: 0,
       isPremium: false,
       skillsFuturePayable: false,
     },

@@ -1,6 +1,6 @@
 import "./env.js";
 import { Types } from "mongoose";
-import { createAvatarUrl, createPasswordRecord } from "./auth.js";
+import { createAvatarUrl, createPasswordRecord } from "./services/auth.js";
 import { connectDB, disconnectDB } from "./db.js";
 import {
   activities,
@@ -35,8 +35,9 @@ import {
   UserModel,
   VendorModel,
 } from "./models/VidaData.js";
+import { PaymentModel } from "./models/Payment.js";
 import type { ActivitySeed } from "./data.js";
-import { reconcileParticipationCounters } from "./services/participationReconciliation.js";
+import { sgdToMinor } from "./services/payments/money.js";
 
 const allActivities: ActivitySeed[] = activities;
 const testUserSeed = {
@@ -125,6 +126,7 @@ async function seed() {
       SettingsModel.deleteMany(),
       TagModel.deleteMany(),
       VendorModel.deleteMany(),
+      PaymentModel.deleteMany(),
     ]);
 
     const linda = await UserModel.create({
@@ -377,6 +379,9 @@ async function seed() {
       const attendedCount = seededStatus === "attended"
         ? activityJoiningUserIds.length
         : 0;
+      const amountMinor = sgdToMinor(activity.priceSgd);
+      const grossRevenueMinor =
+        amountMinor * revenueParticipantUserIds.length;
       const savedActivity = await ActivityModel.create({
         mockId: activity.id,
         title: activity.title,
@@ -392,6 +397,8 @@ async function seed() {
         sessionsNum: 1,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,
+        totalRevenue: grossRevenueMinor / 100,
+        grossRevenueMinor,
       });
       const savedSession = await SessionModel.create({
         mockId: activity.id,
@@ -402,10 +409,11 @@ async function seed() {
           startsAt.getTime() + activity.durationMinutes * 60 * 1000,
         ),
         spots: activity.spots,
-        credits: activity.credits,
+        priceSgd: activity.priceSgd,
         isPremium: activity.isPremium,
         skillsFuturePayable: activity.skillsFuturePayable ?? false,
-        creditsAggregate: activity.credits * revenueParticipantUserIds.length,
+        grossRevenueMinor,
+        pendingPaymentCount: 0,
         registeredCount: activityJoiningUserIds.length,
         attendedCount,
         chat: chatId,
@@ -424,10 +432,11 @@ async function seed() {
       const activityJoinRows = activityJoiningUserIds.map((userId) => ({
         userId,
         sessionId: savedSession._id,
-        role: "participant",
-        status: seededStatus,
-        creditsTransaction:
-          String(userId) === String(hostOwnerId) ? 0 : activity.credits,
+        role: "participant" as const,
+        status: seededStatus as "attended" | "registered",
+        amountPaidMinor:
+          String(userId) === String(hostOwnerId) ? 0 : amountMinor,
+        currency: "SGD" as const,
         registeredAt: new Date(),
         attendanceMarkedAt: seededStatus === "attended" ? new Date() : undefined,
       }));
@@ -484,7 +493,7 @@ async function seed() {
         durationMinutes: activity.durationMinutes,
         categories: activity.categories,
         likesCount: likeCountByPostId.get(post.id) ?? 0,
-        comments: commentCountByPostId.get(post.id) ?? 0,
+        commentsNum: commentCountByPostId.get(post.id) ?? 0,
         createdAt: new Date(Date.now() - post.minutesAgo * 60_000),
         updatedAt: new Date(Date.now() - post.minutesAgo * 60_000),
       });
@@ -550,8 +559,7 @@ async function seed() {
       });
     }
 
-    await reconcileParticipationCounters();
-    console.log("Seeded relational vida database and reconciled counters.");
+    console.log("Seeded relational vida database.");
   } catch (error) {
     console.error("Failed to seed database:", error);
     process.exitCode = 1;

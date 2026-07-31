@@ -7,6 +7,12 @@ export function fetchSessionAnnouncements(sessionId: string) {
   );
 }
 
+export function fetchChatAnnouncements(groupId: number) {
+  return apiRequest<Announcement[]>(
+    `/groups/${encodeURIComponent(String(groupId))}/announcements`,
+  );
+}
+
 export function voteOnAnnouncementPoll(
   sessionId: string,
   announcementId: string,

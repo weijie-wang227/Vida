@@ -1293,7 +1293,7 @@
 
 .finance-activity-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1356,6 +1356,16 @@
 
 .finance-recent-session > strong {
   flex: 0 0 auto;
+  color: var(--brand-blue);
+}
+
+.finance-recent-session__revenue {
+  flex: 0 0 auto;
+  justify-items: end;
+  text-align: right;
+}
+
+.finance-recent-session__revenue strong {
   color: var(--brand-blue);
 }
 

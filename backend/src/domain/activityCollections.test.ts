@@ -11,7 +11,7 @@ test("activity collections filter activity-owned fields", () => {
     sessionFilter: {
       isPremium: false,
       skillsFuturePayable: false,
-      credits: 0,
+      priceSgd: 0,
     },
   });
   assert.deepEqual(getActivityCollectionFilters("premium"), {

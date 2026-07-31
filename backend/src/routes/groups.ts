@@ -4,6 +4,7 @@ import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
   AdminModel,
+  AnnouncementModel,
   BlacklistModel,
   ChatMessageModel,
   ChatModel,
@@ -12,8 +13,18 @@ import {
   SessionParticipationModel,
   SessionModel,
   VendorModel,
+  type ActivityDocument,
+  type EntityId,
+  type UserDocument,
 } from "../models/VidaData.js";
-import { getChatPreview, getLatestChatPreviews } from "../chatPreviews.js";
+import {
+  getAnnouncementPollResults,
+  serializeAnnouncement,
+} from "../services/announcementResponses.js";
+import {
+  getChatPreview,
+  getLatestChatPreviews,
+} from "../services/chatPreviews.js";
 import { serializeChat, serializeChatMessage } from "../serializers.js";
 import { getString } from "../utils/input.js";
 import { asObject } from "../utils/mongoose.js";
@@ -21,7 +32,7 @@ import {
   ChatMessagePayloadError,
   getChatMessageType,
   normalizeChatMessagePayload,
-} from "../chatMessages.js";
+} from "../domain/chatMessages.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -33,13 +44,13 @@ function formatPreviewTime(value: Date) {
   }).format(value);
 }
 
-async function findMemberChat(groupId: number, userId: unknown) {
-  return ChatModel.findOne({ mockId: groupId, members: userId }).populate(
-    "members",
-  );
+async function findMemberChat(groupId: number, userId: EntityId) {
+  return ChatModel.findOne({ mockId: groupId, members: userId }).populate<{
+    members: UserDocument[];
+  }>("members");
 }
 
-async function findAdminUserIds(groupId: unknown) {
+async function findAdminUserIds(groupId: EntityId) {
   const admins = await AdminModel.find({ group: groupId }).select("user");
 
   return new Set(
@@ -78,7 +89,7 @@ async function findAdminUserIdsByGroup(
   return adminUserIdsByGroup;
 }
 
-async function findAdminGroupIds(userId: unknown, groups: Record<string, any>[]) {
+async function findAdminGroupIds(userId: EntityId, groups: Record<string, any>[]) {
   const groupIds = groups
     .map((group) => asObject(group)._id)
     .filter((id): id is NonNullable<typeof id> => Boolean(id));
@@ -99,7 +110,7 @@ async function findAdminGroupIds(userId: unknown, groups: Record<string, any>[])
   );
 }
 
-async function isGroupAdmin(userId: unknown, groupId: unknown) {
+async function isGroupAdmin(userId: EntityId, groupId: EntityId) {
   const admin = await AdminModel.findOne({ user: userId, group: groupId }).select(
     "_id",
   );
@@ -107,7 +118,7 @@ async function isGroupAdmin(userId: unknown, groupId: unknown) {
   return Boolean(admin);
 }
 
-async function deleteGroupById(groupObjectId: unknown) {
+async function deleteGroupById(groupObjectId: EntityId) {
   const messageIds = await ChatMessageModel.find({ chat: groupObjectId }).distinct(
     "_id",
   );
@@ -122,7 +133,7 @@ async function deleteGroupById(groupObjectId: unknown) {
   ]);
 }
 
-async function removeMemberFromGroup(group: Record<string, any>, userId: unknown) {
+async function removeMemberFromGroup(group: Record<string, any>, userId: EntityId) {
   await ChatModel.updateOne(
     { _id: group._id },
     { $pull: { members: userId } },
@@ -130,7 +141,7 @@ async function removeMemberFromGroup(group: Record<string, any>, userId: unknown
   await AdminModel.deleteOne({ group: group._id, user: userId });
 }
 
-async function ensureGroupHasAdmin(groupObjectId: unknown) {
+async function ensureGroupHasAdmin(groupObjectId: EntityId) {
   const existingAdmin = await AdminModel.findOne({ group: groupObjectId }).select(
     "_id",
   );
@@ -153,7 +164,7 @@ async function ensureGroupHasAdmin(groupObjectId: unknown) {
   );
 }
 
-async function getParticipatingUsersBySessionId(sessionValues: unknown[]) {
+async function getParticipatingUsersBySessionId(sessionValues: EntityId[]) {
   const sessionIds = sessionValues.filter(
     (id): id is NonNullable<typeof id> => Boolean(id),
   );
@@ -188,7 +199,7 @@ async function getParticipatingUsersBySessionId(sessionValues: unknown[]) {
 
 async function getPollResultsByMessageId(
   messages: Record<string, any>[],
-  userId: unknown,
+  userId: EntityId,
 ) {
   const pollMessageIds = messages
     .filter((message) => getChatMessageType(asObject(message).type) === "poll")
@@ -240,7 +251,7 @@ async function getPollResultsByMessageId(
   return results;
 }
 
-async function isVendorManagedChat(userId: unknown, chatId: unknown) {
+async function isVendorManagedChat(userId: EntityId, chatId: EntityId) {
   const vendor = await VendorModel.findOne({ owner: userId }).select("_id");
 
   if (!vendor) {
@@ -248,7 +259,7 @@ async function isVendorManagedChat(userId: unknown, chatId: unknown) {
   }
 
   const session = await SessionModel.findOne({ chat: chatId })
-    .populate({
+    .populate<{ activity: ActivityDocument }>({
       path: "activity",
       match: { host: vendor._id },
       select: "_id",
@@ -595,6 +606,50 @@ router.post("/:id/blacklist/:memberId", async (req, res, next) => {
           )
         : null,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Lists announcements linked directly to a group chat.
+router.get("/:id/announcements", async (req, res, next) => {
+  try {
+    const user = res.locals.user;
+    const groupId = Number(req.params.id);
+    const group = await findMemberChat(groupId, user._id);
+
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    const linkedSessions = await SessionModel.find({ chat: group._id }).select(
+      "_id",
+    );
+    const linkedSessionIds = linkedSessions.map(
+      (session: Record<string, any>) => asObject(session)._id,
+    );
+    const announcementSelectors: Record<string, any>[] = [
+      { chatId: group._id },
+    ];
+
+    if (linkedSessionIds.length > 0) {
+      announcementSelectors.push({ sessionId: { $in: linkedSessionIds } });
+    }
+
+    const announcements = await AnnouncementModel.find({
+      $or: announcementSelectors,
+    }).sort({ createdAt: 1, _id: 1 });
+    const pollResults = await getAnnouncementPollResults(
+      announcements,
+      user._id,
+    );
+
+    res.json(
+      announcements.map((announcement) =>
+        serializeAnnouncement(announcement, pollResults, group),
+      ),
+    );
   } catch (error) {
     next(error);
   }

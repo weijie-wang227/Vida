@@ -83,12 +83,18 @@ export function FinancesPage() {
       <div className="finance-toolbar">
         <div>
           <strong>Revenue overview</strong>
-          <span>All amounts are shown in SGD</span>
+          <span>
+            All amounts are in SGD. Net revenue is shown after Vida's{" "}
+            {Math.round(finance.commissionRate * 100)}% commission.
+          </span>
         </div>
         <PeriodToggle value={period} onChange={setPeriod} />
       </div>
 
-      <FinanceSummary data={selectedPeriod} />
+      <FinanceSummary
+        data={selectedPeriod}
+        commissionRate={finance.commissionRate}
+      />
       <RevenueChart data={selectedPeriod} />
       <ActivityBreakdown
         data={selectedPeriod}

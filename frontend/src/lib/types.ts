@@ -42,9 +42,10 @@ export type VendorSession = {
   activityMockId?: number;
   title: string;
   startsAt: string;
+  endAt: string;
   location: string;
-  durationMinutes: number;
   spots: number;
+  priceSgd: number;
   isPremium: boolean;
   skillsFuturePayable: boolean;
   isOpen: boolean;
@@ -61,14 +62,14 @@ export type ActivitySession = {
   activityMockId?: number;
   title: string;
   startsAt: string;
+  endAt: string;
   location: string;
   latitude?: number;
   longitude?: number;
   lat?: number;
   lng?: number;
-  durationMinutes: number;
-  duration?: number;
   spots: number;
+  priceSgd: number;
   registeredCount: number;
   attendedCount: number;
   groupId?: number;
@@ -110,17 +111,13 @@ export type Activity = {
   longitude?: number;
   lat?: number;
   lng?: number;
-  durationMinutes: number;
-  duration?: number;
+  endAt: string;
   registeredCount: number;
   attendedCount: number;
-  credits: number;
   rating: number;
   categories: vidaCategory[];
   tags: string[];
   isVolunteer: boolean;
-  isPremium: boolean;
-  skillsFuturePayable: boolean;
   isOpen: boolean;
   isActive: boolean;
   imageUrls: string[];
@@ -138,7 +135,7 @@ export type CreateActivityInput = {
   longitude: number;
   durationMinutes: number;
   spots: number;
-  credits: number;
+  priceSgd: number;
   categories: vidaCategory[];
   tagIds?: string[];
   imageUrls?: string[];
@@ -166,7 +163,7 @@ export type ActivityTemplate = {
   longitude: number;
   durationMinutes: number;
   spots: number;
-  credits: number;
+  priceSgd: number;
   categories: vidaCategory[];
   groupId?: number;
 };
@@ -301,7 +298,7 @@ export type ChatActivityInvite = {
     startsAt: string;
     location: string;
     durationMinutes: number;
-    credits: number;
+    priceSgd: number;
     categories: vidaCategory[];
   };
   session: {
@@ -355,6 +352,8 @@ export type ChatMessage =
 type AnnouncementBase = {
   id: string;
   sessionId: string;
+  chatId: string;
+  groupId?: number;
   content: string;
   createdAt: string;
 };
@@ -419,18 +418,46 @@ export type PollVoteResponse = {
   message: ChatMessage;
 };
 
-export type ProfileAccount = {
-  membershipName: string;
-  creditsLeft: number;
-};
-
 export type Profile = {
   name: string;
   handle: string;
   avatar: string;
   bio: string;
   stats: ProfileStat[];
-  account?: ProfileAccount | null;
+};
+
+export type PaymentCheckoutResponse = {
+  paymentId: string;
+  status: "pending";
+  checkoutUrl: string;
+  amountMinor: number;
+  currency: "SGD";
+  expiresAt: string;
+};
+
+export type PaymentStatus =
+  | "creating"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "expired"
+  | "cancelled"
+  | "needs_review"
+  | "refund_pending"
+  | "refunded";
+
+export type PaymentStatusResponse = {
+  paymentId: string;
+  status: PaymentStatus;
+  checkoutUrl?: string;
+  amountMinor: number;
+  currency: "SGD";
+  expiresAt: string;
+  failureReason?: string;
+  sessionId?: ActivityId;
+  activityId?: string;
+  groupId?: number;
+  joined: boolean;
 };
 
 export type UpdateProfileInput = {

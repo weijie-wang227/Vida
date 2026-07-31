@@ -4,7 +4,7 @@ import {
   ChatMessagePayloadError,
   getChatMessagePreviewText,
   normalizeChatMessagePayload,
-} from "../chatMessages.js";
+} from "./chatMessages.js";
 import { ChatMessageModel, PollVoteModel } from "../models/VidaData.js";
 
 test("text messages normalize into a payload without legacy fields", () => {

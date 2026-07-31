@@ -8,8 +8,13 @@ import {
   SessionParticipationModel,
   SessionModel,
   VendorModel,
+  type ActivityDocument,
+  type VendorDocument,
 } from "../models/VidaData.js";
-import { getChatPreview, getLatestChatPreviews } from "../chatPreviews.js";
+import {
+  getChatPreview,
+  getLatestChatPreviews,
+} from "../services/chatPreviews.js";
 import { serializeTagNames, serializeVendor } from "../serializers.js";
 import { asObject } from "../utils/mongoose.js";
 import { formatSessionDateTime } from "../utils/date.js";
@@ -59,7 +64,7 @@ function sendSessionOperationError(res: any, error: unknown) {
   return true;
 }
 
-async function sendVendorResponse(res: any, vendor: Record<string, any>, status = 200) {
+async function sendVendorResponse(res: any, vendor: VendorDocument, status = 200) {
   res.status(status).json({
     vendor: serializeVendor(vendor),
     stats: await getVendorStats(vendor),
@@ -122,8 +127,15 @@ function serializeVendorSessionRow(
     startsAt: session.startsAt,
     endAt: session.endAt,
     spots: session.spots,
-    credits: Number(session.credits ?? activity.credits) || 0,
-    creditsAggregate: Number(session.creditsAggregate) || 0,
+    priceSgd: Math.max(0, Number(session.priceSgd) || 0),
+    grossRevenueMinor: Math.max(
+      0,
+      Number(session.grossRevenueMinor) || 0,
+    ),
+    pendingPaymentCount: Math.max(
+      0,
+      Number(session.pendingPaymentCount) || 0,
+    ),
     isPremium: Boolean(session.isPremium ?? activity.isPremium),
     skillsFuturePayable: Boolean(
       session.skillsFuturePayable ?? activity.skillsFuturePayable,
@@ -139,7 +151,7 @@ function serializeVendorSessionRow(
   };
 }
 
-async function getVendorActivityRows(vendor: Record<string, any>) {
+async function getVendorActivityRows(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
@@ -168,7 +180,7 @@ async function getVendorActivityRows(vendor: Record<string, any>) {
   );
 }
 
-async function getVendorSessionRows(vendor: Record<string, any>) {
+async function getVendorSessionRows(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
@@ -237,7 +249,7 @@ async function getVendorSessionRows(vendor: Record<string, any>) {
     .filter(Boolean);
 }
 
-async function getVendorChatRows(vendor: Record<string, any>) {
+async function getVendorChatRows(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
@@ -312,7 +324,7 @@ async function getVendorChatRows(vendor: Record<string, any>) {
     });
 }
 
-async function getVendorAnnouncementRows(vendor: Record<string, any>) {
+async function getVendorAnnouncementRows(vendor: VendorDocument) {
   const activities = await ActivityModel.find({ host: vendor._id })
     .select("_id mockId title")
     .lean();
@@ -397,7 +409,7 @@ async function getVendorAnnouncementRows(vendor: Record<string, any>) {
     });
 }
 
-function getManagedActivityFilter(vendor: Record<string, any>) {
+function getManagedActivityFilter(vendor: VendorDocument) {
   const linkedActivityIds = getLinkedActivityIds(vendor);
 
   return {
@@ -405,7 +417,7 @@ function getManagedActivityFilter(vendor: Record<string, any>) {
   };
 }
 
-async function getVolunteerOverview(vendor: Record<string, any>) {
+async function getVolunteerOverview(vendor: VendorDocument) {
   const activities = await ActivityModel.find({
     ...getManagedActivityFilter(vendor),
     isVolunteer: true,
@@ -558,11 +570,11 @@ async function getVolunteerOverview(vendor: Record<string, any>) {
 }
 
 async function getVolunteerRoster(
-  vendor: Record<string, any>,
+  vendor: VendorDocument,
   sessionId: string,
 ) {
   const session = await findVendorSession(vendor, sessionId);
-  const activity = session?.activity ? asObject(session.activity) : null;
+  const activity = session?.activity ?? null;
 
   if (!session || !activity || activity.isVolunteer !== true) {
     return null;
@@ -625,7 +637,7 @@ function serializeSessionTemplate(
   };
 }
 
-async function getVendorSessionTemplates(vendor: Record<string, any>) {
+async function getVendorSessionTemplates(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
@@ -655,7 +667,7 @@ async function getVendorSessionTemplates(vendor: Record<string, any>) {
 }
 
 async function findVendorSession(
-  vendor: Record<string, any>,
+  vendor: VendorDocument,
   sessionId: string,
 ) {
   const linkedEventIds = getLinkedActivityIds(vendor);
@@ -669,7 +681,7 @@ async function findVendorSession(
   }
 
   const session = await SessionModel.findOne({ $or: sessionSelector })
-    .populate({
+    .populate<{ activity: ActivityDocument }>({
       path: "activity",
       match: activityScope,
     })
@@ -743,7 +755,7 @@ router.patch(
         return;
       }
 
-      const activity = asObject(session.activity ?? {});
+      const activity = session.activity;
       const requestedDetails = readSessionDetails(req.body ?? {});
       const details =
         activity.isVolunteer === true
@@ -772,7 +784,7 @@ router.patch(
           location: details.location,
           lat: Number(details.lat),
           lng: Number(details.lng),
-          credits: Number(details.credits),
+          priceSgd: Number(details.priceSgd),
           isPremium: details.isPremium,
           skillsFuturePayable: details.skillsFuturePayable,
         },
@@ -819,8 +831,8 @@ router.delete(
         return;
       }
 
-      const sessionItem = asObject(session);
-      const activity = asObject(sessionItem.activity ?? {});
+      const sessionItem = session;
+      const activity = session.activity;
       const operation = await deleteScheduledSession({
         sessionId: sessionItem._id,
         activityId: activity._id,
@@ -951,7 +963,7 @@ router.patch(
       }
 
       const session = await findVendorSession(res.locals.vendor, sessionId);
-      const activity = session?.activity ? asObject(session.activity) : null;
+      const activity = session?.activity ?? null;
 
       if (!session || !activity || activity.isVolunteer !== true) {
         res.status(404).json({ message: "Volunteer session not found." });
@@ -1065,7 +1077,7 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
       return;
     }
 
-    const activity = asObject(session.activity ?? {});
+    const activity = session.activity;
 
     if (!activity._id) {
       res.status(400).json({ message: "Choose a valid session." });
@@ -1074,7 +1086,7 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
 
     const participationFilter = {
       sessionId: session._id,
-      role: "participant",
+      role: "participant" as const,
       status: { $in: countedRegistrationStatuses },
     };
     const [participations, total] = await Promise.all([
@@ -1107,7 +1119,8 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
           handle: attendee.handle ?? "",
           avatar: attendee.avatarUrl ?? "",
           status: item.status,
-          creditsTransaction: Number(item.creditsTransaction) || 0,
+          amountPaidMinor: Number(item.amountPaidMinor) || 0,
+          currency: item.currency ?? "SGD",
           signedUpAt: item.registeredAt ?? item.createdAt,
         };
       }),
@@ -1147,7 +1160,7 @@ router.patch("/me/sessions/:sessionId/open", requireVendorAuth, async (req, res,
     session.isOpen = isOpen;
     await session.save();
 
-    const activity = asObject(session.activity ?? {});
+    const activity = session.activity;
 
     res.json({
       activity: {

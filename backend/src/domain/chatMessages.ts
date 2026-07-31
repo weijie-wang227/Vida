@@ -14,7 +14,7 @@ export type ActivityInviteMessagePayload = {
     startsAt: string;
     location: string;
     durationMinutes: number;
-    credits: number;
+    priceSgd: number;
     categories: string[];
   };
   session: {
@@ -49,9 +49,9 @@ type MessageHandler<TPayload extends StoredMessagePayload> = {
   preview: (payload: TPayload, senderName: string) => string;
 };
 
-function asRecord(value: unknown): Record<string, any> {
+function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null
-    ? (value as Record<string, any>)
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -99,16 +99,22 @@ const activityInviteHandler: MessageHandler<ActivityInviteMessagePayload> = {
 
     return {
       activity: {
-        id: activity.id,
+        id:
+          typeof activity.id === "string" || typeof activity.id === "number"
+            ? activity.id
+            : "",
         title: requiredString(activity.title, "Activity title", 200),
         startsAt: requiredString(activity.startsAt, "Session start", 100),
         location: requiredString(activity.location, "Session location", 300),
         durationMinutes: finiteNumber(activity.durationMinutes),
-        credits: finiteNumber(activity.credits),
+        priceSgd: finiteNumber(activity.priceSgd),
         categories,
       },
       session: {
-        id: session.id,
+        id:
+          typeof session.id === "string" || typeof session.id === "number"
+            ? session.id
+            : "",
         objectId: requiredString(session.objectId, "Session ID", 100),
       },
     };
@@ -193,7 +199,11 @@ export function normalizeChatMessagePayload(
   return chatMessageHandlers[type].normalize(value as never);
 }
 
-export function getChatMessagePreviewText(message: Record<string, any>) {
+export function getChatMessagePreviewText(message: {
+  type?: unknown;
+  sender?: unknown;
+  payload?: unknown;
+}) {
   const type = getChatMessageType(message.type);
   const sender = asRecord(message.sender);
   const senderName = String(sender.name ?? "Unknown user");

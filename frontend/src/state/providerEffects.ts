@@ -14,6 +14,7 @@ import {
   getAuthToken,
 } from "../api";
 import { getStoredThemeMode } from "../app/themeMode";
+import { hasPremiumSession } from "../lib/activityPresentation";
 import type {
   AuthUser,
   Activity,
@@ -31,8 +32,10 @@ type Setter<T> = Dispatch<SetStateAction<T>>;
 
 function splitActivitiesByPremium(activities: Activity[]) {
   return {
-    premiumActivities: activities.filter((activity) => activity.isPremium),
-    standardActivities: activities.filter((activity) => !activity.isPremium),
+    premiumActivities: activities.filter(hasPremiumSession),
+    standardActivities: activities.filter(
+      (activity) => !hasPremiumSession(activity),
+    ),
   };
 }
 

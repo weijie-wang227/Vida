@@ -101,22 +101,31 @@ export function FinanceActivityPage() {
     );
   }
 
+  const commissionPercent = Math.round(data.commissionRate * 100);
   const summaryCards = [
     {
       label: "Sessions this month",
       value: numberFormatter.format(data.summary.sessionsThisMonth),
     },
     {
-      label: "Revenue this month",
-      value: currencyFormatter.format(data.summary.revenueThisMonth),
+      label: "Gross revenue this month",
+      value: currencyFormatter.format(data.summary.grossRevenueThisMonth),
+    },
+    {
+      label: `Vida commission (${commissionPercent}%)`,
+      value: currencyFormatter.format(data.summary.commissionThisMonth),
+    },
+    {
+      label: "Net revenue this month",
+      value: currencyFormatter.format(data.summary.netRevenueThisMonth),
     },
     {
       label: "Average attendees",
       value: numberFormatter.format(data.summary.averageAttendees),
     },
     {
-      label: "Average per session",
-      value: currencyFormatter.format(data.summary.averagePerSession),
+      label: "Average net per session",
+      value: currencyFormatter.format(data.summary.averageNetPerSession),
     },
   ];
 
@@ -133,7 +142,7 @@ export function FinanceActivityPage() {
 
       <div className="finance-activity-page__heading">
         <div>
-          <span>Activity revenue</span>
+          <span>Activity net revenue</span>
           <h2>{data.activity.title}</h2>
         </div>
         <span>
@@ -179,7 +188,15 @@ export function FinanceActivityPage() {
                       {numberFormatter.format(session.registeredCount)} attendees
                     </span>
                   </div>
-                  <strong>{currencyFormatter.format(session.revenue)}</strong>
+                  <div className="finance-recent-session__revenue">
+                    <strong>
+                      {currencyFormatter.format(session.netRevenue)} net
+                    </strong>
+                    <span>
+                      Gross {currencyFormatter.format(session.grossRevenue)} ·{" "}
+                      commission {currencyFormatter.format(session.commission)}
+                    </span>
+                  </div>
                 </article>
               );
             })}

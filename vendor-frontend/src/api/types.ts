@@ -78,7 +78,7 @@ export type BaseSession = {
   location: string;
   lat: number;
   lng: number;
-  credits: number;
+  priceSgd: number;
   isPremium: boolean;
   skillsFuturePayable: boolean;
 }
@@ -89,13 +89,15 @@ export type Session = BaseSession &{
   mockId: string;
   isOpen: boolean;
   isActive: boolean;
-  creditsAggregate: number;
+  grossRevenueMinor: number;
+  pendingPaymentCount: number;
   registeredCount: number;
   attendedCount: number;
   rating: number;
 };
 
-export type CreateSessionInput = BaseSession & {
+export type CreateSessionInput = Omit<BaseSession, "activity"> & {
+  activityId: number | string;
   vendorId: string;
   createAsVendor: true;
 };
@@ -110,7 +112,7 @@ export type UpdateSessionInput = Pick<
   | "location"
   | "lat"
   | "lng"
-  | "credits"
+  | "priceSgd"
   | "isPremium"
   | "skillsFuturePayable"
 >;
@@ -145,7 +147,7 @@ export type FinancePeriodKey = "ytd" | "mtd";
 
 export type FinanceTrendPoint = {
   label: string;
-  revenue: number;
+  netRevenue: number;
 };
 
 export type FinanceActivity = {
@@ -153,8 +155,10 @@ export type FinanceActivity = {
   title: string;
   sessionsNum: number;
   registeredCount: number;
-  totalRevenue: number;
-  revenuePerSession: number;
+  grossRevenue: number;
+  commission: number;
+  netRevenue: number;
+  netRevenuePerSession: number;
   deltaVsAveragePercent: number;
 };
 
@@ -162,25 +166,27 @@ export type FinancePeriod = {
   period: FinancePeriodKey;
   label: string;
   rangeLabel: string;
-  revenue: number;
-  revenueTrendPercent: number;
+  grossRevenue: number;
+  commission: number;
+  netRevenue: number;
+  netRevenueTrendPercent: number;
   bookings: number;
   bookingsTrendPercent: number;
   sessionsNum: number;
-  averagePerSession: number;
+  averageNetPerSession: number;
   trend: FinanceTrendPoint[];
   activities: FinanceActivity[];
 };
 
 export type VendorFinanceResponse = {
   currency: "SGD";
-  conversionRate: number;
+  commissionRate: number;
   periods: Record<FinancePeriodKey, FinancePeriod>;
 };
 
 export type VendorFinanceActivityResponse = {
   currency: "SGD";
-  conversionRate: number;
+  commissionRate: number;
   activity: {
     id: string;
     title: string;
@@ -188,9 +194,11 @@ export type VendorFinanceActivityResponse = {
   };
   summary: {
     sessionsThisMonth: number;
-    revenueThisMonth: number;
+    grossRevenueThisMonth: number;
+    commissionThisMonth: number;
+    netRevenueThisMonth: number;
     averageAttendees: number;
-    averagePerSession: number;
+    averageNetPerSession: number;
   };
   recentSessions: Array<{
     id: string;
@@ -198,7 +206,9 @@ export type VendorFinanceActivityResponse = {
     title: string;
     startsAt: string;
     registeredCount: number;
-    revenue: number;
+    grossRevenue: number;
+    commission: number;
+    netRevenue: number;
   }>;
 };
 
@@ -354,7 +364,8 @@ export type ActivityAttendee = {
   handle: string;
   avatar: string;
   status: AttendanceStatus;
-  creditsTransaction: number;
+  amountPaidMinor: number;
+  currency: "SGD";
   signedUpAt: string;
 };
 

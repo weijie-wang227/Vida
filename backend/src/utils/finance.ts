@@ -1,14 +1,18 @@
 import {
   ActivityModel,
-  ConversionRateModel,
   SessionParticipationModel,
   SessionModel,
+  type ActivityDocument,
+  type SessionDocument,
+  type VendorDocument,
 } from "../models/VidaData.js";
 import { getLinkedActivityIds } from "./utils.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import { formatSessionDateTime } from "./date.js";
-
-export const defaultCreditsToDollarsRate = 0.7;
+import {
+  calculateRevenueBreakdownMinor,
+  getVidaCommissionRate,
+} from "../services/payments/commission.js";
 
 export type FinancePeriodKey = "ytd" | "mtd";
 
@@ -17,39 +21,43 @@ type FinanceActivity = {
   title: string;
   sessionsNum: number;
   registeredCount: number;
-  totalRevenue: number;
-  revenuePerSession: number;
+  grossRevenue: number;
+  commission: number;
+  netRevenue: number;
+  netRevenuePerSession: number;
   deltaVsAveragePercent: number;
 };
 
 type FinanceTrendPoint = {
   label: string;
-  revenue: number;
+  netRevenue: number;
 };
 
 export type FinancePeriod = {
   period: FinancePeriodKey;
   label: string;
   rangeLabel: string;
-  revenue: number;
-  revenueTrendPercent: number;
+  grossRevenue: number;
+  commission: number;
+  netRevenue: number;
+  netRevenueTrendPercent: number;
   bookings: number;
   bookingsTrendPercent: number;
   sessionsNum: number;
-  averagePerSession: number;
+  averageNetPerSession: number;
   trend: FinanceTrendPoint[];
   activities: FinanceActivity[];
 };
 
 export type VendorFinance = {
   currency: "SGD";
-  conversionRate: number;
+  commissionRate: number;
   periods: Record<FinancePeriodKey, FinancePeriod>;
 };
 
 export type VendorFinanceActivity = {
   currency: "SGD";
-  conversionRate: number;
+  commissionRate: number;
   activity: {
     id: string;
     title: string;
@@ -57,9 +65,11 @@ export type VendorFinanceActivity = {
   };
   summary: {
     sessionsThisMonth: number;
-    revenueThisMonth: number;
+    grossRevenueThisMonth: number;
+    commissionThisMonth: number;
+    netRevenueThisMonth: number;
     averageAttendees: number;
-    averagePerSession: number;
+    averageNetPerSession: number;
   };
   recentSessions: Array<{
     id: string;
@@ -67,7 +77,9 @@ export type VendorFinanceActivity = {
     title: string;
     startsAt: string;
     registeredCount: number;
-    revenue: number;
+    grossRevenue: number;
+    commission: number;
+    netRevenue: number;
   }>;
 };
 
@@ -82,39 +94,28 @@ function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function getRevenueBreakdown(
+  grossRevenueMinor: unknown,
+  commissionRate: number,
+) {
+  const breakdown = calculateRevenueBreakdownMinor(
+    grossRevenueMinor,
+    commissionRate,
+  );
+
+  return {
+    grossRevenue: breakdown.grossRevenueMinor / 100,
+    commission: breakdown.commissionMinor / 100,
+    netRevenue: breakdown.netRevenueMinor / 100,
+  };
+}
+
 function getTrendPercent(current: number, previous: number) {
   if (previous <= 0) {
     return current > 0 ? 100 : 0;
   }
 
   return Math.round(((current - previous) / previous) * 100);
-}
-
-export function convertCreditsToDollars(credits: number, rate: number) {
-  const safeCredits = Number.isFinite(credits) && credits > 0 ? credits : 0;
-  const safeRate = Number.isFinite(rate) && rate >= 0
-    ? rate
-    : defaultCreditsToDollarsRate;
-
-  return roundCurrency(safeCredits * safeRate);
-}
-
-export async function getCreditsToDollarsRate() {
-  const conversion = await ConversionRateModel.findOneAndUpdate(
-    { key: "creditsToDollars" },
-    {
-      $setOnInsert: {
-        key: "creditsToDollars",
-        rate: defaultCreditsToDollarsRate,
-      },
-    },
-    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
-  ).select("rate");
-  const rate = Number(conversion?.rate);
-
-  return Number.isFinite(rate) && rate >= 0
-    ? rate
-    : defaultCreditsToDollarsRate;
 }
 
 function getPeriodWindow(period: FinancePeriodKey, now: Date): PeriodWindow {
@@ -177,16 +178,16 @@ function formatRange(start: Date, end: Date) {
 function getTrendPoints(
   period: FinancePeriodKey,
   now: Date,
-  sessions: Record<string, any>[],
-  revenueBySessionId: Map<string, number>,
+  sessions: SessionDocument[],
+  netRevenueBySessionId: Map<string, number>,
 ) {
-  const getRevenue = (start: Date, end: Date) =>
+  const getNetRevenue = (start: Date, end: Date) =>
     roundCurrency(
       sessions
         .filter((session) => isWithin(session.startsAt, start, end))
         .reduce(
           (sum, session) =>
-            sum + (revenueBySessionId.get(String(session._id)) ?? 0),
+            sum + (netRevenueBySessionId.get(String(session._id)) ?? 0),
           0,
         ),
     );
@@ -212,7 +213,7 @@ function getTrendPoints(
 
       return {
         label: String(year),
-        revenue: getRevenue(start, end),
+        netRevenue: getNetRevenue(start, end),
       };
     });
   }
@@ -243,7 +244,7 @@ function getTrendPoints(
 
     return {
       label: formatter.format(start),
-      revenue: getRevenue(start, end),
+      netRevenue: getNetRevenue(start, end),
     };
   });
 }
@@ -251,10 +252,10 @@ function getTrendPoints(
 function buildPeriod(
   period: FinancePeriodKey,
   now: Date,
-  activities: Record<string, any>[],
-  sessions: Record<string, any>[],
+  activities: ActivityDocument[],
+  sessions: SessionDocument[],
   bookingsBySessionId: Map<string, number>,
-  rate: number,
+  commissionRate: number,
 ): FinancePeriod {
   const window = getPeriodWindow(period, now);
   const currentSessions = sessions.filter((session) =>
@@ -263,36 +264,51 @@ function buildPeriod(
   const previousSessions = sessions.filter((session) =>
     isWithin(session.startsAt, window.previousStart, window.previousEnd),
   );
-  const revenueBySessionId = new Map<string, number>();
+  const grossRevenueBySessionId = new Map<string, number>();
+  const commissionBySessionId = new Map<string, number>();
+  const netRevenueBySessionId = new Map<string, number>();
   const activityById = new Map(
     activities.map((activity) => [String(activity._id), activity]),
   );
 
   sessions.forEach((session) => {
     const sessionId = String(session._id);
-    const revenue = convertCreditsToDollars(
-      Number(session.creditsAggregate),
-      rate,
+    const breakdown = getRevenueBreakdown(
+      session.grossRevenueMinor,
+      commissionRate,
     );
 
-    revenueBySessionId.set(sessionId, roundCurrency(revenue));
+    grossRevenueBySessionId.set(
+      sessionId,
+      roundCurrency(breakdown.grossRevenue),
+    );
+    commissionBySessionId.set(
+      sessionId,
+      roundCurrency(breakdown.commission),
+    );
+    netRevenueBySessionId.set(
+      sessionId,
+      roundCurrency(breakdown.netRevenue),
+    );
   });
 
-  const getTotals = (rows: Record<string, any>[]) =>
+  const getTotals = (rows: SessionDocument[]) =>
     rows.reduce(
       (totals, session) => {
         const sessionId = String(session._id);
 
         totals.bookings += bookingsBySessionId.get(sessionId) ?? 0;
-        totals.revenue += revenueBySessionId.get(sessionId) ?? 0;
+        totals.grossRevenue += grossRevenueBySessionId.get(sessionId) ?? 0;
+        totals.commission += commissionBySessionId.get(sessionId) ?? 0;
+        totals.netRevenue += netRevenueBySessionId.get(sessionId) ?? 0;
         return totals;
       },
-      { revenue: 0, bookings: 0 },
+      { grossRevenue: 0, commission: 0, netRevenue: 0, bookings: 0 },
     );
   const currentTotals = getTotals(currentSessions);
   const previousTotals = getTotals(previousSessions);
-  const averagePerSession = currentSessions.length > 0
-    ? currentTotals.revenue / currentSessions.length
+  const averageNetPerSession = currentSessions.length > 0
+    ? currentTotals.netRevenue / currentSessions.length
     : 0;
   const breakdownByActivityId = new Map<string, FinanceActivity>();
 
@@ -310,43 +326,55 @@ function buildPeriod(
       title: activity.title ?? "Untitled activity",
       sessionsNum: 0,
       registeredCount: 0,
-      totalRevenue: 0,
-      revenuePerSession: 0,
+      grossRevenue: 0,
+      commission: 0,
+      netRevenue: 0,
+      netRevenuePerSession: 0,
       deltaVsAveragePercent: 0,
     };
 
     row.sessionsNum += 1;
     row.registeredCount += bookingsBySessionId.get(sessionId) ?? 0;
-    row.totalRevenue += revenueBySessionId.get(sessionId) ?? 0;
+    row.grossRevenue += grossRevenueBySessionId.get(sessionId) ?? 0;
+    row.commission += commissionBySessionId.get(sessionId) ?? 0;
+    row.netRevenue += netRevenueBySessionId.get(sessionId) ?? 0;
     breakdownByActivityId.set(activityId, row);
   });
 
   const activityRows = Array.from(breakdownByActivityId.values())
     .map((activity) => {
-      const revenuePerSession = activity.sessionsNum > 0
-        ? activity.totalRevenue / activity.sessionsNum
+      const netRevenuePerSession = activity.sessionsNum > 0
+        ? activity.netRevenue / activity.sessionsNum
         : 0;
-      const deltaVsAveragePercent = averagePerSession > 0
-        ? Math.round(((revenuePerSession - averagePerSession) / averagePerSession) * 100)
+      const deltaVsAveragePercent = averageNetPerSession > 0
+        ? Math.round(
+            ((netRevenuePerSession - averageNetPerSession) /
+              averageNetPerSession) *
+              100,
+          )
         : 0;
 
       return {
         ...activity,
-        totalRevenue: roundCurrency(activity.totalRevenue),
-        revenuePerSession: roundCurrency(revenuePerSession),
+        grossRevenue: roundCurrency(activity.grossRevenue),
+        commission: roundCurrency(activity.commission),
+        netRevenue: roundCurrency(activity.netRevenue),
+        netRevenuePerSession: roundCurrency(netRevenuePerSession),
         deltaVsAveragePercent,
       };
     })
-    .sort((first, second) => second.totalRevenue - first.totalRevenue);
+    .sort((first, second) => second.netRevenue - first.netRevenue);
 
   return {
     period,
     label: period.toUpperCase(),
     rangeLabel: formatRange(window.currentStart, window.currentEnd),
-    revenue: roundCurrency(currentTotals.revenue),
-    revenueTrendPercent: getTrendPercent(
-      currentTotals.revenue,
-      previousTotals.revenue,
+    grossRevenue: roundCurrency(currentTotals.grossRevenue),
+    commission: roundCurrency(currentTotals.commission),
+    netRevenue: roundCurrency(currentTotals.netRevenue),
+    netRevenueTrendPercent: getTrendPercent(
+      currentTotals.netRevenue,
+      previousTotals.netRevenue,
     ),
     bookings: currentTotals.bookings,
     bookingsTrendPercent: getTrendPercent(
@@ -354,29 +382,30 @@ function buildPeriod(
       previousTotals.bookings,
     ),
     sessionsNum: currentSessions.length,
-    averagePerSession: roundCurrency(averagePerSession),
-    trend: getTrendPoints(period, now, sessions, revenueBySessionId),
+    averageNetPerSession: roundCurrency(averageNetPerSession),
+    trend: getTrendPoints(period, now, sessions, netRevenueBySessionId),
     activities: activityRows,
   };
 }
 
 export async function getVendorFinance(
-  vendor: Record<string, any>,
+  vendor: VendorDocument,
 ): Promise<VendorFinance> {
+  const commissionRate = getVidaCommissionRate();
   const linkedActivityIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     isVolunteer: { $ne: true },
     $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }],
   })
-    .select("_id title sessionsNum registeredCount totalRevenue")
+    .select("_id title sessionsNum registeredCount")
     .lean();
-  const activityIds = activities.map((activity: Record<string, any>) => activity._id);
+  const activityIds = activities.map((activity) => activity._id);
   const sessions = activityIds.length > 0
     ? await SessionModel.find({ activity: { $in: activityIds } })
-        .select("_id activity startsAt creditsAggregate")
+        .select("_id activity startsAt grossRevenueMinor")
         .lean()
     : [];
-  const sessionIds = sessions.map((session: Record<string, any>) => session._id);
+  const sessionIds = sessions.map((session) => session._id);
   const participations = sessionIds.length > 0
     ? await SessionParticipationModel.find({
         sessionId: { $in: sessionIds },
@@ -389,7 +418,7 @@ export async function getVendorFinance(
   const vendorOwnerId = String(vendor.owner?._id ?? vendor.owner ?? "");
   const bookingsBySessionId = new Map<string, number>();
 
-  participations.forEach((participation: Record<string, any>) => {
+  participations.forEach((participation) => {
     if (vendorOwnerId && String(participation.userId) === vendorOwnerId) {
       return;
     }
@@ -401,12 +430,11 @@ export async function getVendorFinance(
       (bookingsBySessionId.get(sessionId) ?? 0) + 1,
     );
   });
-  const rate = await getCreditsToDollarsRate();
   const now = new Date();
 
   return {
     currency: "SGD",
-    conversionRate: rate,
+    commissionRate,
     periods: {
       ytd: buildPeriod(
         "ytd",
@@ -414,7 +442,7 @@ export async function getVendorFinance(
         activities,
         sessions,
         bookingsBySessionId,
-        rate,
+        commissionRate,
       ),
       mtd: buildPeriod(
         "mtd",
@@ -422,22 +450,24 @@ export async function getVendorFinance(
         activities,
         sessions,
         bookingsBySessionId,
-        rate,
+        commissionRate,
       ),
     },
   };
 }
 
 export async function getVendorFinanceActivity(
-  vendor: Record<string, any>,
+  vendor: VendorDocument,
   activitySelector: Record<string, unknown>[],
 ): Promise<VendorFinanceActivity | null> {
+  const commissionRate = getVidaCommissionRate();
+
   if (activitySelector.length === 0) {
     return null;
   }
 
   const linkedActivityIds = getLinkedActivityIds(vendor);
-  const activity = (await ActivityModel.findOne({
+  const activity = await ActivityModel.findOne({
     $and: [
       { $or: activitySelector },
       { $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }] },
@@ -445,7 +475,7 @@ export async function getVendorFinanceActivity(
     ],
   })
     .select("_id title")
-    .lean()) as Record<string, any> | null;
+    .lean();
 
   if (!activity) {
     return null;
@@ -459,10 +489,10 @@ export async function getVendorFinanceActivity(
   const sessions = await SessionModel.find({
     activity: activity._id,
   })
-    .select("_id mockId title startsAt creditsAggregate")
+    .select("_id mockId title startsAt grossRevenueMinor")
     .sort({ startsAt: -1, mockId: -1 })
     .lean();
-  const sessionIds = sessions.map((session: Record<string, any>) => session._id);
+  const sessionIds = sessions.map((session) => session._id);
   const participations = sessionIds.length > 0
     ? await SessionParticipationModel.find({
         sessionId: { $in: sessionIds },
@@ -475,7 +505,7 @@ export async function getVendorFinanceActivity(
   const ownerId = String(vendor.owner?._id ?? vendor.owner ?? "");
   const attendeesBySessionId = new Map<string, number>();
 
-  participations.forEach((participation: Record<string, any>) => {
+  participations.forEach((participation) => {
     if (ownerId && String(participation.userId) === ownerId) {
       return;
     }
@@ -488,12 +518,11 @@ export async function getVendorFinanceActivity(
     );
   });
 
-  const rate = await getCreditsToDollarsRate();
-  const sessionRows = sessions.map((session: Record<string, any>) => {
+  const sessionRows = sessions.map((session) => {
     const registeredCount = attendeesBySessionId.get(String(session._id)) ?? 0;
-    const revenue = convertCreditsToDollars(
-      Number(session.creditsAggregate),
-      rate,
+    const revenue = getRevenueBreakdown(
+      session.grossRevenueMinor,
+      commissionRate,
     );
 
     return {
@@ -505,7 +534,9 @@ export async function getVendorFinanceActivity(
           ? session.startsAt.toISOString()
           : new Date(session.startsAt).toISOString(),
       registeredCount,
-      revenue,
+      grossRevenue: roundCurrency(revenue.grossRevenue),
+      commission: roundCurrency(revenue.commission),
+      netRevenue: roundCurrency(revenue.netRevenue),
     };
   });
   const sessionsThisMonth = sessionRows.filter(
@@ -522,8 +553,16 @@ export async function getVendorFinanceActivity(
       return startsAt >= yearStart.getTime() && startsAt <= now.getTime();
     },
   ).length;
-  const revenueThisMonth = sessionsThisMonth.reduce(
-    (sum, session) => sum + session.revenue,
+  const grossRevenueThisMonth = sessionsThisMonth.reduce(
+    (sum, session) => sum + session.grossRevenue,
+    0,
+  );
+  const commissionThisMonth = sessionsThisMonth.reduce(
+    (sum, session) => sum + session.commission,
+    0,
+  );
+  const netRevenueThisMonth = sessionsThisMonth.reduce(
+    (sum, session) => sum + session.netRevenue,
     0,
   );
   const attendeesThisMonth = sessionsThisMonth.reduce(
@@ -533,7 +572,7 @@ export async function getVendorFinanceActivity(
 
   return {
     currency: "SGD",
-    conversionRate: rate,
+    commissionRate,
     activity: {
       id: String(activity._id),
       title: String(activity.title ?? "Untitled activity"),
@@ -541,14 +580,16 @@ export async function getVendorFinanceActivity(
     },
     summary: {
       sessionsThisMonth: sessionsThisMonth.length,
-      revenueThisMonth: roundCurrency(revenueThisMonth),
+      grossRevenueThisMonth: roundCurrency(grossRevenueThisMonth),
+      commissionThisMonth: roundCurrency(commissionThisMonth),
+      netRevenueThisMonth: roundCurrency(netRevenueThisMonth),
       averageAttendees:
         sessionsThisMonth.length > 0
           ? Math.round((attendeesThisMonth / sessionsThisMonth.length) * 10) / 10
           : 0,
-      averagePerSession:
+      averageNetPerSession:
         sessionsThisMonth.length > 0
-          ? roundCurrency(revenueThisMonth / sessionsThisMonth.length)
+          ? roundCurrency(netRevenueThisMonth / sessionsThisMonth.length)
           : 0,
     },
     recentSessions: sessionRows,

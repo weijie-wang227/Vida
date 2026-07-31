@@ -12,6 +12,9 @@ import {
   SessionParticipationModel,
   SessionModel,
   VendorModel,
+  type ActivityDocument,
+  type ChatDocument,
+  type EntityId,
 } from "../models/VidaData.js";
 import {
   serializeActivity,
@@ -42,7 +45,11 @@ import {
   AnnouncementPayloadError,
   canPublishAnnouncementToSession,
   normalizeAnnouncementPoll,
-} from "../announcements.js";
+} from "../domain/announcements.js";
+import {
+  getAnnouncementPollResults,
+  serializeAnnouncement,
+} from "../services/announcementResponses.js";
 
 const router = Router();
 const blacklistJoinReason =
@@ -69,11 +76,11 @@ async function findSessionByRouteId(sessionId: string, extraFilter = {}) {
     ...extraFilter,
     $or: sessionSelector,
   })
-    .populate({
+    .populate<{ activity: ActivityDocument }>({
       path: "activity",
       populate: [{ path: "host" }, { path: "tags" }],
     })
-    .populate("chat");
+    .populate<{ chat: ChatDocument }>("chat");
 }
 
 function rejectInactiveAnnouncementSession(res: any, session: any) {
@@ -87,7 +94,7 @@ function rejectInactiveAnnouncementSession(res: any, session: any) {
   return true;
 }
 
-async function getParticipatingUsersBySessionId(sessionId: unknown) {
+async function getParticipatingUsersBySessionId(sessionId: EntityId) {
   const participations = await SessionParticipationModel.find({
     sessionId,
     role: "participant",
@@ -149,7 +156,7 @@ function validateSessionPayload(session: ReturnType<typeof readSessionPayload>) 
   return null;
 }
 
-async function isGroupAdmin(userId: unknown, groupId: unknown) {
+async function isGroupAdmin(userId: EntityId, groupId: EntityId) {
   const admin = await AdminModel.findOne({ user: userId, group: groupId }).select(
     "_id",
   );
@@ -157,7 +164,7 @@ async function isGroupAdmin(userId: unknown, groupId: unknown) {
   return Boolean(admin);
 }
 
-async function findAdminUserIds(groupId: unknown) {
+async function findAdminUserIds(groupId: EntityId) {
   const admins = await AdminModel.find({ group: groupId }).select("user");
 
   return new Set(
@@ -219,110 +226,7 @@ function serializeSessionReviewSummary(sessionValue: Record<string, any>) {
   };
 }
 
-type AnnouncementPollResult = {
-  voteCounts: Record<string, number>;
-  selectedOptionId: string | null;
-  totalVotes: number;
-};
-
-function serializeAnnouncement(
-  announcementValue: Record<string, any>,
-  pollResults = new Map<string, AnnouncementPollResult>(),
-) {
-  const announcement = asObject(announcementValue);
-  const type = announcement.type === "poll" ? "poll" : "message";
-  const base = {
-    id: String(announcement._id),
-    sessionId: String(announcement.sessionId?._id ?? announcement.sessionId),
-    type,
-    content: String(announcement.content ?? ""),
-    createdAt: toIsoString(announcement.createdAt),
-  };
-
-  if (type === "message") {
-    return base;
-  }
-
-  const poll = asObject(announcement.poll ?? {});
-  const result = pollResults.get(String(announcement._id)) ?? {
-    voteCounts: {},
-    selectedOptionId: null,
-    totalVotes: 0,
-  };
-
-  return {
-    ...base,
-    poll: {
-      options: (Array.isArray(poll.options) ? poll.options : []).map(
-        (optionValue: Record<string, any>) => {
-          const option = asObject(optionValue);
-          const id = String(option.id ?? "");
-
-          return {
-            id,
-            label: String(option.label ?? ""),
-            votes: result.voteCounts[id] ?? 0,
-            selected: result.selectedOptionId === id,
-          };
-        },
-      ),
-      allowsMultiple: false,
-      totalVotes: result.totalVotes,
-    },
-  };
-}
-
-async function getAnnouncementPollResults(
-  announcements: Record<string, any>[],
-  userId: unknown,
-) {
-  const pollAnnouncementIds = announcements
-    .map((announcement) => asObject(announcement))
-    .filter((announcement) => announcement.type === "poll")
-    .map((announcement) => announcement._id)
-    .filter(Boolean);
-
-  if (pollAnnouncementIds.length === 0) {
-    return new Map<string, AnnouncementPollResult>();
-  }
-
-  const votes = (await AnnouncementVoteModel.find({
-    announcementId: { $in: pollAnnouncementIds },
-  }).lean()) as Record<string, any>[];
-  const results = new Map<string, AnnouncementPollResult>();
-
-  for (const announcementId of pollAnnouncementIds) {
-    results.set(String(announcementId), {
-      voteCounts: {},
-      selectedOptionId: null,
-      totalVotes: 0,
-    });
-  }
-
-  for (const voteValue of votes) {
-    const vote = asObject(voteValue);
-    const announcementId = String(
-      vote.announcementId?._id ?? vote.announcementId,
-    );
-    const result = results.get(announcementId);
-
-    if (!result) {
-      continue;
-    }
-
-    const optionId = String(vote.optionId ?? "");
-    result.totalVotes += 1;
-    result.voteCounts[optionId] = (result.voteCounts[optionId] ?? 0) + 1;
-
-    if (String(vote.userId?._id ?? vote.userId) === String(userId)) {
-      result.selectedOptionId = optionId;
-    }
-  }
-
-  return results;
-}
-
-function isSessionVendor(userId: unknown, sessionValue: Record<string, any>) {
+function isSessionVendor(userId: EntityId, sessionValue: Record<string, any>) {
   const session = asObject(sessionValue);
   const activity = asObject(session.activity ?? {});
   const vendor = asObject(activity.host ?? {});
@@ -331,7 +235,7 @@ function isSessionVendor(userId: unknown, sessionValue: Record<string, any>) {
 }
 
 async function canReadSessionAnnouncements(
-  userId: unknown,
+  userId: EntityId,
   sessionValue: Record<string, any>,
 ) {
   if (isSessionVendor(userId, sessionValue)) {
@@ -427,7 +331,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         startsAt: sessionPayload.startsAt as Date,
         endAt: sessionPayload.endAt as Date,
         spots: Math.round(Number(sessionPayload.spots)),
-        credits: Number(sessionPayload.credits),
+        priceSgd: Number(sessionPayload.priceSgd),
         isPremium: sessionPayload.isPremium,
         skillsFuturePayable: sessionPayload.skillsFuturePayable,
         location: sessionPayload.location,
@@ -451,7 +355,7 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     res.status(201).json({
       activity: serializeActivity(
-        attachSessionsToActivity(savedActivity, savedSessions),
+        attachSessionsToActivity(savedActivity!, savedSessions),
         [],
       ),
       session: serializeSession(session),
@@ -498,7 +402,11 @@ router.get("/:id/announcements", requireAuth, async (req, res, next) => {
 
     res.json(
       announcements.map((announcement) =>
-        serializeAnnouncement(announcement, pollResults),
+        serializeAnnouncement(
+          announcement,
+          pollResults,
+          asObject(session).chat,
+        ),
       ),
     );
   } catch (error) {
@@ -541,12 +449,17 @@ router.post("/:id/announcements", requireAuth, async (req, res, next) => {
 
     const announcement = await AnnouncementModel.create({
       sessionId: asObject(session)._id,
+      chatId: asObject(asObject(session).chat)._id ?? asObject(session).chat,
       type: "message",
       content,
     });
 
     res.status(201).json({
-      announcement: serializeAnnouncement(announcement),
+      announcement: serializeAnnouncement(
+        announcement,
+        undefined,
+        asObject(session).chat,
+      ),
     });
   } catch (error) {
     next(error);
@@ -593,13 +506,18 @@ router.post("/:id/announcements/polls", requireAuth, async (req, res, next) => {
 
     const announcement = await AnnouncementModel.create({
       sessionId: asObject(session)._id,
+      chatId: asObject(asObject(session).chat)._id ?? asObject(session).chat,
       type: "poll",
       content: normalizedPoll.question,
       poll: normalizedPoll.poll,
     });
 
     res.status(201).json({
-      announcement: serializeAnnouncement(announcement),
+      announcement: serializeAnnouncement(
+        announcement,
+        undefined,
+        asObject(session).chat,
+      ),
     });
   } catch (error) {
     next(error);
@@ -645,8 +563,7 @@ router.post(
       }
 
       const optionId = getString(req.body?.optionId);
-      const poll = asObject(asObject(announcement).poll ?? {});
-      const options = Array.isArray(poll.options) ? poll.options : [];
+      const options = announcement.poll?.options ?? [];
 
       if (
         !options.some(
@@ -677,7 +594,11 @@ router.post(
       );
 
       res.json({
-        announcement: serializeAnnouncement(announcement, pollResults),
+        announcement: serializeAnnouncement(
+          announcement,
+          pollResults,
+          asObject(session).chat,
+        ),
       });
     } catch (error) {
       next(error);
@@ -696,9 +617,9 @@ router.post("/:id/join", requireAuth, async (req, res, next) => {
       return;
     }
 
-    const sessionItem = asObject(session);
-    const activity = asObject(sessionItem.activity ?? {});
-    const groupId = sessionItem.chat?._id ?? sessionItem.chat;
+    const sessionItem = session;
+    const activity = session.activity;
+    const groupId = session.chat._id;
     const blacklist = await BlacklistModel.findOne({
       user: user._id,
       group: groupId,
@@ -744,12 +665,6 @@ router.post("/:id/join", requireAuth, async (req, res, next) => {
         ],
       },
       session: serializeSession(updatedSession),
-      account: operation.account
-        ? {
-            id: String(operation.account._id),
-            creditsLeft: Number(operation.account.creditsLeft),
-          }
-        : undefined,
       group: serializeChat(group, undefined, false, adminUserIds),
     });
   } catch (error) {

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import {
   formatActivityDate,
   formatActivityTime,
-  formatCredits,
+  formatActivitySessionPrice,
 } from "../lib/activityPresentation";
 import type { Activity } from "../lib/types";
 import { useAppState } from "../state";
@@ -127,7 +127,7 @@ export function PremiumCard({ activity }: { activity: Activity }) {
             Premium
           </span>
           <span className="min-w-0 flex-1 truncate text-right text-xs font-bold text-accent">
-            {formatCredits(activity.credits)}
+            {formatActivitySessionPrice(activity)}
           </span>
           <FavoriteButton activity={activity} className="h-9 w-9" />
         </div>
@@ -181,7 +181,7 @@ export function StandardRow({
             </span>
           )}
           <span className="ml-auto flex-shrink-0 text-[11px] font-bold text-accent">
-            {formatCredits(activity.credits)}
+            {formatActivitySessionPrice(activity)}
           </span>
         </div>
       </div>

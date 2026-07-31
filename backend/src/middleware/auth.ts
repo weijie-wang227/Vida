@@ -1,13 +1,17 @@
 import type { NextFunction, Request, Response } from "express";
-import { findAuthenticatedUser, type AuthUserRecord } from "../auth.js";
-import { VendorModel } from "../models/VidaData.js";
+import type { HydratedDocument } from "mongoose";
+import {
+  findAuthenticatedUser,
+  type AuthUserRecord,
+} from "../services/auth.js";
+import { VendorModel, type VendorDocument } from "../models/VidaData.js";
 
 export type AuthenticatedLocals = {
   user: AuthUserRecord;
 };
 
 export type VendorAuthenticatedLocals = AuthenticatedLocals & {
-  vendor: Record<string, any>;
+  vendor: HydratedDocument<VendorDocument>;
 };
 
 export type OptionalAuthLocals = {

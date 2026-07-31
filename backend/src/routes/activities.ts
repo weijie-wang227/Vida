@@ -10,6 +10,7 @@ import {
   TagModel,
   UserModel,
   VendorModel,
+  type EntityId,
 } from "../models/VidaData.js";
 import {
   serializeActivity,
@@ -215,7 +216,7 @@ async function findUserByRouteId(userId: string) {
   return null;
 }
 
-async function canViewActivityHistory(viewerId: unknown, profileUserId: unknown) {
+async function canViewActivityHistory(viewerId: EntityId, profileUserId: EntityId) {
   if (String(viewerId) === String(profileUserId)) {
     return true;
   }
@@ -272,6 +273,7 @@ function serializeCreatedActivityTemplate(sessionValue: unknown) {
     lng: session.lng,
     endAt: toIsoString(session.endAt),
     spots: session.spots,
+    priceSgd: Number(session.priceSgd) || 0,
     categories: Array.isArray(activity.categories) ? activity.categories : [],
     groupId: chat?.mockId,
   };
@@ -658,7 +660,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       .populate("tags");
 
     res.status(201).json({
-      activity: serializeActivity(attachSessionsToActivity(savedActivity, []), []),
+      activity: serializeActivity(attachSessionsToActivity(savedActivity!, []), []),
       session: null,
       sessions: [],
       mapPin: null,
