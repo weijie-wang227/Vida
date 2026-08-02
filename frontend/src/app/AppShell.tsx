@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router";
+import { RequireSignIn } from "../components/SignInRequired";
 import type { VidaLogoLevels } from "../components/VidaProgressLogo";
 import { BottomNavigation } from "./BottomNavigation";
 import { emptyLogoLevels, logoPortionOrder } from "./logoState";
@@ -66,7 +67,7 @@ const PaymentReturnPage = lazy(() =>
   })),
 );
 
-export function AppShell() {
+export function AppShell({ signInPage }: { signInPage: ReactNode }) {
   const location = useLocation();
   const [logoLevels, setLogoLevels] = useState<VidaLogoLevels>(emptyLogoLevels);
   const [isLogoExpanded, setIsLogoExpanded] = useState(false);
@@ -74,6 +75,7 @@ export function AppShell() {
   const hasFullScreenView =
     location.pathname === "/activities/calendar" ||
     location.pathname === "/activities/favorited" ||
+    location.pathname === "/signin" ||
     /^\/activities\/collections\/[^/]+$/.test(location.pathname) ||
     /^\/activities\/[^/]+$/.test(location.pathname) ||
     /^\/groups\/[^/]+$/.test(location.pathname) ||
@@ -111,10 +113,15 @@ export function AppShell() {
           <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<Navigate to="/activities" replace />} />
+              <Route path="/signin" element={signInPage} />
               <Route path="/activities" element={<ActivitiesPage />} />
               <Route
                 path="/activities/favorited"
-                element={<FavoritedActivitiesPage />}
+                element={
+                  <RequireSignIn>
+                    <FavoritedActivitiesPage />
+                  </RequireSignIn>
+                }
               />
               <Route
                 path="/activities/collections/:collection"
@@ -130,14 +137,60 @@ export function AppShell() {
               />
               <Route
                 path="/activities/:activityId/review"
-                element={<ActivityReviewPage />}
+                element={
+                  <RequireSignIn>
+                    <ActivityReviewPage />
+                  </RequireSignIn>
+                }
               />
-              <Route path="/feed" element={<FeedPage />} />
-              <Route path="/groups" element={<ChatPage />} />
-              <Route path="/groups/:groupId" element={<GroupDetailPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/payments/return" element={<PaymentReturnPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route
+                path="/feed"
+                element={
+                  <RequireSignIn>
+                    <FeedPage />
+                  </RequireSignIn>
+                }
+              />
+              <Route
+                path="/groups"
+                element={
+                  <RequireSignIn>
+                    <ChatPage />
+                  </RequireSignIn>
+                }
+              />
+              <Route
+                path="/groups/:groupId"
+                element={
+                  <RequireSignIn>
+                    <GroupDetailPage />
+                  </RequireSignIn>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireSignIn>
+                    <ProfilePage />
+                  </RequireSignIn>
+                }
+              />
+              <Route
+                path="/payments/return"
+                element={
+                  <RequireSignIn>
+                    <PaymentReturnPage />
+                  </RequireSignIn>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <RequireSignIn>
+                    <SettingsPage />
+                  </RequireSignIn>
+                }
+              />
               <Route path="*" element={<Navigate to="/activities" replace />} />
             </Routes>
           </Suspense>

@@ -130,34 +130,16 @@ export function useLoadAppData({
     let ignore = false;
 
     async function loadAppData() {
-      if (!isAuthReady || !authUser) {
-        setIsLoading(false);
+      if (!isAuthReady) {
         return;
       }
 
       setIsLoading(true);
 
       try {
-        const [
-          nextActivities,
-          nextFavoriteActivities,
-          nextFeedPosts,
-          nextGroupChats,
-          nextFriends,
-          nextMapPins,
-          nextNotifications,
-          nextProfile,
-          nextSettingsPreferences,
-        ] = await Promise.all([
+        const [nextActivities, nextMapPins] = await Promise.all([
           fetchActivities(),
-          fetchFavoriteActivities(),
-          fetchFeedPosts(),
-          fetchGroupChats(),
-          fetchFriends(),
           fetchMapPins(),
-          fetchNotifications(),
-          fetchProfile(),
-          fetchSettingsPreferences(),
         ]);
 
         if (ignore) {
@@ -169,6 +151,35 @@ export function useLoadAppData({
 
         setPremiumActivities(premiumActivities);
         setStandardActivities(standardActivities);
+        setMapPins(nextMapPins);
+
+        if (!authUser) {
+          setApiError(null);
+          return;
+        }
+
+        const [
+          nextFavoriteActivities,
+          nextFeedPosts,
+          nextGroupChats,
+          nextFriends,
+          nextNotifications,
+          nextProfile,
+          nextSettingsPreferences,
+        ] = await Promise.all([
+          fetchFavoriteActivities(),
+          fetchFeedPosts(),
+          fetchGroupChats(),
+          fetchFriends(),
+          fetchNotifications(),
+          fetchProfile(),
+          fetchSettingsPreferences(),
+        ]);
+
+        if (ignore) {
+          return;
+        }
+
         setFavoriteActivityIds(
           new Set(nextFavoriteActivities.map((activity) => activity.id)),
         );
@@ -181,7 +192,6 @@ export function useLoadAppData({
         setFeedPosts(nextFeedPosts);
         setGroupChats(nextGroupChats);
         setFriends(nextFriends);
-        setMapPins(nextMapPins);
         setNotifications(nextNotifications);
         setProfile(nextProfile);
         setSettingsPreferences({

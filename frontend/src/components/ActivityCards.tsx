@@ -1,5 +1,10 @@
 import { Clock3, Heart, MapPin, Mountain, Star } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router";
+import {
+  getReturnPath,
+  type SignInLocationState,
+} from "./SignInRequired";
 import {
   formatActivityDate,
   formatActivityTime,
@@ -46,8 +51,11 @@ function FavoriteButton({
   const {
     favoriteActivityIds,
     favoriteMutationIds,
+    isAuthenticated,
     toggleFavoriteActivity,
   } = useAppState();
+  const location = useLocation();
+  const navigate = useNavigate();
   const favorited = favoriteActivityIds.has(activity.id);
   const updating = favoriteMutationIds.has(activity.id);
 
@@ -56,6 +64,16 @@ function FavoriteButton({
       type="button"
       onClick={(event) => {
         event.stopPropagation();
+
+        if (!isAuthenticated) {
+          navigate("/signin", {
+            state: {
+              returnTo: getReturnPath(location),
+            } satisfies SignInLocationState,
+          });
+          return;
+        }
+
         void toggleFavoriteActivity(activity.id)
           .then(() => onChanged?.(!favorited))
           .catch(() => undefined);

@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   Accessibility,
+  ArrowLeft,
   CalendarDays,
   ChevronDown,
   Clock3,
@@ -70,10 +71,12 @@ function activityStartTime(activity: Activity) {
 }
 
 function HeaderAction({
+  active = false,
   label,
   onClick,
   children,
 }: {
+  active?: boolean;
   label: string;
   onClick: () => void;
   children: ReactNode;
@@ -82,7 +85,9 @@ function HeaderAction({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition active:scale-90"
+      className={`flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-full backdrop-blur-sm transition active:scale-90 ${
+        active ? "bg-white text-[#183c82]" : "bg-white/15 text-white"
+      }`}
       aria-label={label}
     >
       {children}
@@ -385,10 +390,11 @@ export function ActivitiesPage() {
             <CalendarDays size={20} />
           </HeaderAction>
           <HeaderAction
+            active={showMap}
             label={showMap ? "Show activity list" : "Show activity map"}
             onClick={() => setShowMap(!showMap)}
           >
-            <Navigation size={19} />
+            {showMap ? <ArrowLeft size={20} /> : <Navigation size={19} />}
           </HeaderAction>
         </div>
         <div className="relative mt-3">

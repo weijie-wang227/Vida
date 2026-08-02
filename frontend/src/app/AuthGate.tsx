@@ -7,10 +7,27 @@ import {
   UserRound,
   UserPlus,
 } from "lucide-react";
+import { Navigate, useLocation, useNavigate } from "react-router";
+import type { SignInLocationState } from "../components/SignInRequired";
 import { useAppState } from "../state";
 import { AppShell } from "./AppShell";
 
 type AuthMode = "signin" | "signup";
+
+function getSafeReturnTo(state: unknown) {
+  const returnTo = (state as SignInLocationState | null)?.returnTo;
+
+  if (
+    typeof returnTo !== "string" ||
+    !returnTo.startsWith("/") ||
+    returnTo.startsWith("//") ||
+    returnTo === "/signin"
+  ) {
+    return "/activities";
+  }
+
+  return returnTo;
+}
 
 function AuthLoadingScreen() {
   return (
@@ -67,7 +84,9 @@ function AuthModeTabs({
 }
 
 function AuthScreen() {
-  const { signIn, signUp } = useAppState();
+  const { isAuthenticated, signIn, signUp } = useAppState();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
@@ -77,6 +96,7 @@ function AuthScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSignup = mode === "signup";
   const vendorUrl = import.meta.env.VITE_VENDOR_URL as string | undefined;
+  const returnTo = getSafeReturnTo(location.state);
 
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -94,6 +114,8 @@ function AuthScreen() {
       } else {
         await signIn({ email, password });
       }
+
+      navigate(returnTo, { replace: true });
     } catch (error) {
       setLocalError(
         error instanceof Error ? error.message : "Please try again.",
@@ -103,13 +125,16 @@ function AuthScreen() {
     }
   };
 
+  if (isAuthenticated) {
+    return <Navigate to={returnTo} replace />;
+  }
+
   return (
     <div
-      className="h-dvh min-h-dvh overflow-hidden bg-background"
+      className="h-full min-h-full overflow-y-auto bg-background px-5 py-6"
       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
     >
-      <div className="vida-phone-shell relative mx-auto h-full w-full overflow-hidden px-5 py-6">
-        <div className="relative flex min-h-[calc(100vh-3rem)] flex-col justify-center">
+      <div className="relative mx-auto flex min-h-full w-full flex-col justify-center">
           <div className="mb-7">
             <div className="vida-auth-brand">
               <div className="vida-auth-logo">
@@ -241,22 +266,24 @@ function AuthScreen() {
               </button>
             )}
           </form>
-        </div>
+          <button
+            type="button"
+            onClick={() => navigate("/activities")}
+            className="mt-3 w-full px-4 py-2 text-sm font-semibold text-muted-foreground"
+          >
+            Continue browsing activities
+          </button>
       </div>
     </div>
   );
 }
 
 export function AuthGate() {
-  const { isAuthReady, isAuthenticated } = useAppState();
+  const { isAuthReady } = useAppState();
 
   if (!isAuthReady) {
     return <AuthLoadingScreen />;
   }
 
-  if (!isAuthenticated) {
-    return <AuthScreen />;
-  }
-
-  return <AppShell />;
+  return <AppShell signInPage={<AuthScreen />} />;
 }

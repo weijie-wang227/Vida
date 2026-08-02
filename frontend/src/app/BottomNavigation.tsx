@@ -79,6 +79,7 @@ export function BottomNavigation({
   const hasFullScreenView =
     location.pathname === "/activities/calendar" ||
     location.pathname === "/activities/favorited" ||
+    location.pathname === "/signin" ||
     /^\/activities\/collections\/[^/]+$/.test(location.pathname) ||
     /^\/activities\/[^/]+$/.test(location.pathname) ||
     /^\/groups\/[^/]+$/.test(location.pathname) ||
