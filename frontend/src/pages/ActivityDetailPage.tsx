@@ -15,6 +15,7 @@ import { createSessionCheckout, fetchActivity } from "../api";
 import { ActivityCategoryIndicators } from "../components/ActivityCategoryIndicators";
 import { ActivityImageGallery } from "../components/ActivityImageGallery";
 import { FriendAvatars } from "../components/FriendAvatars";
+import type { SignInLocationState } from "../components/SignInRequired";
 import { VendorProfileDialog } from "../components/VendorProfileDialog";
 import {
   categoriesForActivity,
@@ -68,6 +69,7 @@ export function ActivityDetailPage() {
     favoriteActivityIds,
     favoriteMutationIds,
     groupChats,
+    isAuthenticated,
     isLoading,
     premiumActivities,
     profile,
@@ -92,6 +94,8 @@ export function ActivityDetailPage() {
   const activity =
     listedActivity ??
     (fallbackActivity?.id === routeActivityId ? fallbackActivity : null);
+  const activityReturnTo =
+    routeActivityId === null ? "/activities" : `/activities/${routeActivityId}`;
 
   useEffect(() => {
     if (routeActivityId === null || listedActivity) {
@@ -201,6 +205,13 @@ export function ActivityDetailPage() {
 
     if (joinDisabledReason) {
       setJoinError(joinDisabledReason);
+      return;
+    }
+
+    if (!isAuthenticated) {
+      navigate("/signin", {
+        state: { returnTo: activityReturnTo } satisfies SignInLocationState,
+      });
       return;
     }
 
@@ -360,9 +371,18 @@ export function ActivityDetailPage() {
             </div>
             <button
               type="button"
-              onClick={() =>
-                void toggleFavoriteActivity(activity.id).catch(() => undefined)
-              }
+              onClick={() => {
+                if (!isAuthenticated) {
+                  navigate("/signin", {
+                    state: {
+                      returnTo: activityReturnTo,
+                    } satisfies SignInLocationState,
+                  });
+                  return;
+                }
+
+                void toggleFavoriteActivity(activity.id).catch(() => undefined);
+              }}
               disabled={isFavoriteUpdating}
               className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center flex-shrink-0"
               aria-label={
