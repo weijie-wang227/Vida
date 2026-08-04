@@ -19,11 +19,23 @@ export type UserDocument = {
   handle: string;
   email: string;
   avatarUrl: string;
+  googleSubject?: string;
   passwordHash?: string;
   passwordSalt?: string;
   bio?: string;
   stats?: { label: string; value: string }[];
   attendedSessionsCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type VendorAccountDocument = {
+  _id: Types.ObjectId;
+  name: string;
+  email: string;
+  googleSubject?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -71,7 +83,7 @@ export type NotificationDocument = {
 
 export type VendorDocument = {
   _id: Types.ObjectId;
-  owner: Types.ObjectId;
+  account?: Types.ObjectId;
   name: string;
   profileUrl?: string;
   description?: string;
@@ -134,6 +146,9 @@ export type ChatDocument = {
   name: string;
   avatar: string;
   members: Types.ObjectId[];
+  lastMessagePreview: string;
+  lastMessageAt: Date | null;
+  lastMessageId: Types.ObjectId | null;
   lastMessage: string;
   time: string;
   unread: number;
@@ -311,6 +326,12 @@ const userSchema = new Schema<UserDocument>(
     },
     email: { type: String, required: true, unique: true },
     avatarUrl: { type: String, required: true },
+    googleSubject: {
+      type: String,
+      unique: true,
+      sparse: true,
+      select: false,
+    },
     passwordHash: { type: String, select: false },
     passwordSalt: { type: String, select: false },
     bio: { type: String },
@@ -321,6 +342,28 @@ const userSchema = new Schema<UserDocument>(
       },
     ],
     attendedSessionsCount: { type: Number, required: true, default: 0, min: 0 },
+  },
+  { timestamps: true },
+);
+
+const vendorAccountSchema = new Schema<VendorAccountDocument>(
+  {
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+    },
+    googleSubject: {
+      type: String,
+      unique: true,
+      sparse: true,
+      select: false,
+    },
+    passwordHash: { type: String, select: false },
+    passwordSalt: { type: String, select: false },
   },
   { timestamps: true },
 );
@@ -407,6 +450,13 @@ const chatSchema = new Schema<ChatDocument>(
     name: { type: String, required: true },
     avatar: { type: String, required: true },
     members: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    lastMessagePreview: { type: String, default: "" },
+    lastMessageAt: { type: Date, default: null },
+    lastMessageId: {
+      type: Schema.Types.ObjectId,
+      ref: "ChatMessage",
+      default: null,
+    },
     lastMessage: { type: String, default: "" },
     time: { type: String, default: "" },
     unread: { type: Number, required: true, default: 0 },
@@ -414,6 +464,7 @@ const chatSchema = new Schema<ChatDocument>(
   { timestamps: true },
 );
 chatSchema.index({ members: 1 });
+chatSchema.index({ members: 1, lastMessageAt: -1, _id: -1 });
 
 const adminSchema = new Schema<AdminDocument>(
   {
@@ -455,7 +506,7 @@ const chatMessageSchema = new Schema<ChatMessageDocument>(
   },
   { timestamps: true },
 );
-chatMessageSchema.index({ chat: 1, createdAt: 1 });
+chatMessageSchema.index({ chat: 1, createdAt: -1, _id: -1 });
 
 const pollVoteSchema = new Schema<PollVoteDocument>(
   {
@@ -474,7 +525,7 @@ pollVoteSchema.index({ message: 1 });
 
 const vendorSchema = new Schema<VendorDocument>(
   {
-    owner: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+    account: { type: Schema.Types.ObjectId, ref: "VendorAccount" },
     name: { type: String, required: true, trim: true },
     profileUrl: { type: String, trim: true },
     description: { type: String, trim: true },
@@ -483,7 +534,7 @@ const vendorSchema = new Schema<VendorDocument>(
   },
   { timestamps: true },
 );
-vendorSchema.index({ owner: 1 });
+vendorSchema.index({ account: 1 }, { unique: true, sparse: true });
 
 const ratingSchema = new Schema<RatingDocument>(
   {
@@ -730,6 +781,11 @@ likeSchema.index({ post: 1, user: 1 }, { unique: true });
 likeSchema.index({ user: 1, createdAt: -1 });
 
 export const UserModel = mongoose.model<UserDocument>("User", userSchema, "users");
+export const VendorAccountModel = mongoose.model<VendorAccountDocument>(
+  "VendorAccount",
+  vendorAccountSchema,
+  "vendorAccounts",
+);
 export const SettingsModel = mongoose.model<SettingsDocument>(
   "Settings",
   settingsSchema,

@@ -211,8 +211,6 @@ export function ActivityDetailsPage({
       priceSgd: duplicateSource.priceSgd,
       isPremium: duplicateSource.isPremium,
       skillsFuturePayable: duplicateSource.skillsFuturePayable,
-      vendorId: vendor.id,
-      createAsVendor: true,
     });
     const createdSessionId =
       response.session?.id ?? response.session?.mockId;

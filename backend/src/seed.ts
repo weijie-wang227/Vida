@@ -33,6 +33,7 @@ import {
   SettingsModel,
   TagModel,
   UserModel,
+  VendorAccountModel,
   VendorModel,
 } from "./models/VidaData.js";
 import { PaymentModel } from "./models/Payment.js";
@@ -106,6 +107,7 @@ async function seed() {
 
     await Promise.all([
       UserModel.deleteMany(),
+      VendorAccountModel.deleteMany(),
       FriendshipModel.deleteMany(),
       AnnouncementModel.deleteMany(),
       AnnouncementVoteModel.deleteMany(),
@@ -201,8 +203,23 @@ async function seed() {
         userByName.get(hostName),
         `vendor owner "${hostName}"`,
       );
+      const ownerUser = await UserModel.findById(owner).select(
+        "+googleSubject +passwordHash +passwordSalt",
+      );
+
+      if (!ownerUser) {
+        throw new Error(`Missing vendor owner "${hostName}".`);
+      }
+
+      const account = await VendorAccountModel.create({
+        name: ownerUser.name,
+        email: ownerUser.email,
+        googleSubject: ownerUser.googleSubject,
+        passwordHash: ownerUser.passwordHash,
+        passwordSalt: ownerUser.passwordSalt,
+      });
       const vendor = await VendorModel.create({
-        owner,
+        account: account._id,
         name: hostName,
         profileUrl: "",
         description: "",

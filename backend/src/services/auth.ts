@@ -1,11 +1,19 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { Types } from "mongoose";
 import { isMongoConnected } from "../db.js";
-import { UserModel, type UserDocument } from "../models/VidaData.js";
+import {
+  UserModel,
+  VendorAccountModel,
+  type UserDocument,
+  type VendorAccountDocument,
+} from "../models/VidaData.js";
+
+type AccountKind = "user" | "vendor";
 
 type TokenPayload = {
   sub: string;
   email: string;
+  kind?: AccountKind;
   iat: number;
   exp: number;
 };
@@ -13,6 +21,15 @@ type TokenPayload = {
 export type AuthUserRecord = Pick<
   UserDocument,
   "mockId" | "name" | "handle" | "email" | "avatarUrl" | "bio" | "stats"
+> & {
+  _id: Types.ObjectId | string;
+  passwordHash?: string;
+  passwordSalt?: string;
+};
+
+export type AuthVendorAccountRecord = Pick<
+  VendorAccountDocument,
+  "name" | "email"
 > & {
   _id: Types.ObjectId | string;
   passwordHash?: string;
@@ -54,12 +71,16 @@ function signPayload(payloadPart: string) {
     .digest("base64url");
 }
 
-function createTokenPayload(user: AuthUserRecord): TokenPayload {
+function createTokenPayload(
+  account: Pick<AuthUserRecord, "_id" | "email">,
+  kind: AccountKind,
+): TokenPayload {
   const now = Math.floor(Date.now() / 1000);
 
   return {
-    sub: String(user._id),
-    email: normalizeEmail(user.email),
+    sub: String(account._id),
+    email: normalizeEmail(account.email),
+    kind,
     iat: now,
     exp: now + tokenDurationSeconds,
   };
@@ -88,7 +109,14 @@ function verifyToken(token: string): TokenPayload | null {
       Buffer.from(payloadPart, "base64url").toString("utf8"),
     ) as TokenPayload;
 
-    if (!payload.sub || !payload.email || payload.exp < Date.now() / 1000) {
+    if (
+      !payload.sub ||
+      !payload.email ||
+      (payload.kind !== undefined &&
+        payload.kind !== "user" &&
+        payload.kind !== "vendor") ||
+      payload.exp < Date.now() / 1000
+    ) {
       return null;
     }
 
@@ -125,18 +153,32 @@ export function createPasswordRecord(password: string) {
   };
 }
 
-export function verifyPassword(password: string, user: AuthUserRecord) {
-  if (!user.passwordHash || !user.passwordSalt) {
+export function verifyPassword(
+  password: string,
+  account: Pick<AuthUserRecord, "passwordHash" | "passwordSalt">,
+) {
+  if (!account.passwordHash || !account.passwordSalt) {
     return false;
   }
 
-  return safeCompare(hashPassword(password, user.passwordSalt), user.passwordHash);
+  return safeCompare(
+    hashPassword(password, account.passwordSalt),
+    account.passwordHash,
+  );
 }
 
 export function createAuthToken(user: AuthUserRecord) {
-  const payloadPart = Buffer.from(JSON.stringify(createTokenPayload(user))).toString(
-    "base64url",
-  );
+  const payloadPart = Buffer.from(
+    JSON.stringify(createTokenPayload(user, "user")),
+  ).toString("base64url");
+
+  return `${payloadPart}.${signPayload(payloadPart)}`;
+}
+
+export function createVendorAuthToken(account: AuthVendorAccountRecord) {
+  const payloadPart = Buffer.from(
+    JSON.stringify(createTokenPayload(account, "vendor")),
+  ).toString("base64url");
 
   return `${payloadPart}.${signPayload(payloadPart)}`;
 }
@@ -150,12 +192,32 @@ export async function findAuthenticatedUser(authorizationHeader?: string) {
 
   const payload = verifyToken(token);
 
-  if (!payload) {
+  if (!payload || (payload.kind !== undefined && payload.kind !== "user")) {
     return null;
   }
 
   return isMongoConnected()
-    ? UserModel.findOne({ email: normalizeEmail(payload.email) })
+    ? UserModel.findById(payload.sub)
+    : null;
+}
+
+export async function findAuthenticatedVendorAccount(
+  authorizationHeader?: string,
+) {
+  const token = authorizationHeader?.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) {
+    return null;
+  }
+
+  const payload = verifyToken(token);
+
+  if (!payload || payload.kind !== "vendor") {
+    return null;
+  }
+
+  return isMongoConnected()
+    ? VendorAccountModel.findById(payload.sub)
     : null;
 }
 

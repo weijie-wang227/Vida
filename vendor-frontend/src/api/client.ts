@@ -1,5 +1,5 @@
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
-const authTokenStorageKey = "vida.authToken";
+const authTokenStorageKey = "vida.vendorAuthToken";
 
 export class ApiRequestError extends Error {
   status: number;

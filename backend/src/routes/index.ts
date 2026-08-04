@@ -12,6 +12,7 @@ import settingsRoutes from "./settings.js";
 import tagRoutes from "./tags.js";
 import uploadRoutes from "./uploads.js";
 import vendorRoutes from "./vendors.js";
+import vendorAuthRoutes from "./vendorAuth.js";
 
 export const router = Router();
 
@@ -50,6 +51,7 @@ router.use((_req, res, next) => {
 });
 
 router.use("/auth", authRoutes);
+router.use("/vendor-auth", vendorAuthRoutes);
 router.use("/activities", activityRoutes);
 router.use("/feed", feedRoutes);
 router.use("/groups", groupRoutes);

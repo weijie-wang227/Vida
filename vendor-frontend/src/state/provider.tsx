@@ -15,11 +15,16 @@ import {
   updateVendorSession,
 } from "../api/activities";
 import type { AuthMode } from "../api/auth";
-import { fetchCurrentUser, signIn, signUp } from "../api/auth";
+import {
+  fetchCurrentVendorAccount,
+  signIn,
+  signInWithGoogle,
+  signUp,
+} from "../api/auth";
 import { clearAuthToken, getAuthToken } from "../api/client";
 import type {
   Activity,
-  AuthUser,
+  VendorAccount,
   CreateActivityInput,
   CreateSessionInput,
   CreateVendorActivityResponse,
@@ -47,7 +52,7 @@ export function VendorStateProvider({
   children: ReactNode;
 }) {
   const [status, setStatus] = useState<VendorAppStatus>("loading");
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [account, setAccount] = useState<VendorAccount | null>(null);
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [stats, setStats] = useState<VendorStats | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -97,13 +102,13 @@ export function VendorStateProvider({
       }
 
       try {
-        const response = await fetchCurrentUser();
+        const response = await fetchCurrentVendorAccount();
 
         if (!active) {
           return;
         }
 
-        setUser(response.user);
+        setAccount(response.account);
         await loadVendor();
       } catch {
         if (!active) {
@@ -111,7 +116,7 @@ export function VendorStateProvider({
         }
 
         clearAuthToken();
-        setUser(null);
+        setAccount(null);
         setVendor(null);
         setStats(null);
         setActivities([]);
@@ -137,13 +142,33 @@ export function VendorStateProvider({
           ? await signUp(input)
           : await signIn({ email: input.email, password: input.password });
 
-      setUser(response.user);
+      setAccount(response.account);
       await loadVendor();
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
           ? submissionError.message
           : "Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitGoogleAuth = async (credential: string, password?: string) => {
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await signInWithGoogle(credential, password);
+
+      setAccount(response.account);
+      await loadVendor();
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to sign in with Google.",
       );
     } finally {
       setIsSubmitting(false);
@@ -176,7 +201,7 @@ export function VendorStateProvider({
 
   const signOut = () => {
     clearAuthToken();
-    setUser(null);
+    setAccount(null);
     setVendor(null);
     setStats(null);
     setActivities([]);
@@ -375,7 +400,7 @@ export function VendorStateProvider({
   const value = useMemo(
     () => ({
       status,
-      user,
+      account,
       vendor,
       stats,
       activities,
@@ -388,6 +413,7 @@ export function VendorStateProvider({
       updatingSessionId,
       deletingSessionId,
       submitAuth,
+      signInWithGoogle: submitGoogleAuth,
       createVendorProfile,
       signOut,
       createActivity,
@@ -399,7 +425,7 @@ export function VendorStateProvider({
     }),
     [
       status,
-      user,
+      account,
       vendor,
       stats,
       activities,

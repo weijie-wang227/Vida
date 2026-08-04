@@ -415,14 +415,9 @@ export async function getVendorFinance(
         .select("sessionId userId")
         .lean()
     : [];
-  const vendorOwnerId = String(vendor.owner?._id ?? vendor.owner ?? "");
   const bookingsBySessionId = new Map<string, number>();
 
   participations.forEach((participation) => {
-    if (vendorOwnerId && String(participation.userId) === vendorOwnerId) {
-      return;
-    }
-
     const sessionId = String(participation.sessionId);
 
     bookingsBySessionId.set(
@@ -502,14 +497,9 @@ export async function getVendorFinanceActivity(
         .select("sessionId userId")
         .lean()
     : [];
-  const ownerId = String(vendor.owner?._id ?? vendor.owner ?? "");
   const attendeesBySessionId = new Map<string, number>();
 
   participations.forEach((participation) => {
-    if (ownerId && String(participation.userId) === ownerId) {
-      return;
-    }
-
     const sessionId = String(participation.sessionId);
 
     attendeesBySessionId.set(

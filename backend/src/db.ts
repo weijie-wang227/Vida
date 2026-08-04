@@ -1,11 +1,14 @@
 import mongoose from "mongoose";
 import {
-  ActivityModel,
   AnnouncementModel,
   AnnouncementVoteModel,
-  SettingsModel,
+  ChatMessageModel,
+  ChatModel,
   SessionModel,
   SessionParticipationModel,
+  UserModel,
+  VendorAccountModel,
+  VendorModel,
 } from "./models/VidaData.js";
 import { PaymentModel } from "./models/Payment.js";
 
@@ -60,26 +63,16 @@ export async function connectDB() {
   }
 
   console.log(`Connected to MongoDB database "${databaseName}".`);
-  await ActivityModel.collection.updateMany(
-    {
-      imageUrls: { $exists: false },
-      cover: { $type: "string", $ne: "" },
-    },
-    [{ $set: { imageUrls: ["$cover"] } }],
-  );
-  await ActivityModel.collection.updateMany(
-    { cover: { $exists: true } },
-    { $unset: { cover: "" } },
-  );
-  await SettingsModel.collection.updateMany(
-    { "preferences.appearance": { $exists: true } },
-    { $unset: { "preferences.appearance": "" } },
-  );
   await Promise.all([
     AnnouncementModel.createIndexes(),
     AnnouncementVoteModel.createIndexes(),
+    ChatMessageModel.createIndexes(),
+    ChatModel.createIndexes(),
     SessionModel.createIndexes(),
     SessionParticipationModel.createIndexes(),
+    UserModel.createIndexes(),
+    VendorAccountModel.createIndexes(),
+    VendorModel.createIndexes(),
     PaymentModel.createIndexes(),
   ]);
 

@@ -6,35 +6,20 @@ import type {
   SignUpInput,
 } from "../lib/types";
 
-type AuthAction = "sign in" | "sign up";
+type AuthAction = "sign in" | "sign up" | "sign in with Google";
 
-function getAuthDebugError(action: AuthAction, error: unknown) {
+function getAuthUserError(action: AuthAction, error: unknown) {
   if (!(error instanceof ApiRequestError)) {
-    return error instanceof Error ? error : new Error(`Unable to ${action}`);
-  }
-
-  const { contentType, method, responseBody, status, statusText, url } =
-    error.details;
-  const lines = [
-    `Unable to ${action}: ${status} ${statusText}`.trim(),
-    `Request failed: ${method} ${url}`,
-  ];
-
-  if (contentType) {
-    lines.push(`Response type: ${contentType}`);
-  }
-
-  if (responseBody) {
-    lines.push(`Response body: ${responseBody}`);
-  }
-
-  if (status === 404 && responseBody.includes(`Cannot ${method} /auth/`)) {
-    lines.push(
-      "Hint: the backend mounts auth routes under /api. Set VITE_API_URL to your backend URL ending in /api.",
+    return new Error(
+      `Unable to ${action} right now. Check your connection and try again.`,
     );
   }
 
-  return new Error(lines.join("\n"));
+  if ([400, 401, 409].includes(error.details.status)) {
+    return new Error(error.message);
+  }
+
+  return new Error(`Unable to ${action} right now. Please try again later.`);
 }
 
 export async function signIn(input: SignInInput) {
@@ -44,7 +29,7 @@ export async function signIn(input: SignInInput) {
       body: JSON.stringify(input),
     });
   } catch (error) {
-    throw getAuthDebugError("sign in", error);
+    throw getAuthUserError("sign in", error);
   }
 }
 
@@ -55,7 +40,18 @@ export async function signUp(input: SignUpInput) {
       body: JSON.stringify(input),
     });
   } catch (error) {
-    throw getAuthDebugError("sign up", error);
+    throw getAuthUserError("sign up", error);
+  }
+}
+
+export async function signInWithGoogle(credential: string, password?: string) {
+  try {
+    return await apiRequest<AuthResponse>("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential, password }),
+    });
+  } catch (error) {
+    throw getAuthUserError("sign in with Google", error);
   }
 }
 

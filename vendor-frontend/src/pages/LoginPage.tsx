@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { AuthMode } from "../api/auth";
 import { BrandLogo } from "../components/BrandLogo";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 
 type LoginPageProps = {
   error: string | null;
@@ -18,24 +19,37 @@ type LoginPageProps = {
     mode: AuthMode,
     input: {
       name: string;
-      handle?: string;
       email: string;
       password: string;
     },
   ) => Promise<void>;
+  onGoogleSignIn: (credential: string, password?: string) => Promise<void>;
 };
 
-export function LoginPage({ error, isSubmitting, onSubmit }: LoginPageProps) {
+export function LoginPage({
+  error,
+  isSubmitting,
+  onSubmit,
+  onGoogleSignIn,
+}: LoginPageProps) {
   const [mode, setMode] = useState<AuthMode>("signin");
   const [name, setName] = useState("");
-  const [handle, setHandle] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const isSignup = mode === "signup";
+  const googleSignInEnabled = Boolean(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim(),
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSubmit(mode, { name, handle, email, password });
+    await onSubmit(mode, { name, email, password });
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
+    setGoogleError(null);
+    await onGoogleSignIn(credential, password || undefined);
   };
 
   return (
@@ -49,10 +63,10 @@ export function LoginPage({ error, isSubmitting, onSubmit }: LoginPageProps) {
           </div>
         </div>
 
-        <h1>{isSignup ? "Create your Vida account" : "Welcome back"}</h1>
+        <h1>{isSignup ? "Create your vendor account" : "Welcome back"}</h1>
         <p>
           {isSignup
-            ? "Create an account, then set up your vendor profile to manage activities."
+            ? "Create a vendor login, then set up your profile to manage activities."
             : "Sign in to continue to your vendor centre."}
         </p>
 
@@ -77,34 +91,19 @@ export function LoginPage({ error, isSubmitting, onSubmit }: LoginPageProps) {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           {isSignup && (
-            <>
-              <label>
-                <span>Name</span>
-                <div className="auth-field">
-                  <UserRound size={16} />
-                  <input
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Linda Tan"
-                    autoComplete="name"
-                    required
-                  />
-                </div>
-              </label>
-
-              <label>
-                <span>Handle</span>
-                <div className="auth-field">
-                  <AtSign size={16} />
-                  <input
-                    value={handle}
-                    onChange={(event) => setHandle(event.target.value)}
-                    placeholder="lindatan"
-                    autoComplete="username"
-                  />
-                </div>
-              </label>
-            </>
+            <label>
+              <span>Account holder name</span>
+              <div className="auth-field">
+                <UserRound size={16} />
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Linda Tan"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+            </label>
           )}
 
           <label>
@@ -138,7 +137,9 @@ export function LoginPage({ error, isSubmitting, onSubmit }: LoginPageProps) {
             </div>
           </label>
 
-          {error && <p className="form-error">{error}</p>}
+          {(error || googleError) && (
+            <p className="form-error">{error || googleError}</p>
+          )}
 
           <button type="submit" className="auth-submit" disabled={isSubmitting}>
             {isSubmitting ? (
@@ -151,6 +152,21 @@ export function LoginPage({ error, isSubmitting, onSubmit }: LoginPageProps) {
             {isSignup ? "Create account" : "Sign in"}
           </button>
         </form>
+
+        {googleSignInEnabled && (
+          <div className="auth-google">
+            <div className="auth-divider" aria-hidden="true">
+              <span />
+              <strong>or</strong>
+              <span />
+            </div>
+            <GoogleSignInButton
+              disabled={isSubmitting}
+              onCredential={handleGoogleCredential}
+              onError={setGoogleError}
+            />
+          </div>
+        )}
       </section>
 
       <section className="auth-preview" aria-hidden="true">

@@ -1,19 +1,16 @@
-export type AuthUser = {
+export type VendorAccount = {
   id: string;
   email: string;
   name: string;
-  handle: string;
-  avatar: string;
 };
 
 export type AuthResponse = {
   token: string;
-  user: AuthUser;
+  account: VendorAccount;
 };
 
 export type Vendor = {
   id: string;
-  owner: string;
   name: string;
   profileUrl: string;
   description: string;
@@ -98,8 +95,6 @@ export type Session = BaseSession &{
 
 export type CreateSessionInput = Omit<BaseSession, "activity"> & {
   activityId: number | string;
-  vendorId: string;
-  createAsVendor: true;
 };
 
 export type UpdateSessionInput = Pick<
@@ -128,8 +123,6 @@ export type BaseActivity = {
 }
 
 export type CreateActivityInput = Omit<BaseActivity, "tags"> & {
-  vendorId: string;
-  createAsVendor: true;
   tagIds?: string[];
 };
 

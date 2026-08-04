@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { Types } from "mongoose";
-import { requireAuth, requireVendorAuth } from "../middleware/auth.js";
+import {
+  requireVendorAccountAuth,
+  requireVendorAuth,
+} from "../middleware/auth.js";
 import {
   ActivityModel,
   AnnouncementModel,
@@ -264,7 +267,8 @@ async function getVendorChatRows(vendor: VendorDocument) {
         )
         .populate({
           path: "chat",
-          select: "_id mockId name avatar members updatedAt createdAt",
+          select:
+            "_id mockId name avatar members lastMessagePreview lastMessageAt lastMessageId lastMessage time updatedAt createdAt",
         })
         .sort({ startsAt: -1, mockId: 1 })
         .lean()
@@ -296,7 +300,11 @@ async function getVendorChatRows(vendor: VendorDocument) {
         avatar: String(chat.avatar ?? ""),
         memberCount: Array.isArray(chat.members) ? chat.members.length : 0,
         lastMessage: preview.lastMessage,
-        updatedAt: chat.updatedAt ?? chat.createdAt ?? session.startsAt,
+        updatedAt:
+          chat.lastMessageAt ??
+          chat.updatedAt ??
+          chat.createdAt ??
+          session.startsAt,
         session: {
           id: String(session._id),
           mockId: String(session.mockId),
@@ -690,11 +698,12 @@ async function findVendorSession(
   return session?.activity ? session : null;
 }
 
-// Returns the vendor profile owned by the signed-in user.
-router.get("/me", requireAuth, async (_req, res, next) => {
+// Returns the vendor profile owned by the signed-in vendor account.
+router.get("/me", requireVendorAccountAuth, async (_req, res, next) => {
   try {
-    const user = res.locals.user;
-    const vendor = await VendorModel.findOne({ owner: user._id });
+    const vendor = await VendorModel.findOne({
+      account: res.locals.vendorAccount._id,
+    });
 
     if (!vendor) {
       res.json({ vendor: null, stats: null });
@@ -1292,10 +1301,10 @@ router.get("/:id/sessions", async (req, res, next) => {
   }
 });
 
-// Creates a vendor profile for the signed-in user.
-router.post("/createVendor", requireAuth, async (req, res, next) => {
+// Creates a vendor profile for the signed-in vendor account.
+router.post("/createVendor", requireVendorAccountAuth, async (req, res, next) => {
   try {
-    const user = res.locals.user;
+    const vendorAccount = res.locals.vendorAccount;
     const name = String(req.body?.name ?? "").trim();
     const profileUrl = String(req.body?.profileUrl ?? "").trim();
     const description = String(req.body?.description ?? "").trim();
@@ -1305,7 +1314,9 @@ router.post("/createVendor", requireAuth, async (req, res, next) => {
       return;
     }
 
-    const existingVendor = await VendorModel.findOne({ owner: user._id });
+    const existingVendor = await VendorModel.findOne({
+      account: vendorAccount._id,
+    });
 
     if (existingVendor) {
       await sendVendorResponse(res, existingVendor);
@@ -1313,7 +1324,7 @@ router.post("/createVendor", requireAuth, async (req, res, next) => {
     }
 
     const vendor = await VendorModel.create({
-      owner: user._id,
+      account: vendorAccount._id,
       name,
       profileUrl,
       description,

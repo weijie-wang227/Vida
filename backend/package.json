@@ -9,6 +9,12 @@
     "seed": "tsx src/seed.ts",
     "migrate:payments": "tsx src/migratePayments.ts",
     "migrate:payments:apply": "tsx src/migratePayments.ts --apply",
+    "migrate:chat-previews": "tsx src/migrateChatPreviews.ts",
+    "migrate:chat-previews:apply": "tsx src/migrateChatPreviews.ts --apply",
+    "migrate:legacy-fields": "tsx src/migrateLegacyFields.ts",
+    "migrate:legacy-fields:apply": "tsx src/migrateLegacyFields.ts --apply",
+    "migrate:vendor-accounts": "tsx src/migrateVendorAccounts.ts",
+    "migrate:vendor-accounts:apply": "tsx src/migrateVendorAccounts.ts --apply",
     "test": "tsx --test src/domain/*.test.ts",
     "db:check": "tsx src/check-db.ts",
     "build": "tsc",
@@ -20,6 +26,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "google-auth-library": "^11.0.0",
     "mongoose": "^9.7.2"
   },
   "devDependencies": {

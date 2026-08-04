@@ -1,7 +1,7 @@
 import type { AuthMode } from "../api/auth";
 import type {
   Activity,
-  AuthUser,
+  VendorAccount,
   CreateActivityInput,
   CreateSessionInput,
   CreateVendorActivityResponse,
@@ -24,14 +24,13 @@ export type VendorAppStatus =
 
 export type AuthSubmitInput = {
   name: string;
-  handle?: string;
   email: string;
   password: string;
 };
 
 export type VendorState = {
   status: VendorAppStatus;
-  user: AuthUser | null;
+  account: VendorAccount | null;
   vendor: Vendor | null;
   stats: VendorStats | null;
   activities: Activity[];
@@ -44,6 +43,7 @@ export type VendorState = {
   updatingSessionId: string | null;
   deletingSessionId: string | null;
   submitAuth: (mode: AuthMode, input: AuthSubmitInput) => Promise<void>;
+  signInWithGoogle: (credential: string, password?: string) => Promise<void>;
   createVendorProfile: (input: CreateVendorInput) => Promise<void>;
   signOut: () => void;
   createActivity: (

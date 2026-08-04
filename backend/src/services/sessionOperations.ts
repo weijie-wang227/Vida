@@ -6,7 +6,6 @@ import mongoose, {
 } from "mongoose";
 import {
   ActivityModel,
-  AdminModel,
   AnnouncementModel,
   AnnouncementVoteModel,
   BlacklistModel,
@@ -40,7 +39,7 @@ export class SessionOperationError extends Error {
 }
 
 type ScheduledSessionInput = {
-  userId: EntityId;
+  organizerUserId?: EntityId;
   activityId: EntityId;
   linkedChatId?: EntityId;
   session: {
@@ -128,13 +127,6 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
       throw new SessionOperationError("Group not found.", 404);
     }
 
-    if (!input.linkedChatId) {
-      await AdminModel.create(
-        [{ user: input.userId, group: chat._id }],
-        { session: dbSession },
-      );
-    }
-
     const [scheduledSession] = await SessionModel.create(
       [
         {
@@ -173,20 +165,22 @@ export async function createScheduledSession(input: ScheduledSessionInput) {
       throw new SessionOperationError("Activity not found.", 404);
     }
 
-    await SessionParticipationModel.create(
-      [
-        {
-          userId: input.userId,
-          sessionId: scheduledSession._id,
-          role: "organizer",
-          status: "registered",
-          amountPaidMinor: 0,
-          currency: "SGD",
-          registeredAt: new Date(),
-        },
-      ],
-      { session: dbSession },
-    );
+    if (input.organizerUserId) {
+      await SessionParticipationModel.create(
+        [
+          {
+            userId: input.organizerUserId,
+            sessionId: scheduledSession._id,
+            role: "organizer",
+            status: "registered",
+            amountPaidMinor: 0,
+            currency: "SGD",
+            registeredAt: new Date(),
+          },
+        ],
+        { session: dbSession },
+      );
+    }
 
     return { session: scheduledSession, chatId: chat._id };
   });

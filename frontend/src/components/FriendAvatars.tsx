@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
 import type { Friend } from "../lib/types";
 import {
@@ -25,19 +25,26 @@ export function FriendAvatar({
   disabled = false,
 }: FriendAvatarProps) {
   const [open, setOpen] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const fallbackInitial = user.name[0] ?? user.handle[1] ?? "?";
+  const showImage = Boolean(user.avatar) && !imageFailed;
   const baseClassName =
     "relative flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary transition-transform";
   const interactiveClassName =
     "hover:z-10 hover:scale-110 focus:z-10 focus:outline-none focus:ring-2 focus:ring-accent";
 
+  useEffect(() => {
+    setImageFailed(false);
+  }, [user.avatar]);
+
   if (disabled) {
     return (
       <span className={`${baseClassName} ${className}`}>
-        {user.avatar ? (
+        {showImage ? (
           <img
             src={user.avatar}
             alt={user.name}
+            onError={() => setImageFailed(true)}
             className={`h-full w-full object-cover ${imageClassName}`}
           />
         ) : (
@@ -63,10 +70,11 @@ export function FriendAvatar({
         className={`${baseClassName} ${interactiveClassName} ${className}`}
         aria-label={`View ${user.name}'s profile`}
       >
-        {user.avatar ? (
+        {showImage ? (
           <img
             src={user.avatar}
             alt=""
+            onError={() => setImageFailed(true)}
             className={`h-full w-full object-cover ${imageClassName}`}
           />
         ) : (

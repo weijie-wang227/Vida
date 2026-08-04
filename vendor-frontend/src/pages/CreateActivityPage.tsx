@@ -209,8 +209,6 @@ export function CreateActivityPage({
       imageUrls: [],
       tagIds: selectedTagIds,
       isVolunteer,
-      vendorId: vendor.id,
-      createAsVendor: true,
     };
 
     try {

@@ -1,6 +1,11 @@
 import { Router } from "express";
 import type { Types } from "mongoose";
-import { optionalAuth, requireAuth } from "../middleware/auth.js";
+import {
+  findVendorForUser,
+  optionalAuth,
+  requireAuth,
+  requirePrincipalAuth,
+} from "../middleware/auth.js";
 import {
   ActivityModel,
   FavouriteModel,
@@ -547,8 +552,8 @@ router.get("/created-history", requireAuth, async (_req, res, next) => {
       _req.query as Record<string, unknown>,
       { defaultLimit: 25, maxLimit: 100 },
     );
-    const vendors = await VendorModel.find({ owner: user._id }).select("_id");
-    const vendorIds = vendors.map((vendor: Record<string, any>) => vendor._id);
+    const vendor = await findVendorForUser(user._id);
+    const vendorIds = vendor ? [vendor._id] : [];
 
     if (vendorIds.length === 0) {
       res.json([]);
@@ -587,9 +592,9 @@ router.get("/created-history", requireAuth, async (_req, res, next) => {
 });
 
 // Creates a new vendor-hosted activity without scheduling a session yet.
-router.post("/", requireAuth, async (req, res, next) => {
+router.post("/", requirePrincipalAuth, async (req, res, next) => {
   try {
-    const user = res.locals.user;
+    const vendor = res.locals.vendor;
     const title = getString(req.body?.title);
     const description = getString(req.body?.description);
     const suitability = getString(req.body?.suitability);
@@ -615,14 +620,6 @@ router.post("/", requireAuth, async (req, res, next) => {
       res.status(400).json({ message: "Suitability must be 500 characters or less." });
       return;
     }
-
-    const vendorQuery =
-      req.body?.vendorId === undefined ||
-      req.body?.vendorId === null ||
-      req.body?.vendorId === ""
-        ? { owner: user._id }
-        : { _id: req.body.vendorId, owner: user._id };
-    const vendor = await VendorModel.findOne(vendorQuery);
 
     if (!vendor) {
       res.status(404).json({ message: "Vendor profile not found." });
