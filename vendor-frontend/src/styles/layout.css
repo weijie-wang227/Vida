@@ -327,6 +327,7 @@
   font-size: 1.7rem;
   line-height: 0.9;
   color: var(--brand-peach);
+  text-transform: uppercase;
 }
 
 .brand-logo__sub {

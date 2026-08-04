@@ -162,7 +162,7 @@ function AuthScreen() {
               </div>
               <div>
                 <p className="vida-auth-word text-3xl leading-none text-accent">
-                  Vida
+                  VIDA
                 </p>
                 <h1 className="mt-2 text-3xl font-bold leading-tight text-foreground">
                   {isSignup ? "Create your account" : "Welcome back"}
