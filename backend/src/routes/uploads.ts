@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requirePrincipalAuth } from "../middleware/auth.js";
 import { createPublicR2Url, createUploadUrl } from "../lib/r2.js";
 import { getString } from "../utils/input.js";
 
@@ -37,9 +37,10 @@ function getImageExtension(contentType: string) {
 }
 
 // Creates an R2 presigned upload URL for a validated image or file key.
-router.post("/presigned-url", requireAuth, async (req, res, next) => {
+router.post("/presigned-url", requirePrincipalAuth, async (req, res, next) => {
   try {
     const user = res.locals.user;
+    const vendor = res.locals.vendor;
     const contentType = getString(req.body?.contentType);
     const folder = getSafeFolder(getString(req.body?.folder));
 
@@ -49,11 +50,17 @@ router.post("/presigned-url", requireAuth, async (req, res, next) => {
     }
 
     const extension = getImageExtension(contentType);
-    const userId = String(user._id);
+    const principalId = String(user?._id ?? vendor?._id ?? "");
+
+    if (!principalId) {
+      res.status(401).json({ message: "Not signed in." });
+      return;
+    }
+
     const key =
       folder === "profiles"
-        ? `profiles/${userId}/avatar${extension}`
-        : `${folder}/${userId}/${randomUUID()}${extension}`;
+        ? `profiles/${principalId}/avatar${extension}`
+        : `${folder}/${principalId}/${randomUUID()}${extension}`;
     const uploadUrl = await createUploadUrl({
       key,
       contentType,

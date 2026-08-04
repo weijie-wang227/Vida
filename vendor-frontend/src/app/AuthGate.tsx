@@ -18,6 +18,7 @@ export function AuthGate() {
     error,
     isSubmitting,
     submitAuth,
+    signInWithGoogle,
     createVendorProfile,
   } = useVendorState();
 
@@ -35,6 +36,7 @@ export function AuthGate() {
         error={error}
         isSubmitting={isSubmitting}
         onSubmit={submitAuth}
+        onGoogleSignIn={signInWithGoogle}
       />
     );
   }

@@ -100,7 +100,7 @@ function getPageHeading(pathname: string, activeTab: VendorTab, vendorName: stri
 export function VendorLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, vendor, updateVendorProfile, signOut } = useVendorState();
+  const { account, vendor, updateVendorProfile, signOut } = useVendorState();
   const activeTab = getActiveTab(pathname);
   const heading = getPageHeading(
     pathname,
@@ -152,7 +152,7 @@ export function VendorLayout({ children }: { children: ReactNode }) {
 
       <div className="workspace">
         <TopBar
-          accountName={vendor?.name || user?.handle || user?.name || "Vendor"}
+          accountName={vendor?.name || account?.name || "Vendor"}
           vendor={vendor}
           onUpdateVendorProfile={updateVendorProfile}
           onSignOut={signOut}

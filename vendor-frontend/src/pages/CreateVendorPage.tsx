@@ -129,8 +129,7 @@ export function CreateVendorPage({
 
         <h1>Create your vendor profile</h1>
         <p>
-          We found your Vida account, but there is no vendor profile attached to
-          it yet.
+          Your vendor login is ready. Add the public profile customers will see.
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>

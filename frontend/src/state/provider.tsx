@@ -21,6 +21,7 @@ import {
   removeGroupMember as requestRemoveGroupMember,
   setAuthToken,
   signIn as requestSignIn,
+  signInWithGoogle as requestSignInWithGoogle,
   signUp as requestSignUp,
   unlikeFeedPost as requestUnlikeFeedPost,
   updateFeedPost as requestUpdateFeedPost,
@@ -29,6 +30,7 @@ import {
 import { getStoredThemeMode, persistThemeMode } from "../app/themeMode";
 import type {
   Activity,
+  AuthUser,
   ChatMessage,
   FeedComment,
   FeedPost,
@@ -155,6 +157,31 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [joinedActivityIds, setJoinedActivityIds] = useState<number[]>([]);
   const [settingsPreferences, setSettingsPreferences] =
     useState<SettingsPreferences>(() => getDefaultSettingsPreferences());
+
+  const applyAuthResponse = useCallback((token: string, user: AuthUser) => {
+    setAuthToken(token);
+    setAuthUser(user);
+    setProfile(user);
+    setPremiumActivities([]);
+    setStandardActivities([]);
+    setFeedPosts([]);
+    setFeedComments({});
+    setGroupChats([]);
+    setChatMessages({});
+    setFriends([]);
+    setMapPins([]);
+    setNotifications([]);
+    setAuthError(null);
+    setActiveTab("activities");
+    setShowProfile(false);
+    setShowSettings(false);
+    setSelectedActivityId(null);
+    setSelectedGroupId(null);
+    setJoinedActivityIds([]);
+    setFavoriteActivityIds(new Set());
+    setFavoriteMutationIds(new Set());
+    setSettingsPreferences(getDefaultSettingsPreferences());
+  }, []);
 
   useRestoreSession({
     setAuthError,
@@ -419,28 +446,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         try {
           const { token, user } = await requestSignIn(input);
 
-          setAuthToken(token);
-          setAuthUser(user);
-          setProfile(user);
-          setPremiumActivities([]);
-          setStandardActivities([]);
-          setFeedPosts([]);
-          setFeedComments({});
-          setGroupChats([]);
-          setChatMessages({});
-          setFriends([]);
-          setMapPins([]);
-          setNotifications([]);
-          setAuthError(null);
-          setActiveTab("activities");
-          setShowProfile(false);
-          setShowSettings(false);
-          setSelectedActivityId(null);
-          setSelectedGroupId(null);
-          setJoinedActivityIds([]);
-          setFavoriteActivityIds(new Set());
-          setFavoriteMutationIds(new Set());
-          setSettingsPreferences(getDefaultSettingsPreferences());
+          applyAuthResponse(token, user);
         } catch (error) {
           console.error("Unable to sign in", error);
           const message = getErrorMessage(error, "Unable to sign in");
@@ -452,31 +458,28 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         try {
           const { token, user } = await requestSignUp(input);
 
-          setAuthToken(token);
-          setAuthUser(user);
-          setProfile(user);
-          setPremiumActivities([]);
-          setStandardActivities([]);
-          setFeedPosts([]);
-          setFeedComments({});
-          setGroupChats([]);
-          setChatMessages({});
-          setFriends([]);
-          setMapPins([]);
-          setNotifications([]);
-          setAuthError(null);
-          setActiveTab("activities");
-          setShowProfile(false);
-          setShowSettings(false);
-          setSelectedActivityId(null);
-          setSelectedGroupId(null);
-          setJoinedActivityIds([]);
-          setFavoriteActivityIds(new Set());
-          setFavoriteMutationIds(new Set());
-          setSettingsPreferences(getDefaultSettingsPreferences());
+          applyAuthResponse(token, user);
         } catch (error) {
           console.error("Unable to sign up", error);
           const message = getErrorMessage(error, "Unable to sign up");
+          setAuthError(message);
+          throw new Error(message);
+        }
+      },
+      signInWithGoogle: async (credential, password) => {
+        try {
+          const { token, user } = await requestSignInWithGoogle(
+            credential,
+            password,
+          );
+
+          applyAuthResponse(token, user);
+        } catch (error) {
+          console.error("Unable to sign in with Google", error);
+          const message = getErrorMessage(
+            error,
+            "Unable to sign in with Google",
+          );
           setAuthError(message);
           throw new Error(message);
         }
@@ -947,6 +950,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       favoriteMutationIds,
       likedPostIds,
       settingsPreferences,
+      applyAuthResponse,
       navigate,
       applyGroupUpdate,
       addFriend,

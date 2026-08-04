@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { Types } from "mongoose";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePrincipalAuth } from "../middleware/auth.js";
 import {
   AdminModel,
   ActivityModel,
@@ -11,7 +11,6 @@ import {
   RatingModel,
   SessionParticipationModel,
   SessionModel,
-  VendorModel,
   type ActivityDocument,
   type ChatDocument,
   type EntityId,
@@ -226,20 +225,29 @@ function serializeSessionReviewSummary(sessionValue: Record<string, any>) {
   };
 }
 
-function isSessionVendor(userId: EntityId, sessionValue: Record<string, any>) {
+function isSessionVendor(vendorId: EntityId | undefined, sessionValue: Record<string, any>) {
+  if (!vendorId) {
+    return false;
+  }
+
   const session = asObject(sessionValue);
   const activity = asObject(session.activity ?? {});
   const vendor = asObject(activity.host ?? {});
 
-  return String(vendor.owner?._id ?? vendor.owner ?? "") === String(userId);
+  return String(vendor._id ?? activity.host ?? "") === String(vendorId);
 }
 
 async function canReadSessionAnnouncements(
-  userId: EntityId,
+  userId: EntityId | undefined,
+  vendorId: EntityId | undefined,
   sessionValue: Record<string, any>,
 ) {
-  if (isSessionVendor(userId, sessionValue)) {
+  if (isSessionVendor(vendorId, sessionValue)) {
     return true;
+  }
+
+  if (!userId) {
+    return false;
   }
 
   const session = asObject(sessionValue);
@@ -253,16 +261,10 @@ async function canReadSessionAnnouncements(
 }
 
 // Creates a scheduled session for an existing vendor activity.
-router.post("/", requireAuth, async (req, res, next) => {
+router.post("/", requirePrincipalAuth, async (req, res, next) => {
   try {
     const user = res.locals.user;
-    const vendorQuery =
-      req.body?.vendorId === undefined ||
-      req.body?.vendorId === null ||
-      req.body?.vendorId === ""
-        ? { owner: user._id }
-        : { _id: req.body.vendorId, owner: user._id };
-    const vendor = await VendorModel.findOne(vendorQuery);
+    const vendor = res.locals.vendor;
 
     if (!vendor) {
       res.status(404).json({ message: "Vendor profile not found." });
@@ -297,8 +299,15 @@ router.post("/", requireAuth, async (req, res, next) => {
       return;
     }
 
+    if (sessionPayload.groupId !== null && !user) {
+      res.status(400).json({
+        message: "Vendor accounts cannot link participant group chats.",
+      });
+      return;
+    }
+
     const linkedChat =
-      sessionPayload.groupId === null
+      sessionPayload.groupId === null || !user
         ? null
         : await ChatModel.findOne({
             mockId: sessionPayload.groupId,
@@ -310,7 +319,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       return;
     }
 
-    if (linkedChat) {
+    if (linkedChat && user) {
       const canPostInvite = await isGroupAdmin(user._id, linkedChat._id);
 
       if (!canPostInvite) {
@@ -322,7 +331,7 @@ router.post("/", requireAuth, async (req, res, next) => {
     }
 
     const operation = await createScheduledSession({
-      userId: user._id,
+      organizerUserId: user?._id,
       activityId: activity._id,
       linkedChatId: linkedChat?._id,
       session: {
@@ -376,7 +385,7 @@ router.post("/", requireAuth, async (req, res, next) => {
 });
 
 // Lists announcements for a session visible to its participants and vendor.
-router.get("/:id/announcements", requireAuth, async (req, res, next) => {
+router.get("/:id/announcements", requirePrincipalAuth, async (req, res, next) => {
   try {
     const session = await findSessionByRouteId(String(req.params.id ?? ""));
 
@@ -385,7 +394,13 @@ router.get("/:id/announcements", requireAuth, async (req, res, next) => {
       return;
     }
 
-    if (!(await canReadSessionAnnouncements(res.locals.user._id, session))) {
+    if (
+      !(await canReadSessionAnnouncements(
+        res.locals.user?._id,
+        res.locals.vendor?._id,
+        session,
+      ))
+    ) {
       res.status(403).json({
         message: "You do not have access to this session's announcements.",
       });
@@ -397,7 +412,7 @@ router.get("/:id/announcements", requireAuth, async (req, res, next) => {
     }).sort({ createdAt: 1, _id: 1 });
     const pollResults = await getAnnouncementPollResults(
       announcements,
-      res.locals.user._id,
+      res.locals.user?._id,
     );
 
     res.json(
@@ -415,7 +430,7 @@ router.get("/:id/announcements", requireAuth, async (req, res, next) => {
 });
 
 // Publishes an announcement. Only the vendor that owns the session may post.
-router.post("/:id/announcements", requireAuth, async (req, res, next) => {
+router.post("/:id/announcements", requirePrincipalAuth, async (req, res, next) => {
   try {
     const session = await findSessionByRouteId(String(req.params.id ?? ""));
 
@@ -424,7 +439,7 @@ router.post("/:id/announcements", requireAuth, async (req, res, next) => {
       return;
     }
 
-    if (!isSessionVendor(res.locals.user._id, session)) {
+    if (!isSessionVendor(res.locals.vendor?._id, session)) {
       res.status(403).json({
         message: "Only the vendor managing this session can post announcements.",
       });
@@ -467,7 +482,7 @@ router.post("/:id/announcements", requireAuth, async (req, res, next) => {
 });
 
 // Creates a poll announcement. Only the vendor that owns the session may post.
-router.post("/:id/announcements/polls", requireAuth, async (req, res, next) => {
+router.post("/:id/announcements/polls", requirePrincipalAuth, async (req, res, next) => {
   try {
     const session = await findSessionByRouteId(String(req.params.id ?? ""));
 
@@ -476,7 +491,7 @@ router.post("/:id/announcements/polls", requireAuth, async (req, res, next) => {
       return;
     }
 
-    if (!isSessionVendor(res.locals.user._id, session)) {
+    if (!isSessionVendor(res.locals.vendor?._id, session)) {
       res.status(403).json({
         message:
           "Only the vendor managing this session can create announcement polls.",
@@ -537,7 +552,13 @@ router.post(
         return;
       }
 
-      if (!(await canReadSessionAnnouncements(res.locals.user._id, session))) {
+      if (
+        !(await canReadSessionAnnouncements(
+          res.locals.user._id,
+          undefined,
+          session,
+        ))
+      ) {
         res.status(403).json({
           message: "You do not have access to this session's announcements.",
         });

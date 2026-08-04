@@ -1,4 +1,7 @@
-import type { ChatPreview } from "./services/chatPreviews.js";
+import {
+  getStoredChatPreview,
+  type ChatPreview,
+} from "./services/chatPreviews.js";
 import {
   getChatMessageType,
   normalizeChatMessagePayload,
@@ -130,6 +133,16 @@ export function serializeAuthUser(user: AnyDoc) {
   };
 }
 
+export function serializeVendorAccount(account: AnyDoc) {
+  const item = asObject(account);
+
+  return {
+    id: String(item._id),
+    email: item.email,
+    name: item.name,
+  };
+}
+
 export function serializeNotification(notification: AnyDoc) {
   const item = asObject(notification);
 
@@ -145,11 +158,9 @@ export function serializeNotification(notification: AnyDoc) {
 
 export function serializeVendor(vendor: AnyDoc) {
   const item = asObject(vendor);
-  const owner = asObject(item.owner ?? {});
 
   return {
     id: String(item._id),
-    owner: String(owner._id ?? item.owner),
     name: item.name,
     profileUrl: item.profileUrl ?? "",
     description: item.description ?? "",
@@ -169,6 +180,7 @@ export function serializeChat(
   adminUserIds = new Set<string>(),
 ) {
   const item = asObject(chat);
+  const storedPreview = getStoredChatPreview(item);
   const members = Array.isArray(item.members)
     ? item.members.map((member: unknown) =>
         serializeChatMember(member, adminUserIds),
@@ -181,8 +193,8 @@ export function serializeChat(
     members: item.members?.length || 0,
     memberList: members,
     avatar: item.avatar,
-    lastMessage: preview?.lastMessage ?? item.lastMessage ?? "",
-    time: preview?.time ?? item.time ?? "",
+    lastMessage: preview?.lastMessage ?? storedPreview.lastMessage,
+    time: preview?.time ?? storedPreview.time,
     unread: item.unread ?? 0,
     isAdmin,
   };

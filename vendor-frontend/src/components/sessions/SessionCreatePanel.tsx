@@ -304,8 +304,6 @@ export function SessionCreatePanel({
       const payload: CreateSessionInput = {
         ...details,
         activityId,
-        vendorId: vendor.id,
-        createAsVendor: true,
       };
       const response = await onCreateSession(payload);
       onCreated?.(response, payload);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, Loader2 } from "lucide-react";
+import { CalendarDays, Loader2, UserRound } from "lucide-react";
 import { fetchPreviousActivities } from "../api/activities";
 import {
   Dialog,
@@ -33,6 +33,11 @@ export function UserProfileDialog({
   >([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [user?.avatar]);
 
   useEffect(() => {
     if (!open || !user?.id) {
@@ -80,11 +85,18 @@ export function UserProfileDialog({
         {user ? (
           <div>
             <div className="bg-secondary px-5 pb-5 pt-6 text-center">
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="mx-auto h-20 w-20 rounded-full border-4 border-background object-cover shadow-sm"
-              />
+              {user.avatar && !avatarFailed ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  onError={() => setAvatarFailed(true)}
+                  className="mx-auto h-20 w-20 rounded-full border-4 border-background object-cover shadow-sm"
+                />
+              ) : (
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-4 border-background bg-card text-muted-foreground shadow-sm">
+                  <UserRound size={28} />
+                </div>
+              )}
               <DialogHeader className="mt-3 items-center gap-1 text-center">
                 <DialogTitle className="text-lg font-bold text-foreground">
                   {user.name}

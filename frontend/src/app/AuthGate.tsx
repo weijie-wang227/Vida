@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import type { SignInLocationState } from "../components/SignInRequired";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { useAppState } from "../state";
 import { AppShell } from "./AppShell";
 
@@ -84,7 +85,7 @@ function AuthModeTabs({
 }
 
 function AuthScreen() {
-  const { isAuthenticated, signIn, signUp } = useAppState();
+  const { isAuthenticated, signIn, signInWithGoogle, signUp } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -95,6 +96,9 @@ function AuthScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSignup = mode === "signup";
+  const googleSignInEnabled = Boolean(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim(),
+  );
   const vendorUrl = import.meta.env.VITE_VENDOR_URL as string | undefined;
   const returnTo = getSafeReturnTo(location.state);
 
@@ -115,6 +119,22 @@ function AuthScreen() {
         await signIn({ email, password });
       }
 
+      navigate(returnTo, { replace: true });
+    } catch (error) {
+      setLocalError(
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
+    setLocalError(null);
+    setIsSubmitting(true);
+
+    try {
+      await signInWithGoogle(credential, password || undefined);
       navigate(returnTo, { replace: true });
     } catch (error) {
       setLocalError(
@@ -234,7 +254,7 @@ function AuthScreen() {
             </label>
 
             {localError && (
-              <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+              <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-black">
                 {localError}
               </p>
             )}
@@ -253,6 +273,24 @@ function AuthScreen() {
               )}
               {isSignup ? "Create account" : "Sign in"}
             </button>
+
+            {googleSignInEnabled && (
+              <>
+                <div className="flex items-center gap-3 py-1" aria-hidden="true">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    or
+                  </span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+
+                <GoogleSignInButton
+                  disabled={isSubmitting}
+                  onCredential={handleGoogleCredential}
+                  onError={setLocalError}
+                />
+              </>
+            )}
 
             {!isSignup && vendorUrl && (
               <button

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Types } from "mongoose";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
-import { requireAuth } from "../middleware/auth.js";
+import { findVendorForUser, requireAuth } from "../middleware/auth.js";
 import {
   AdminModel,
   AnnouncementModel,
@@ -12,7 +12,6 @@ import {
   PollVoteModel,
   SessionParticipationModel,
   SessionModel,
-  VendorModel,
   type ActivityDocument,
   type EntityId,
   type UserDocument,
@@ -25,6 +24,10 @@ import {
   getChatPreview,
   getLatestChatPreviews,
 } from "../services/chatPreviews.js";
+import {
+  ChatMessageWriteError,
+  createChatMessageWithPreview,
+} from "../services/chatMessageWrites.js";
 import { serializeChat, serializeChatMessage } from "../serializers.js";
 import { getString } from "../utils/input.js";
 import { asObject } from "../utils/mongoose.js";
@@ -36,13 +39,6 @@ import {
 
 const router = Router();
 router.use(requireAuth);
-
-function formatPreviewTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value);
-}
 
 async function findMemberChat(groupId: number, userId: EntityId) {
   return ChatModel.findOne({ mockId: groupId, members: userId }).populate<{
@@ -252,7 +248,7 @@ async function getPollResultsByMessageId(
 }
 
 async function isVendorManagedChat(userId: EntityId, chatId: EntityId) {
-  const vendor = await VendorModel.findOne({ owner: userId }).select("_id");
+  const vendor = await findVendorForUser(userId);
 
   if (!vendor) {
     return false;
@@ -335,6 +331,15 @@ router.post("/:id/join", async (req, res, next) => {
 
     if (!group) {
       res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    const linkedSession = await SessionModel.exists({ chat: group._id });
+
+    if (linkedSession) {
+      res.status(403).json({
+        message: "This group can only be joined through its session.",
+      });
       return;
     }
 
@@ -733,23 +738,13 @@ router.post("/:id/messages", async (req, res, next) => {
       return;
     }
 
-    const message = await ChatMessageModel.create({
-      chat: group._id,
-      sender: user._id,
-      type: "text",
-      schemaVersion: 1,
-      payload: normalizeChatMessagePayload("text", { text }),
-    });
-    const createdAt =
-      message.createdAt instanceof Date ? message.createdAt : new Date();
-    const updatedGroup = await ChatModel.findByIdAndUpdate(
-      group._id,
-      {
-        lastMessage: `${user.name}: ${text}`,
-        time: formatPreviewTime(createdAt),
-      },
-      { new: true },
-    ).populate("members");
+    const { message, chat: updatedGroup } =
+      await createChatMessageWithPreview({
+        chatId: group._id,
+        sender: user,
+        type: "text",
+        payload: normalizeChatMessagePayload("text", { text }),
+      });
     const savedMessage = await ChatMessageModel.findById(message._id)
       .populate("chat")
       .populate("sender");
@@ -766,6 +761,11 @@ router.post("/:id/messages", async (req, res, next) => {
       group: serializeChat(updatedGroup, undefined, isAdmin, adminUserIds),
     });
   } catch (error) {
+    if (error instanceof ChatMessageWriteError) {
+      res.status(404).json({ message: error.message });
+      return;
+    }
+
     next(error);
   }
 });
@@ -805,23 +805,13 @@ router.post("/:id/polls", async (req, res, next) => {
       throw error;
     }
 
-    const message = await ChatMessageModel.create({
-      chat: group._id,
-      sender: user._id,
-      type: "poll",
-      schemaVersion: 1,
-      payload,
-    });
-    const createdAt =
-      message.createdAt instanceof Date ? message.createdAt : new Date();
-    const updatedGroup = await ChatModel.findByIdAndUpdate(
-      group._id,
-      {
-        lastMessage: `${user.name} created a poll: ${payload.question}`,
-        time: formatPreviewTime(createdAt),
-      },
-      { new: true },
-    ).populate("members");
+    const { message, chat: updatedGroup } =
+      await createChatMessageWithPreview({
+        chatId: group._id,
+        sender: user,
+        type: "poll",
+        payload,
+      });
     const savedMessage = await ChatMessageModel.findById(message._id)
       .populate("chat")
       .populate("sender");
@@ -838,6 +828,11 @@ router.post("/:id/polls", async (req, res, next) => {
       group: serializeChat(updatedGroup, undefined, isAdmin, adminUserIds),
     });
   } catch (error) {
+    if (error instanceof ChatMessageWriteError) {
+      res.status(404).json({ message: error.message });
+      return;
+    }
+
     next(error);
   }
 });

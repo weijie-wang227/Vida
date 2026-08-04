@@ -204,6 +204,40 @@
   opacity: 0.68;
 }
 
+.auth-google {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.auth-divider span {
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-divider strong {
+  font-size: 0.75rem;
+}
+
+.auth-google__button {
+  min-height: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.auth-google__button--disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 .spin {
   animation: spin 850ms linear infinite;
 }
@@ -289,7 +323,7 @@
 
 .brand-logo__word {
   display: block;
-  font-family: "Holiday Free", "Plus Jakarta Sans", sans-serif;
+  font-family: "Gyrochrome Medium", "Plus Jakarta Sans", sans-serif;
   font-size: 1.7rem;
   line-height: 0.9;
   color: var(--brand-peach);

@@ -54,6 +54,7 @@ export type AppState = {
   settingsPreferences: SettingsPreferences;
   signIn: (input: SignInInput) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<void>;
+  signInWithGoogle: (credential: string, password?: string) => Promise<void>;
   createActivity: (input: CreateActivityInput) => Promise<Activity>;
   createFeedPost: (input: CreateFeedPostInput) => Promise<FeedPost>;
   updateFeedPost: (
