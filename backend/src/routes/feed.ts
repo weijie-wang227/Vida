@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   ChatModel,
   CommentModel,
@@ -24,6 +25,7 @@ const validCategories = new Set([
 ]);
 
 router.use(requireAuth);
+router.use(authenticatedMutationRateLimiter);
 
 function getCategories(value: unknown) {
   if (!Array.isArray(value)) {

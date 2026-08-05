@@ -38,9 +38,14 @@ async function checkDB() {
   console.log("Connection metadata:", describeUri(mongoUri));
 
   try {
+    const usesLocalMongo =
+      /^mongodb:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(
+        mongoUri,
+      );
+
     await mongoose.connect(mongoUri, {
       dbName: databaseName,
-      tls: true,
+      tls: !usesLocalMongo,
       serverSelectionTimeoutMS: 30000,
     });
     await mongoose.connection.db?.admin().ping();

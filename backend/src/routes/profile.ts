@@ -5,6 +5,7 @@ import {
   normalizeHandle,
 } from "../services/auth.js";
 import { requireAuth } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   FeedPostModel,
   FriendshipModel,
@@ -115,6 +116,7 @@ async function serializeCurrentProfile(user: Record<string, any>) {
 }
 
 router.use(requireAuth);
+router.use(authenticatedMutationRateLimiter);
 
 // Returns the signed-in user's profile.
 router.get("/profile", async (_req, res) => {

@@ -45,6 +45,18 @@ Optional/feature-specific variables:
 - `R2_BUCKET_NAME`
 - `R2_PUBLIC_URL`
 
+Rate-limit thresholds have safe defaults and can be overridden in deployment
+configuration with matching `RATE_LIMIT_*_WINDOW_MS` and `RATE_LIMIT_*_MAX`
+values for the general API, signup, sign-in, authenticated mutations, payment
+checkout, payment status, upload URLs, and HitPay webhooks. Values must be
+positive integers. The default in-memory counters are suitable for one backend
+instance; multiple instances require a shared rate-limit store.
+
+The supported policy names are `GENERAL`, `SIGNUP`, `SIGNIN`, `MUTATION`,
+`CHECKOUT`, `PAYMENT_STATUS`, `UPLOAD`, and `WEBHOOK`. For example,
+`RATE_LIMIT_GENERAL_WINDOW_MS` changes the general window and
+`RATE_LIMIT_GENERAL_MAX` changes its request count.
+
 ## Running
 
 ```bash

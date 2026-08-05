@@ -15,7 +15,7 @@
     "migrate:legacy-fields:apply": "tsx src/migrateLegacyFields.ts --apply",
     "migrate:vendor-accounts": "tsx src/migrateVendorAccounts.ts",
     "migrate:vendor-accounts:apply": "tsx src/migrateVendorAccounts.ts --apply",
-    "test": "tsx --test src/domain/*.test.ts",
+    "test": "tsx --test src/domain/*.test.ts src/middleware/*.test.ts",
     "db:check": "tsx src/check-db.ts",
     "build": "tsc",
     "start": "node dist/server.js"
@@ -26,6 +26,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "google-auth-library": "^11.0.0",
     "mongoose": "^9.7.2"
   },

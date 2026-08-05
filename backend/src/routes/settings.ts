@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   SettingsModel,
   type EntityId,
@@ -79,7 +80,7 @@ router.get("/", requireAuth, async (_req, res) => {
 });
 
 // Replaces settings and preferences for the signed-in user.
-router.put("/", requireAuth, async (req, res, next) => {
+router.put("/", requireAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const authUser = res.locals.user;
     const settings = await findOrCreateSettings(authUser._id);

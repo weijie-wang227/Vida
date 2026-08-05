@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { requirePrincipalAuth } from "../middleware/auth.js";
+import { uploadRateLimiter } from "../middleware/rateLimits.js";
 import { createPublicR2Url, createUploadUrl } from "../lib/r2.js";
 import { getString } from "../utils/input.js";
 
@@ -37,7 +38,7 @@ function getImageExtension(contentType: string) {
 }
 
 // Creates an R2 presigned upload URL for a validated image or file key.
-router.post("/presigned-url", requirePrincipalAuth, async (req, res, next) => {
+router.post("/presigned-url", requirePrincipalAuth, uploadRateLimiter, async (req, res, next) => {
   try {
     const user = res.locals.user;
     const vendor = res.locals.vendor;

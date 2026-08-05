@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Types } from "mongoose";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import { findVendorForUser, requireAuth } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   AdminModel,
   AnnouncementModel,
@@ -39,6 +40,7 @@ import {
 
 const router = Router();
 router.use(requireAuth);
+router.use(authenticatedMutationRateLimiter);
 
 async function findMemberChat(groupId: number, userId: EntityId) {
   return ChatModel.findOne({ mockId: groupId, members: userId }).populate<{

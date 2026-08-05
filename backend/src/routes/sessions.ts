@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Types } from "mongoose";
 import { requireAuth, requirePrincipalAuth } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   AdminModel,
   ActivityModel,
@@ -261,7 +262,7 @@ async function canReadSessionAnnouncements(
 }
 
 // Creates a scheduled session for an existing vendor activity.
-router.post("/", requirePrincipalAuth, async (req, res, next) => {
+router.post("/", requirePrincipalAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const user = res.locals.user;
     const vendor = res.locals.vendor;
@@ -430,7 +431,7 @@ router.get("/:id/announcements", requirePrincipalAuth, async (req, res, next) =>
 });
 
 // Publishes an announcement. Only the vendor that owns the session may post.
-router.post("/:id/announcements", requirePrincipalAuth, async (req, res, next) => {
+router.post("/:id/announcements", requirePrincipalAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const session = await findSessionByRouteId(String(req.params.id ?? ""));
 
@@ -482,7 +483,7 @@ router.post("/:id/announcements", requirePrincipalAuth, async (req, res, next) =
 });
 
 // Creates a poll announcement. Only the vendor that owns the session may post.
-router.post("/:id/announcements/polls", requirePrincipalAuth, async (req, res, next) => {
+router.post("/:id/announcements/polls", requirePrincipalAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const session = await findSessionByRouteId(String(req.params.id ?? ""));
 
@@ -543,6 +544,7 @@ router.post("/:id/announcements/polls", requirePrincipalAuth, async (req, res, n
 router.post(
   "/:id/announcements/:announcementId/votes",
   requireAuth,
+  authenticatedMutationRateLimiter,
   async (req, res, next) => {
     try {
       const session = await findSessionByRouteId(String(req.params.id ?? ""));
@@ -628,7 +630,7 @@ router.post(
 );
 
 // Joins the signed-in user to an open session and linked group.
-router.post("/:id/join", requireAuth, async (req, res, next) => {
+router.post("/:id/join", requireAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const user = res.locals.user;
     const session = await findSessionByRouteId(String(req.params.id), openSessionFilter);
@@ -760,7 +762,7 @@ router.get("/:id/review", requireAuth, async (req, res) => {
 });
 
 // Creates or updates the signed-in user's review for a session they attended.
-router.post("/:id/review", requireAuth, async (req, res) => {
+router.post("/:id/review", requireAuth, authenticatedMutationRateLimiter, async (req, res) => {
   const user = res.locals.user;
   const session = await findSessionByRouteId(String(req.params.id));
 

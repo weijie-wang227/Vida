@@ -32,11 +32,16 @@ export async function connectDB() {
     return false;
   }
 
+  const usesLocalMongo =
+    /^mongodb:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(
+      mongoUri,
+    );
+
   try {
     lastConnectionError = null;
     await mongoose.connect(mongoUri, {
       dbName: databaseName,
-      tls: true,
+      tls: !usesLocalMongo,
       serverSelectionTimeoutMS,
     });
   } catch (error) {
@@ -44,19 +49,16 @@ export async function connectDB() {
       error instanceof Error ? error.message : "Unknown MongoDB connection error.";
 
     if (error instanceof mongoose.Error.MongooseServerSelectionError) {
-      lastConnectionError = [
-        `Could not reach MongoDB Atlas within ${serverSelectionTimeoutMS / 1000}s.`,
-        "TCP reachability alone is not enough; Atlas must also allow your current public IP and complete the TLS replica-set handshake.",
+      const connectionError = [
+        `Could not reach MongoDB within ${serverSelectionTimeoutMS / 1000}s.`,
+        usesLocalMongo
+          ? "Ensure the local MongoDB container is running and its replica set has been initialized."
+          : "TCP reachability alone is not enough; Atlas must also allow your current public IP and complete the TLS replica-set handshake.",
         `Driver detail: ${error.message}`,
       ].join(" ");
 
-      throw new Error(
-        [
-          `Could not reach MongoDB Atlas within ${serverSelectionTimeoutMS / 1000}s.`,
-          "TCP reachability alone is not enough; Atlas must also allow your current public IP and complete the TLS replica-set handshake.",
-          `Driver detail: ${error.message}`,
-        ].join(" "),
-      );
+      lastConnectionError = connectionError;
+      throw new Error(connectionError);
     }
 
     throw error;

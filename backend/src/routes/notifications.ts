@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Types } from "mongoose";
 import { requireAuth } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import { NotificationModel, UserModel } from "../models/VidaData.js";
 import { serializeNotification } from "../serializers.js";
 import { getString } from "../utils/input.js";
@@ -20,7 +21,7 @@ router.get("/", requireAuth, async (_req, res) => {
 });
 
 // Sends a notification to a user and emails them when an address is available.
-router.post("/send", requireAuth, async (req, res) => {
+router.post("/send", requireAuth, authenticatedMutationRateLimiter, async (req, res) => {
   const userId = getString(req.body?.userId ?? req.body?.recipientId);
   const title = getString(req.body?.title);
   const content = getString(req.body?.content);
@@ -79,7 +80,7 @@ router.post("/send", requireAuth, async (req, res) => {
 });
 
 // Marks one notification as read for the signed-in user.
-router.post("/:notificationId/read", requireAuth, async (req, res) => {
+router.post("/:notificationId/read", requireAuth, authenticatedMutationRateLimiter, async (req, res) => {
   const authUser = res.locals.user;
   const notificationId = getString(req.params.notificationId);
 
