@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import {
+  paymentCheckoutRateLimiter,
+  paymentStatusRateLimiter,
+} from "../middleware/rateLimits.js";
+import {
   beginHitPayCheckout,
   getPaymentStatusForUser,
   PaymentServiceError,
@@ -26,6 +30,7 @@ function sendPaymentError(res: any, error: unknown) {
 paymentRouter.post(
   "/sessions/:sessionId/checkout",
   requireAuth,
+  paymentCheckoutRateLimiter,
   async (req, res, next) => {
     try {
       const checkout = await beginHitPayCheckout(
@@ -45,7 +50,7 @@ paymentRouter.post(
 );
 
 // Returns the authenticated user's local payment state.
-paymentRouter.get("/:paymentId", requireAuth, async (req, res, next) => {
+paymentRouter.get("/:paymentId", requireAuth, paymentStatusRateLimiter, async (req, res, next) => {
   try {
     res.json(
       await getPaymentStatusForUser(

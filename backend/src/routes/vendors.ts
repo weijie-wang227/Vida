@@ -4,6 +4,7 @@ import {
   requireVendorAccountAuth,
   requireVendorAuth,
 } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   ActivityModel,
   AnnouncementModel,
@@ -747,6 +748,7 @@ router.get("/me/sessions", requireVendorAuth, async (_req, res, next) => {
 router.patch(
   "/me/sessions/:sessionId",
   requireVendorAuth,
+  authenticatedMutationRateLimiter,
   async (req, res, next) => {
     try {
       const sessionId = String(req.params.sessionId ?? "");
@@ -822,6 +824,7 @@ router.patch(
 router.delete(
   "/me/sessions/:sessionId",
   requireVendorAuth,
+  authenticatedMutationRateLimiter,
   async (req, res, next) => {
     try {
       const sessionId = String(req.params.sessionId ?? "");
@@ -950,6 +953,7 @@ router.get(
 router.patch(
   "/me/volunteers/sessions/:sessionId/roster/:userId",
   requireVendorAuth,
+  authenticatedMutationRateLimiter,
   async (req, res, next) => {
     try {
       const sessionId = String(req.params.sessionId ?? "");
@@ -1034,7 +1038,7 @@ router.get(
 );
 
 // Updates editable profile fields for the signed-in vendor.
-router.patch("/me", requireVendorAuth, async (req, res, next) => {
+router.patch("/me", requireVendorAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const vendor = res.locals.vendor;
     const profileUrl = String(req.body?.profileUrl ?? "").trim();
@@ -1141,7 +1145,7 @@ router.get("/me/sessions/:sessionId/attendees", requireVendorAuth, async (req, r
 });
 
 // Opens or closes one session owned by the signed-in vendor.
-router.patch("/me/sessions/:sessionId/open", requireVendorAuth, async (req, res, next) => {
+router.patch("/me/sessions/:sessionId/open", requireVendorAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const sessionId = String(req.params.sessionId);
     const vendor = res.locals.vendor;
@@ -1194,6 +1198,7 @@ router.patch("/me/sessions/:sessionId/open", requireVendorAuth, async (req, res,
 router.patch(
   "/me/sessions/:sessionId/attendees/:userId",
   requireVendorAuth,
+  authenticatedMutationRateLimiter,
   async (req, res, next) => {
     try {
       const sessionId = String(req.params.sessionId);
@@ -1302,7 +1307,7 @@ router.get("/:id/sessions", async (req, res, next) => {
 });
 
 // Creates a vendor profile for the signed-in vendor account.
-router.post("/createVendor", requireVendorAccountAuth, async (req, res, next) => {
+router.post("/createVendor", requireVendorAccountAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const vendorAccount = res.locals.vendorAccount;
     const name = String(req.body?.name ?? "").trim();

@@ -6,6 +6,7 @@ import {
   requireAuth,
   requirePrincipalAuth,
 } from "../middleware/auth.js";
+import { authenticatedMutationRateLimiter } from "../middleware/rateLimits.js";
 import {
   ActivityModel,
   FavouriteModel,
@@ -426,7 +427,7 @@ router.get("/favourites", requireAuth, async (_req, res) => {
 });
 
 // Adds an activity to the signed-in user's favourites.
-router.post("/favourites/add/:activityId", requireAuth, async (req, res) => {
+router.post("/favourites/add/:activityId", requireAuth, authenticatedMutationRateLimiter, async (req, res) => {
   const activityId = String(req.params.activityId ?? "").trim();
   const activitySelector = getActivitySelector(activityId);
   const activity =
@@ -458,6 +459,7 @@ router.post("/favourites/add/:activityId", requireAuth, async (req, res) => {
 router.delete(
   "/favourites/delete/:activityId",
   requireAuth,
+  authenticatedMutationRateLimiter,
   async (req, res) => {
     const activityId = String(req.params.activityId ?? "").trim();
     const activitySelector = getActivitySelector(activityId);
@@ -592,7 +594,7 @@ router.get("/created-history", requireAuth, async (_req, res, next) => {
 });
 
 // Creates a new vendor-hosted activity without scheduling a session yet.
-router.post("/", requirePrincipalAuth, async (req, res, next) => {
+router.post("/", requirePrincipalAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const vendor = res.locals.vendor;
     const title = getString(req.body?.title);

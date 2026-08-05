@@ -9,6 +9,10 @@ import {
   verifyPassword,
 } from "../services/auth.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  signInRateLimiter,
+  signUpRateLimiter,
+} from "../middleware/rateLimits.js";
 import { UserModel } from "../models/VidaData.js";
 import { serializeAuthUser } from "../serializers.js";
 import {
@@ -39,7 +43,7 @@ async function uniqueHandle(handle: string) {
 }
 
 // Creates a user account and returns an auth token for the new session.
-router.post("/signup", async (req, res, next) => {
+router.post("/signup", signUpRateLimiter, async (req, res, next) => {
   try {
     const name = getString(req.body?.name);
     const email = normalizeEmail(req.body?.email);
@@ -102,7 +106,7 @@ router.post("/signup", async (req, res, next) => {
 });
 
 // Signs in an existing user and returns an auth token.
-router.post("/signin", async (req, res, next) => {
+router.post("/signin", signInRateLimiter, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const password = getString(req.body?.password);
