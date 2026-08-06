@@ -1,23 +1,20 @@
 import { apiRequest } from "./client";
 import type {
-  VendorActivity,
-  VendorSession,
-  VendorStats,
+  PublicVendorActivity,
+  PublicVendorSession,
   VendorSummary,
 } from "../lib/types";
 
 export type VendorProfileResponse = {
-  vendor: VendorSummary | null;
-  stats: VendorStats | null;
+  vendor: VendorSummary;
 };
 
 export type VendorActivitiesResponse = {
-  activities: VendorActivity[];
-  stats: VendorStats;
+  activities: PublicVendorActivity[];
 };
 
 export type VendorSessionsResponse = {
-  sessions: VendorSession[];
+  sessions: PublicVendorSession[];
 };
 
 export async function fetchVendorProfile(vendorId: string) {

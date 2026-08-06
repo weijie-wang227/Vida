@@ -15,6 +15,7 @@
     "migrate:legacy-fields:apply": "tsx src/migrateLegacyFields.ts --apply",
     "migrate:vendor-accounts": "tsx src/migrateVendorAccounts.ts",
     "migrate:vendor-accounts:apply": "tsx src/migrateVendorAccounts.ts --apply",
+    "benchmark:password-hashing": "tsx scripts/benchmark-password-hashing.ts",
     "test": "tsx --test src/domain/*.test.ts src/middleware/*.test.ts",
     "db:check": "tsx src/check-db.ts",
     "build": "tsc",

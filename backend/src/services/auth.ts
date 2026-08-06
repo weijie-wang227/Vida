@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Types } from "mongoose";
 import { isMongoConnected } from "../db.js";
 import {
@@ -7,6 +7,13 @@ import {
   type UserDocument,
   type VendorAccountDocument,
 } from "../models/VidaData.js";
+export {
+  createPasswordRecord,
+  INVALID_SIGN_IN_MESSAGE,
+  PASSWORD_HASH_POLICY,
+  verifyPassword,
+  verifyPasswordAndUpgrade,
+} from "./passwordHashing.js";
 
 type AccountKind = "user" | "vendor";
 
@@ -37,7 +44,6 @@ export type AuthVendorAccountRecord = Pick<
 };
 
 const tokenDurationSeconds = 60 * 60 * 24 * 7;
-const passwordKeyLength = 64;
 
 function getAuthSecret() {
   const authSecret =
@@ -52,17 +58,6 @@ function getAuthSecret() {
   }
 
   return "vida-local-development-secret";
-}
-
-function hashPassword(password: string, salt: string) {
-  return scryptSync(password, salt, passwordKeyLength).toString("hex");
-}
-
-function safeCompare(a: string, b: string) {
-  const aBuffer = Buffer.from(a, "hex");
-  const bBuffer = Buffer.from(b, "hex");
-
-  return aBuffer.length === bBuffer.length && timingSafeEqual(aBuffer, bBuffer);
 }
 
 function signPayload(payloadPart: string) {
@@ -142,29 +137,6 @@ export function normalizeHandle(handle: unknown, fallback: string) {
 
 export function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-export function createPasswordRecord(password: string) {
-  const passwordSalt = randomBytes(16).toString("hex");
-
-  return {
-    passwordSalt,
-    passwordHash: hashPassword(password, passwordSalt),
-  };
-}
-
-export function verifyPassword(
-  password: string,
-  account: Pick<AuthUserRecord, "passwordHash" | "passwordSalt">,
-) {
-  if (!account.passwordHash || !account.passwordSalt) {
-    return false;
-  }
-
-  return safeCompare(
-    hashPassword(password, account.passwordSalt),
-    account.passwordHash,
-  );
 }
 
 export function createAuthToken(user: AuthUserRecord) {

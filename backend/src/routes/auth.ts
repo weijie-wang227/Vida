@@ -3,14 +3,17 @@ import {
   createAuthToken,
   createAvatarUrl,
   createPasswordRecord,
+  INVALID_SIGN_IN_MESSAGE,
   isValidEmail,
   normalizeEmail,
   normalizeHandle,
   verifyPassword,
+  verifyPasswordAndUpgrade,
 } from "../services/auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
-  signInRateLimiter,
+  googleAuthRateLimiter,
+  passwordSignInRateLimiters,
   signUpRateLimiter,
 } from "../middleware/rateLimits.js";
 import { UserModel } from "../models/VidaData.js";
@@ -20,6 +23,7 @@ import {
   isGoogleProfilePictureUrl,
   verifyGoogleCredential,
 } from "../services/googleAuth.js";
+import { validatePasswordInput } from "../services/passwordPolicy.js";
 import { getString } from "../utils/input.js";
 
 const router = Router();
@@ -47,7 +51,7 @@ router.post("/signup", signUpRateLimiter, async (req, res, next) => {
   try {
     const name = getString(req.body?.name);
     const email = normalizeEmail(req.body?.email);
-    const password = getString(req.body?.password);
+    const passwordValidation = validatePasswordInput(req.body?.password);
     const requestedHandle = normalizeHandle(
       req.body?.handle,
       name || email.split("@")[0],
@@ -63,12 +67,12 @@ router.post("/signup", signUpRateLimiter, async (req, res, next) => {
       return;
     }
 
-    if (password.length < 8) {
-      res.status(400).json({
-        message: "Choose a password with at least 8 characters.",
-      });
+    if (!passwordValidation.ok) {
+      res.status(400).json({ message: passwordValidation.message });
       return;
     }
+
+    const password = passwordValidation.password;
 
     const existingUser = await UserModel.findOne({ email }).select(
       "+passwordHash +passwordSalt",
@@ -94,7 +98,7 @@ router.post("/signup", signUpRateLimiter, async (req, res, next) => {
         { value: "0", label: "Friends" },
         { value: "0", label: "Posts" },
       ],
-      ...createPasswordRecord(password),
+      ...(await createPasswordRecord(password)),
     });
     res.status(201).json({
       token: createAuthToken(user),
@@ -106,26 +110,32 @@ router.post("/signup", signUpRateLimiter, async (req, res, next) => {
 });
 
 // Signs in an existing user and returns an auth token.
-router.post("/signin", signInRateLimiter, async (req, res, next) => {
+router.post("/signin", ...passwordSignInRateLimiters, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
-    const password = getString(req.body?.password);
+    const passwordValidation = validatePasswordInput(req.body?.password);
 
-    if (!isValidEmail(email) || !password) {
+    if (!passwordValidation.ok) {
+      res.status(400).json({ message: passwordValidation.message });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
       res.status(400).json({
         message: "Enter your email and password to continue.",
       });
       return;
     }
 
+    const password = passwordValidation.password;
+
     const user = await UserModel.findOne({ email }).select(
       "+passwordHash +passwordSalt",
     );
 
-    if (!user || !verifyPassword(password, user)) {
+    if (!user || !(await verifyPasswordAndUpgrade(password, user))) {
       res.status(401).json({
-        message:
-          "We could not sign you in. Check your email and password, then try again.",
+        message: INVALID_SIGN_IN_MESSAGE,
       });
       return;
     }
@@ -140,10 +150,19 @@ router.post("/signin", signInRateLimiter, async (req, res, next) => {
 });
 
 // Verifies a Google account and returns a normal Vida auth token.
-router.post("/google", async (req, res, next) => {
+router.post("/google", googleAuthRateLimiter, async (req, res, next) => {
   try {
     const credential = getString(req.body?.credential);
-    const password = getString(req.body?.password);
+    const passwordValidation = validatePasswordInput(req.body?.password, {
+      optional: true,
+    });
+
+    if (!passwordValidation.ok) {
+      res.status(400).json({ message: passwordValidation.message });
+      return;
+    }
+
+    const password = passwordValidation.password;
 
     if (!credential) {
       res.status(400).json({
@@ -171,7 +190,7 @@ router.post("/google", async (req, res, next) => {
       }
 
       if (existingUser && !identity.emailIsAuthoritative) {
-        if (!password || !verifyPassword(password, existingUser)) {
+        if (!password || !(await verifyPassword(password, existingUser))) {
           res.status(409).json({
             message:
               "Enter the current Vida password for this email, then try Google sign-in again.",

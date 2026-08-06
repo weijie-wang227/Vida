@@ -1,18 +1,26 @@
 import { Router } from "express";
 import { requireVendorAccountAuth } from "../middleware/auth.js";
+import {
+  googleAuthRateLimiter,
+  passwordSignInRateLimiters,
+  signUpRateLimiter,
+} from "../middleware/rateLimits.js";
 import { UserModel, VendorAccountModel } from "../models/VidaData.js";
 import { serializeVendorAccount } from "../serializers.js";
 import {
   createPasswordRecord,
   createVendorAuthToken,
+  INVALID_SIGN_IN_MESSAGE,
   isValidEmail,
   normalizeEmail,
   verifyPassword,
+  verifyPasswordAndUpgrade,
 } from "../services/auth.js";
 import {
   GoogleAuthError,
   verifyGoogleCredential,
 } from "../services/googleAuth.js";
+import { validatePasswordInput } from "../services/passwordPolicy.js";
 import { getString } from "../utils/input.js";
 
 const router = Router();
@@ -26,11 +34,11 @@ function sendVendorAccountSession(res: any, account: Record<string, any>, status
 }
 
 // Creates a vendor-only login. A matching user may share the same credentials.
-router.post("/signup", async (req, res, next) => {
+router.post("/signup", signUpRateLimiter, async (req, res, next) => {
   try {
     const name = getString(req.body?.name);
     const email = normalizeEmail(req.body?.email);
-    const password = getString(req.body?.password);
+    const passwordValidation = validatePasswordInput(req.body?.password);
 
     if (!name) {
       res.status(400).json({ message: "Enter your name to create a vendor account." });
@@ -42,12 +50,12 @@ router.post("/signup", async (req, res, next) => {
       return;
     }
 
-    if (password.length < 8) {
-      res.status(400).json({
-        message: "Choose a password with at least 8 characters.",
-      });
+    if (!passwordValidation.ok) {
+      res.status(400).json({ message: passwordValidation.message });
       return;
     }
+
+    const password = passwordValidation.password;
 
     if (await VendorAccountModel.exists({ email })) {
       res.status(409).json({
@@ -61,7 +69,7 @@ router.post("/signup", async (req, res, next) => {
       credentialSelection,
     );
 
-    if (sourceUser && !verifyPassword(password, sourceUser)) {
+    if (sourceUser && !(await verifyPassword(password, sourceUser))) {
       res.status(409).json({
         message: sourceUser.passwordHash
           ? "This email belongs to a Vida vendor account. Enter that account's password so both logins can use the same credentials."
@@ -75,7 +83,7 @@ router.post("/signup", async (req, res, next) => {
           passwordHash: sourceUser.passwordHash,
           passwordSalt: sourceUser.passwordSalt,
         }
-      : createPasswordRecord(password);
+      : await createPasswordRecord(password);
     const account = await VendorAccountModel.create({
       name,
       email,
@@ -90,26 +98,32 @@ router.post("/signup", async (req, res, next) => {
 });
 
 // Signs in an existing vendor account.
-router.post("/signin", async (req, res, next) => {
+router.post("/signin", ...passwordSignInRateLimiters, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
-    const password = getString(req.body?.password);
+    const passwordValidation = validatePasswordInput(req.body?.password);
 
-    if (!isValidEmail(email) || !password) {
+    if (!passwordValidation.ok) {
+      res.status(400).json({ message: passwordValidation.message });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
       res.status(400).json({
         message: "Enter your email and password to continue.",
       });
       return;
     }
 
+    const password = passwordValidation.password;
+
     const account = await VendorAccountModel.findOne({ email }).select(
       "+passwordHash +passwordSalt",
     );
 
-    if (!account || !verifyPassword(password, account)) {
+    if (!account || !(await verifyPasswordAndUpgrade(password, account))) {
       res.status(401).json({
-        message:
-          "We could not sign you in. Check your email and password, then try again.",
+        message: INVALID_SIGN_IN_MESSAGE,
       });
       return;
     }
@@ -121,10 +135,19 @@ router.post("/signin", async (req, res, next) => {
 });
 
 // Verifies Google and creates or links a vendor-only login.
-router.post("/google", async (req, res, next) => {
+router.post("/google", googleAuthRateLimiter, async (req, res, next) => {
   try {
     const credential = getString(req.body?.credential);
-    const password = getString(req.body?.password);
+    const passwordValidation = validatePasswordInput(req.body?.password, {
+      optional: true,
+    });
+
+    if (!passwordValidation.ok) {
+      res.status(400).json({ message: passwordValidation.message });
+      return;
+    }
+
+    const password = passwordValidation.password;
 
     if (!credential) {
       res.status(400).json({
@@ -154,7 +177,7 @@ router.post("/google", async (req, res, next) => {
       if (
         existingAccount &&
         !identity.emailIsAuthoritative &&
-        (!password || !verifyPassword(password, existingAccount))
+        (!password || !(await verifyPassword(password, existingAccount)))
       ) {
         res.status(409).json({
           message:
@@ -183,7 +206,7 @@ router.post("/google", async (req, res, next) => {
         if (
           sourceUser &&
           !identity.emailIsAuthoritative &&
-          (!password || !verifyPassword(password, sourceUser))
+          (!password || !(await verifyPassword(password, sourceUser)))
         ) {
           res.status(409).json({
             message:

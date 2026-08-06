@@ -1,4 +1,4 @@
-import { CalendarDays, Star, Users } from "lucide-react";
+import { CalendarDays, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { fetchVendorActivities, fetchVendorProfile, fetchVendorSessions } from "../api";
 import {
@@ -14,9 +14,8 @@ import {
   formatActivityTime,
 } from "../lib/activityPresentation";
 import type {
-  VendorActivity,
-  VendorSession,
-  VendorStats,
+  PublicVendorActivity,
+  PublicVendorSession,
   VendorSummary,
 } from "../lib/types";
 
@@ -67,17 +66,17 @@ export function VendorProfileDialog({
   vendor,
 }: VendorProfileDialogProps) {
   const [profile, setProfile] = useState<VendorSummary | null>(vendor);
-  const [stats, setStats] = useState<VendorStats | null>(null);
-  const [activities, setActivities] = useState<VendorActivity[]>([]);
-  const [sessions, setSessions] = useState<VendorSession[]>([]);
+  const [activities, setActivities] = useState<PublicVendorActivity[]>([]);
+  const [sessions, setSessions] = useState<PublicVendorSession[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const vendorId = vendor?.id;
 
   useEffect(() => {
     setProfile(vendor);
-    setStats(null);
     setActivities([]);
     setSessions([]);
+    setIsLoaded(false);
     setError(null);
 
     if (!open || !vendorId) {
@@ -96,10 +95,10 @@ export function VendorProfileDialog({
           return;
         }
 
-        setProfile(profileResponse.vendor ?? vendor);
-        setStats(activitiesResponse.stats ?? profileResponse.stats);
+        setProfile(profileResponse.vendor);
         setActivities(activitiesResponse.activities);
         setSessions(sessionsResponse.sessions);
+        setIsLoaded(true);
       })
       .catch((loadError) => {
         if (!ignore) {
@@ -122,10 +121,6 @@ export function VendorProfileDialog({
 
     return Number.isFinite(startsAt) && startsAt <= Date.now();
   });
-  const attendedCount = sessions.reduce(
-    (sum, session) => sum + (Number(session.attendedCount) || 0),
-    0,
-  );
   const ratedActivities = sessions
     .map((session) => Number(session.rating))
     .filter((rating) => Number.isFinite(rating) && rating > 0);
@@ -156,10 +151,10 @@ export function VendorProfileDialog({
             </div>
 
             <div className="max-h-[420px] overflow-y-auto px-5 py-4 scrollbar-minimal">
-              {stats && (
+              {isLoaded && (
                 <div className="mb-4 grid grid-cols-3 gap-2">
                   <StatTile label="Activities" value={activities.length} />
-                  <StatTile label="Attended" value={attendedCount} />
+                  <StatTile label="Sessions" value={sessions.length} />
                   <StatTile label="Rating" value={averageRating || "-"} />
                 </div>
               )}
@@ -191,10 +186,6 @@ export function VendorProfileDialog({
                         {session.location}
                       </p>
                       <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Users size={11} />
-                          {session.attendedCount}
-                        </span>
                         <span className="flex items-center gap-1">
                           <Star size={11} fill="currentColor" stroke="none" />
                           {session.rating || "-"}

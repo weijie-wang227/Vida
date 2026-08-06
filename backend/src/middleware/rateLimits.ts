@@ -21,6 +21,18 @@ type VidaRateLimiterOptions = Pick<
     >
   >;
 
+type PasswordSignInRateLimitOptions = {
+  accountLimit: number;
+  accountWindowMs: number;
+  ipLimit: number;
+  ipWindowMs: number;
+};
+
+type GoogleAuthRateLimitOptions = {
+  limit: number;
+  windowMs: number;
+};
+
 type RateLimitPrincipalLocals = {
   user?: { _id?: unknown };
   vendorAccount?: { _id?: unknown };
@@ -55,14 +67,13 @@ export function getRateLimitPrincipalKey(req: Request, res: Response) {
   return principalId ? `principal:${String(principalId)}` : `ip:${getIpKey(req)}`;
 }
 
-function getSignInKey(req: Request) {
-  const email =
-    typeof req.body?.email === "string"
-      ? req.body.email.trim().toLowerCase()
-      : "missing";
+export function getSignInAccountKey(req: Request) {
+  const email = String(req.body?.email ?? "")
+    .trim()
+    .toLowerCase();
   const emailDigest = createHash("sha256").update(email).digest("hex");
 
-  return `signin:${getIpKey(req)}:${emailDigest}`;
+  return `signin-account:${emailDigest}`;
 }
 
 function skipPreflight(req: Request) {
@@ -108,6 +119,41 @@ export function createVidaRateLimiter(options: VidaRateLimiterOptions) {
   });
 }
 
+export function createPasswordSignInRateLimiters(
+  options: PasswordSignInRateLimitOptions,
+) {
+  return {
+    account: createVidaRateLimiter({
+      identifier: "signin-account",
+      windowMs: options.accountWindowMs,
+      limit: options.accountLimit,
+      keyGenerator: getSignInAccountKey,
+      skip: skipPreflight,
+      skipSuccessfulRequests: true,
+    }),
+    ip: createVidaRateLimiter({
+      identifier: "signin-ip",
+      windowMs: options.ipWindowMs,
+      limit: options.ipLimit,
+      keyGenerator: getIpKey,
+      skip: skipPreflight,
+      skipSuccessfulRequests: true,
+    }),
+  };
+}
+
+export function createGoogleAuthRateLimiter(
+  options: GoogleAuthRateLimitOptions,
+) {
+  return createVidaRateLimiter({
+    identifier: "google-auth",
+    windowMs: options.windowMs,
+    limit: options.limit,
+    keyGenerator: getIpKey,
+    skip: skipPreflight,
+  });
+}
+
 const principalKeyGenerator: ValueDeterminingMiddleware<string> =
   getRateLimitPrincipalKey;
 
@@ -125,13 +171,35 @@ export const signUpRateLimiter = createVidaRateLimiter({
   skip: skipPreflight,
 });
 
-export const signInRateLimiter = createVidaRateLimiter({
-  identifier: "signin",
-  windowMs: readPositiveInteger("RATE_LIMIT_SIGNIN_WINDOW_MS", 15 * 60_000),
-  limit: readPositiveInteger("RATE_LIMIT_SIGNIN_MAX", 10),
-  keyGenerator: getSignInKey,
-  skip: skipPreflight,
-  skipSuccessfulRequests: true,
+const configuredPasswordSignInRateLimiters = createPasswordSignInRateLimiters({
+  accountWindowMs: readPositiveInteger(
+    "RATE_LIMIT_SIGNIN_ACCOUNT_WINDOW_MS",
+    15 * 60_000,
+  ),
+  accountLimit: readPositiveInteger("RATE_LIMIT_SIGNIN_ACCOUNT_MAX", 10),
+  ipWindowMs: readPositiveInteger(
+    "RATE_LIMIT_SIGNIN_WINDOW_MS",
+    15 * 60_000,
+  ),
+  ipLimit: readPositiveInteger("RATE_LIMIT_SIGNIN_MAX", 10),
+});
+
+export const signInAccountRateLimiter =
+  configuredPasswordSignInRateLimiters.account;
+export const signInIpRateLimiter = configuredPasswordSignInRateLimiters.ip;
+export const passwordSignInRateLimiters = [
+  signInIpRateLimiter,
+  signInAccountRateLimiter,
+] as const;
+
+// Successful requests count because Google verification and account linking
+// consume resources, and a replayable valid credential must not bypass limits.
+export const googleAuthRateLimiter = createGoogleAuthRateLimiter({
+  windowMs: readPositiveInteger(
+    "RATE_LIMIT_GOOGLE_AUTH_WINDOW_MS",
+    15 * 60_000,
+  ),
+  limit: readPositiveInteger("RATE_LIMIT_GOOGLE_AUTH_MAX", 20),
 });
 
 export const authenticatedMutationRateLimiter = createVidaRateLimiter({

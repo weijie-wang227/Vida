@@ -242,7 +242,7 @@ async function seed() {
         { value: String(testUserSeed.friendMockIds.length), label: "Friends" },
         { value: "0", label: "Posts" },
       ],
-      ...createPasswordRecord(testUserSeed.password),
+      ...(await createPasswordRecord(testUserSeed.password)),
     });
 
     userByMockId.set(testUserSeed.mockId, testUser._id);

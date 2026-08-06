@@ -8,49 +8,30 @@ export type VendorSummary = {
   description: string;
 };
 
-export type VendorStats = {
-  revenue: number;
-  newUsers: number;
-  totalUsers: number;
-};
-
 export type AvailableTag = {
   id: string;
   name: string;
   imageUrl?: string;
 };
 
-export type VendorActivity = {
+export type PublicVendorActivity = {
   id: string;
-  mockId: number;
   title: string;
   description: string;
+  suitability: string;
   categories: vidaCategory[];
   imageUrls: string[];
   tags: string[];
   isVolunteer: boolean;
   rating: number;
-  isOpen: boolean;
 };
 
-export type VendorSession = {
+export type PublicVendorSession = {
   id: string;
-  objectId?: string;
-  mockId: string;
-  activity?: VendorActivity;
-  activityId: string | number;
-  activityMockId?: number;
   title: string;
   startsAt: string;
   endAt: string;
   location: string;
-  spots: number;
-  priceSgd: number;
-  isPremium: boolean;
-  skillsFuturePayable: boolean;
-  isOpen: boolean;
-  isActive: boolean;
-  attendedCount: number;
   rating: number;
 };
 
