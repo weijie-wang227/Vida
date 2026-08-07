@@ -21,7 +21,8 @@ import {
   serializeParticipationUser,
   serializeChat,
   serializeMapPin,
-  serializeSession,
+  serializePrivateSession,
+  serializePublicSession,
 } from "../serializers.js";
 import { formatSessionDateTime, toIsoString } from "../utils/date.js";
 import { getString } from "../utils/input.js";
@@ -35,6 +36,7 @@ import {
   registerForSession,
   SessionOperationError,
 } from "../services/sessionOperations.js";
+import { publicOpenSessionFilter } from "../domain/sessionVisibility.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
 import {
   makeVolunteerSessionFree,
@@ -54,7 +56,6 @@ import {
 const router = Router();
 const blacklistJoinReason =
   "You cannot join this session because you are blacklisted from its group.";
-const openSessionFilter = { isOpen: true, isActive: true };
 
 function sendSessionOperationError(res: any, error: unknown) {
   if (!(error instanceof SessionOperationError)) {
@@ -368,8 +369,8 @@ router.post("/", requirePrincipalAuth, authenticatedMutationRateLimiter, async (
         attachSessionsToActivity(savedActivity!, savedSessions),
         [],
       ),
-      session: serializeSession(session),
-      sessions: savedSessions.map(serializeSession),
+      session: serializePrivateSession(session),
+      sessions: savedSessions.map(serializePrivateSession),
       mapPin: serializeMapPin(session),
       mapPins: savedSessions.map(serializeMapPin),
       group: firstChat
@@ -633,7 +634,10 @@ router.post(
 router.post("/:id/join", requireAuth, authenticatedMutationRateLimiter, async (req, res, next) => {
   try {
     const user = res.locals.user;
-    const session = await findSessionByRouteId(String(req.params.id), openSessionFilter);
+    const session = await findSessionByRouteId(
+      String(req.params.id),
+      publicOpenSessionFilter,
+    );
 
     if (!session) {
       res.status(404).json({ message: "Open session not found" });
@@ -680,14 +684,14 @@ router.post("/:id/join", requireAuth, authenticatedMutationRateLimiter, async (r
         objectId: String(activity._id ?? sessionItem.activity ?? ""),
         sessions: [
           {
-            ...serializeSession(updatedSession),
+            ...serializePublicSession(updatedSession),
             participatingFriends: participatingUsers.map(
               serializeParticipationUser,
             ),
           },
         ],
       },
-      session: serializeSession(updatedSession),
+      session: serializePublicSession(updatedSession),
       group: serializeChat(group, undefined, false, adminUserIds),
     });
   } catch (error) {

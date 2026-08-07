@@ -173,6 +173,51 @@ export function serializeVendor(vendor: AnyDoc) {
   };
 }
 
+export function serializePublicVendor(vendor: AnyDoc) {
+  const item = asObject(vendor);
+
+  return {
+    id: String(item._id),
+    name: item.name,
+    profileUrl: item.profileUrl ?? "",
+    description: item.description ?? "",
+  };
+}
+
+export function serializePublicVendorActivity(activityValue: AnyDoc, rating = 0) {
+  const activity = asObject(activityValue);
+  const normalizedRating = Number(rating);
+
+  return {
+    id: String(activity._id),
+    title: activity.title,
+    description: activity.description ?? "",
+    suitability: activity.suitability ?? "",
+    categories: Array.isArray(activity.categories) ? activity.categories : [],
+    imageUrls: Array.isArray(activity.imageUrls) ? activity.imageUrls : [],
+    tags: serializeTagNames(activity.tags),
+    isVolunteer: Boolean(activity.isVolunteer),
+    rating: Number.isFinite(normalizedRating) ? normalizedRating : 0,
+  };
+}
+
+export function serializePublicVendorSession(
+  sessionValue: AnyDoc,
+  rating = 0,
+) {
+  const session = asObject(sessionValue);
+  const normalizedRating = Number(rating);
+
+  return {
+    id: String(session._id),
+    title: session.title || formatSessionDateTime(session.startsAt),
+    startsAt: toIsoString(session.startsAt),
+    endAt: session.endAt ? toIsoString(session.endAt) : "",
+    location: session.location,
+    rating: Number.isFinite(normalizedRating) ? normalizedRating : 0,
+  };
+}
+
 export function serializeChat(
   chat: AnyDoc,
   preview?: ChatPreview,
@@ -296,7 +341,7 @@ export function serializeActivity(
   const item = asObject(activity);
   const host = getActivityHost(item);
   const primarySession = getPrimarySession(item);
-  const sessions = getActivitySessions(item).map(serializeSession);
+  const sessions = getActivitySessions(item).map(serializePublicSession);
   const participatingFriends = participatingUsers.map((user: AnyDoc) => {
     const friend = asObject(user);
 
@@ -358,10 +403,11 @@ export function serializeActivity(
   return baseActivity;
 }
 
-export function serializeSession(session: AnyDoc) {
+function serializeSessionBase(session: AnyDoc) {
   const item = asObject(session);
   const activity = item.activity ? asObject(item.activity) : null;
   const chat = item.chat ? asObject(item.chat) : null;
+
   return {
     id: item.mockId ?? String(item._id ?? ""),
     objectId: String(item._id ?? ""),
@@ -372,14 +418,11 @@ export function serializeSession(session: AnyDoc) {
     endAt: item.endAt ? toIsoString(item.endAt) : "",
     spots: item.spots,
     priceSgd: getSessionPriceSgd(item),
-    grossRevenueMinor: Number(item.grossRevenueMinor ?? 0),
-    pendingPaymentCount: Number(item.pendingPaymentCount ?? 0),
     isPremium: Boolean(item.isPremium ?? activity?.isPremium),
     skillsFuturePayable: Boolean(
       item.skillsFuturePayable ?? activity?.skillsFuturePayable,
     ),
     registeredCount: Number(item.registeredCount ?? 0),
-    attendedCount: Number(item.attendedCount ?? 0),
     chat: chat?._id ? String(chat._id) : String(item.chat ?? ""),
     groupId: chat?.mockId,
     isOpen: item.isOpen !== false,
@@ -389,6 +432,21 @@ export function serializeSession(session: AnyDoc) {
     lng: item.lng,
     latitude: item.lat,
     longitude: item.lng,
+  };
+}
+
+export function serializePublicSession(session: AnyDoc) {
+  return serializeSessionBase(session);
+}
+
+export function serializePrivateSession(session: AnyDoc) {
+  const item = asObject(session);
+
+  return {
+    ...serializeSessionBase(item),
+    grossRevenueMinor: Number(item.grossRevenueMinor ?? 0),
+    pendingPaymentCount: Number(item.pendingPaymentCount ?? 0),
+    attendedCount: Number(item.attendedCount ?? 0),
   };
 }
 

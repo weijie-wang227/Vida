@@ -19,7 +19,13 @@ import {
   getChatPreview,
   getLatestChatPreviews,
 } from "../services/chatPreviews.js";
-import { serializeTagNames, serializeVendor } from "../serializers.js";
+import {
+  serializePublicVendor,
+  serializePublicVendorActivity,
+  serializePublicVendorSession,
+  serializeTagNames,
+  serializeVendor,
+} from "../serializers.js";
 import { asObject } from "../utils/mongoose.js";
 import { formatSessionDateTime } from "../utils/date.js";
 import {
@@ -56,6 +62,7 @@ import {
   getPagination,
   getPaginationResponse,
 } from "../utils/pagination.js";
+import { publicOpenSessionFilter } from "../domain/sessionVisibility.js";
 
 const router = Router();
 
@@ -68,14 +75,18 @@ function sendSessionOperationError(res: any, error: unknown) {
   return true;
 }
 
-async function sendVendorResponse(res: any, vendor: VendorDocument, status = 200) {
+async function sendManagedVendorResponse(
+  res: any,
+  vendor: VendorDocument,
+  status = 200,
+) {
   res.status(status).json({
     vendor: serializeVendor(vendor),
     stats: await getVendorStats(vendor),
   });
 }
 
-function serializeVendorActivityRow(
+function serializeManagedVendorActivityRow(
   activityValue: Record<string, any>,
   ratingByActivityId = new Map<string, number>(),
 ) {
@@ -102,7 +113,7 @@ function serializeVendorActivityRow(
   };
 }
 
-function serializeVendorSessionRow(
+function serializeManagedVendorSessionRow(
   sessionValue: Record<string, any>,
   activityValue: Record<string, any>,
   attendanceBySessionId = new Map<string, number>(),
@@ -113,7 +124,10 @@ function serializeVendorSessionRow(
   const activityId = String(activity._id ?? session.activity);
   const sessionId = String(session._id);
   const rating = ratingByActivityId.get(activityId) ?? Number(activity.rating) ?? 0;
-  const activityRow = serializeVendorActivityRow(activity, ratingByActivityId);
+  const activityRow = serializeManagedVendorActivityRow(
+    activity,
+    ratingByActivityId,
+  );
   const registeredCount = Number(session.registeredCount) || 0;
   const attendedCount = Number(
     session.attendedCount ?? attendanceBySessionId.get(sessionId) ?? 0,
@@ -155,7 +169,7 @@ function serializeVendorSessionRow(
   };
 }
 
-async function getVendorActivityRows(vendor: VendorDocument) {
+async function getManagedVendorActivityRows(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
@@ -180,11 +194,11 @@ async function getVendorActivityRows(vendor: VendorDocument) {
   );
 
   return activities.map((activity: Record<string, any>) =>
-    serializeVendorActivityRow(activity, ratingByActivityId),
+    serializeManagedVendorActivityRow(activity, ratingByActivityId),
   );
 }
 
-async function getVendorSessionRows(vendor: VendorDocument) {
+async function getManagedVendorSessionRows(vendor: VendorDocument) {
   const linkedEventIds = getLinkedActivityIds(vendor);
   const activities = await ActivityModel.find({
     $or: [{ host: vendor._id }, { _id: { $in: linkedEventIds } }],
@@ -242,7 +256,7 @@ async function getVendorSessionRows(vendor: VendorDocument) {
       const activity = activityById.get(String(session.activity));
 
       return activity
-        ? serializeVendorSessionRow(
+        ? serializeManagedVendorSessionRow(
             session,
             activity,
             attendanceBySessionId,
@@ -251,6 +265,108 @@ async function getVendorSessionRows(vendor: VendorDocument) {
         : null;
     })
     .filter(Boolean);
+}
+
+async function getPublicVendorActivityRows(vendor: VendorDocument) {
+  const linkedActivityIds = getLinkedActivityIds(vendor);
+  const activities = await ActivityModel.find({
+    $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }],
+  })
+    .select(
+      "_id title description suitability categories imageUrls tags isVolunteer rating",
+    )
+    .populate("tags")
+    .sort({ mockId: 1 })
+    .lean();
+  const activityIds = activities.map(
+    (activity: Record<string, any>) => activity._id,
+  );
+  const publicSessions = activityIds.length
+    ? await SessionModel.find({
+        activity: { $in: activityIds },
+        ...publicOpenSessionFilter,
+      })
+        .select("activity")
+        .lean()
+    : [];
+  const publicActivityIds = new Set(
+    publicSessions.map((session: Record<string, any>) =>
+      String(session.activity),
+    ),
+  );
+  const publicActivities = activities.filter((activity: Record<string, any>) =>
+    publicActivityIds.has(String(activity._id)),
+  );
+  const visibleActivityIds = publicActivities.map(
+    (activity: Record<string, any>) => activity._id,
+  );
+  const ratings = visibleActivityIds.length
+    ? await RatingModel.aggregate([
+        { $match: { activity: { $in: visibleActivityIds } } },
+        { $group: { _id: "$activity", averageRating: { $avg: "$rating" } } },
+      ])
+    : [];
+  const ratingByActivityId = new Map(
+    ratings.map((row: Record<string, any>) => [
+      String(row._id),
+      Math.round(Number(row.averageRating) * 10) / 10,
+    ]),
+  );
+
+  return publicActivities.map((activity: Record<string, any>) =>
+    serializePublicVendorActivity(
+      activity,
+      ratingByActivityId.get(String(activity._id)) ?? Number(activity.rating),
+    ),
+  );
+}
+
+async function getPublicVendorSessionRows(vendor: VendorDocument) {
+  const linkedActivityIds = getLinkedActivityIds(vendor);
+  const activities = await ActivityModel.find({
+    $or: [{ host: vendor._id }, { _id: { $in: linkedActivityIds } }],
+  })
+    .select("_id")
+    .lean();
+  const activityIds = activities.map(
+    (activity: Record<string, any>) => activity._id,
+  );
+  const sessions = activityIds.length
+    ? await SessionModel.find({
+        activity: { $in: activityIds },
+        ...publicOpenSessionFilter,
+      })
+        .select("_id activity title startsAt endAt location")
+        .sort({ startsAt: -1 })
+        .lean()
+    : [];
+  const visibleActivityIds = Array.from(
+    new Map(
+      sessions.map((session: Record<string, any>) => [
+        String(session.activity),
+        session.activity,
+      ]),
+    ).values(),
+  );
+  const ratings = visibleActivityIds.length
+    ? await RatingModel.aggregate([
+        { $match: { activity: { $in: visibleActivityIds } } },
+        { $group: { _id: "$activity", averageRating: { $avg: "$rating" } } },
+      ])
+    : [];
+  const ratingByActivityId = new Map(
+    ratings.map((row: Record<string, any>) => [
+      String(row._id),
+      Math.round(Number(row.averageRating) * 10) / 10,
+    ]),
+  );
+
+  return sessions.map((session: Record<string, any>) =>
+    serializePublicVendorSession(
+      session,
+      ratingByActivityId.get(String(session.activity)) ?? 0,
+    ),
+  );
 }
 
 async function getVendorChatRows(vendor: VendorDocument) {
@@ -711,7 +827,7 @@ router.get("/me", requireVendorAccountAuth, async (_req, res, next) => {
       return;
     }
 
-    await sendVendorResponse(res, vendor);
+    await sendManagedVendorResponse(res, vendor);
   } catch (error) {
     next(error);
   }
@@ -723,7 +839,7 @@ router.get("/me/activities", requireVendorAuth, async (_req, res, next) => {
     const vendor = res.locals.vendor;
 
     res.json({
-      activities: await getVendorActivityRows(vendor),
+      activities: await getManagedVendorActivityRows(vendor),
       stats: await getVendorStats(vendor),
     });
   } catch (error) {
@@ -737,7 +853,7 @@ router.get("/me/sessions", requireVendorAuth, async (_req, res, next) => {
     const vendor = res.locals.vendor;
 
     res.json({
-      sessions: await getVendorSessionRows(vendor),
+      sessions: await getManagedVendorSessionRows(vendor),
     });
   } catch (error) {
     next(error);
@@ -803,7 +919,7 @@ router.patch(
       const updatedActivity = asObject(operation.activity);
 
       res.json({
-        session: serializeVendorSessionRow(operation.session, activity),
+        session: serializeManagedVendorSessionRow(operation.session, activity),
         activity: {
           id: String(updatedActivity._id),
           mockId: updatedActivity.mockId,
@@ -1053,7 +1169,7 @@ router.patch("/me", requireVendorAuth, authenticatedMutationRateLimiter, async (
     vendor.description = description;
     await vendor.save();
 
-    await sendVendorResponse(res, vendor);
+    await sendManagedVendorResponse(res, vendor);
   } catch (error) {
     next(error);
   }
@@ -1263,13 +1379,13 @@ router.get("/:id", async (req, res, next) => {
       return;
     }
 
-    await sendVendorResponse(res, vendor);
+    res.json({ vendor: serializePublicVendor(vendor) });
   } catch (error) {
     next(error);
   }
 });
 
-// Lists public activities and stats for a vendor by vendor id.
+// Lists public activities for a vendor by vendor id.
 router.get("/:id/activities", async (req, res, next) => {
   try {
     const vendor = await VendorModel.findById(req.params.id);
@@ -1280,8 +1396,7 @@ router.get("/:id/activities", async (req, res, next) => {
     }
 
     res.json({
-      activities: await getVendorActivityRows(vendor),
-      stats: await getVendorStats(vendor),
+      activities: await getPublicVendorActivityRows(vendor),
     });
   } catch (error) {
     next(error);
@@ -1299,7 +1414,7 @@ router.get("/:id/sessions", async (req, res, next) => {
     }
 
     res.json({
-      sessions: await getVendorSessionRows(vendor),
+      sessions: await getPublicVendorSessionRows(vendor),
     });
   } catch (error) {
     next(error);
@@ -1324,7 +1439,7 @@ router.post("/createVendor", requireVendorAccountAuth, authenticatedMutationRate
     });
 
     if (existingVendor) {
-      await sendVendorResponse(res, existingVendor);
+      await sendManagedVendorResponse(res, existingVendor);
       return;
     }
 
@@ -1337,7 +1452,7 @@ router.post("/createVendor", requireVendorAccountAuth, authenticatedMutationRate
       allActivities: [],
     });
 
-    await sendVendorResponse(res, vendor, 201);
+    await sendManagedVendorResponse(res, vendor, 201);
   } catch (error) {
     next(error);
   }

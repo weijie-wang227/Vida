@@ -22,7 +22,7 @@ import {
   serializeActivity,
   serializeParticipationUser,
   serializeMapPin,
-  serializeSession,
+  serializePublicSession,
 } from "../serializers.js";
 import { formatSessionDateTime, toIsoString } from "../utils/date.js";
 import { getString } from "../utils/input.js";
@@ -32,6 +32,7 @@ import {
   getActivitySelector,
 } from "../utils/routeSelectors.js";
 import { countedRegistrationStatuses } from "../domain/sessionParticipation.js";
+import { publicOpenSessionFilter } from "../domain/sessionVisibility.js";
 import {
   getActivityCollectionFilters,
   isActivityCollectionType,
@@ -44,7 +45,6 @@ const vidaCategories = new Set([
   "cognitive",
   "creative",
 ]);
-const openSessionFilter = { isOpen: true, isActive: true };
 const maxActivityImages = 5;
 
 function attachSessionsToActivity(
@@ -99,7 +99,7 @@ function serializeActivityWithSessionParticipations(
   return {
     ...serializedActivity,
     sessions: sessions.map((session: Record<string, any>) => ({
-      ...serializeSession(session),
+      ...serializePublicSession(session),
       participatingFriends: (
         participatingUsersBySessionId.get(String(asObject(session)._id)) ?? []
       ).map(serializeParticipationUser),
@@ -163,7 +163,7 @@ async function getSerializedOpenActivities(
   } = {},
 ) {
   const openSessions = await SessionModel.find({
-    ...openSessionFilter,
+    ...publicOpenSessionFilter,
     ...(filters.sessionFilter ?? {}),
   })
     .populate({
@@ -346,7 +346,7 @@ async function findActivityWithSessions(activityId: string) {
 
   const sessions = await SessionModel.find({
     activity: activity._id,
-    ...openSessionFilter,
+    ...publicOpenSessionFilter,
   })
     .populate("activity")
     .populate("chat")
@@ -371,7 +371,7 @@ async function getFavouriteActivities(userId: Types.ObjectId | string) {
   );
   const sessions = await SessionModel.find({
     activity: { $in: activityIds },
-    ...openSessionFilter,
+    ...publicOpenSessionFilter,
   })
     .populate("activity")
     .populate("chat")
@@ -487,7 +487,7 @@ router.delete(
 
 // Returns map-ready pins for all currently open sessions.
 router.get("/map-pins", async (_req, res) => {
-  const sessions = await SessionModel.find(openSessionFilter)
+  const sessions = await SessionModel.find(publicOpenSessionFilter)
     .populate("activity")
     .sort({ mockId: 1 });
 
